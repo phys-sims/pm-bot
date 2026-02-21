@@ -1,45 +1,46 @@
-"""Markdown heading parser (scaffold).
+"""Markdown heading and checklist parsing helpers."""
 
-Your existing workflow parses issue bodies by headings like:
-- Area
-- Priority
-- Size
-- Estimate (hrs)
-- Risk
-- Blocked by
-- Actual (hrs)
-
-Agents should implement a deterministic parser + renderer that matches GitHub issue form output.
-"""
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict
 
 HEADING_RE = re.compile(r"^#{2,6}\s+(.+?)\s*$")
+CHILD_REF_RE = re.compile(r"-\s*\[[ xX]\]\s*(#\d+|https?://\S+)")
+NO_RESPONSE_VALUES = {"_No response_", "No response", "N/A", ""}
+
 
 @dataclass
 class ParsedHeadings:
     headings: Dict[str, str]
 
-def parse_headings(markdown: str) -> ParsedHeadings:
-    """Parse `### Heading` blocks into {Heading: value_text}.
 
-    Naive scaffold:
-    - considers any markdown heading line
-    - value is the contiguous non-heading block until next heading
-    """
+def parse_headings(markdown: str) -> ParsedHeadings:
+    """Parse markdown headings into a map of heading -> body text."""
     lines = markdown.splitlines()
     out: Dict[str, list[str]] = {}
-    current: Optional[str] = None
+    current: str | None = None
+
     for line in lines:
-        m = HEADING_RE.match(line)
-        if m:
-            current = m.group(1).strip()
+        match = HEADING_RE.match(line)
+        if match:
+            current = match.group(1).strip()
             out.setdefault(current, [])
             continue
         if current is not None:
             out[current].append(line)
 
-    normalized = {k: "\n".join(v).strip() for k, v in out.items()}
+    normalized: Dict[str, str] = {}
+    for key, values in out.items():
+        value = "\n".join(values).strip()
+        normalized[key] = "" if value in NO_RESPONSE_VALUES else value
+
     return ParsedHeadings(headings=normalized)
+
+
+def parse_child_refs(text: str) -> list[str]:
+    """Parse checklist issue references from markdown text."""
+    refs = [match.group(1) for match in CHILD_REF_RE.finditer(text)]
+    deduped = list(dict.fromkeys(refs))
+    return deduped
