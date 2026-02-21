@@ -9,7 +9,23 @@ import typer
 
 from pm_bot.github.body_parser import parse_child_refs
 from pm_bot.github.parse_issue_body import parse_issue_body
-from pm_bot.github.render_issue_body import render_issue_body
+from pm_bot.github.render_issue_body import FIELD_TO_HEADING, load_template_map, render_issue_body
+
+CHILD_REF_HEADINGS = {
+    "Child tasks",
+    "Child Issues (link Features/Tasks/Tests/Benches/Docs)",
+}
+
+
+def _primary_context_heading(item_type: str) -> str:
+    template_map = load_template_map()
+    headings = template_map.get(item_type, {}).get("headings", [])
+    reserved = set(FIELD_TO_HEADING.values()) | CHILD_REF_HEADINGS
+    for heading in headings:
+        if heading not in reserved:
+            return heading
+    return "Context"
+
 
 app = typer.Typer(add_completion=False, help="pm-bot: agent-native PM orchestrator")
 
@@ -47,7 +63,7 @@ def draft(
         "relationships": {"children_refs": []},
     }
     if context:
-        item["fields"]["Context"] = context
+        item["fields"][_primary_context_heading(item_type)] = context
     if area:
         item["area"] = area
     if priority:
