@@ -35,3 +35,15 @@ body:
     attributes:
       label: Priority
       options: ["P0","P1","P2"]
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"

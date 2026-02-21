@@ -1,7 +1,7 @@
 name: "Epic"
 description: "A multi-issue body of work delivering a demo-level outcome"
 title: "[epic] <short objective>"
-labels: ["type:epic"]
+labels: ["type:epic","status:backlog"]
 body:
   - type: input
     id: objective
@@ -117,6 +117,12 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 24"
+
   - type: dropdown
     id: priority
     attributes:
@@ -126,14 +132,20 @@ body:
   - type: dropdown
     id: size
     attributes:
-      label: Size (Epic)
-      options: ["S","M","L","XL"]
+      label: Size
+      options: ["XS","S","M","L","XL"]
 
   - type: dropdown
-    id: risklevel
+    id: risk
     attributes:
       label: Risk
       options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"
 
   - type: input
     id: adr_link

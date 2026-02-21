@@ -72,7 +72,7 @@ body:
       placeholder: "@user / issue links"
 
   - type: dropdown
-    id: adr-impact
+    id: adr_impact
     attributes:
       label: ADR impact?
       options:
@@ -81,7 +81,7 @@ body:
         - New ADR required
 
   - type: input
-    id: adr-link
+    id: adr_link
     attributes:
       label: ADR link (if applicable)
       placeholder: "docs/adr/0002-cache-keys.md"
