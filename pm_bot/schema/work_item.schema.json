@@ -22,7 +22,8 @@
         "bench",
         "spike",
         "test",
-        "chore"
+        "chore",
+        "benchmark"
       ]
     },
     "area": {

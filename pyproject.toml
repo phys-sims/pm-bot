@@ -24,6 +24,9 @@ dev = [
 [project.scripts]
 pm = "pm_bot.cli:app"
 
+[tool.setuptools.packages.find]
+include = ["pm_bot", "pm_bot.*"]
+
 [tool.ruff]
 line-length = 100
 

@@ -12,6 +12,7 @@ Notes:
     - This script is intentionally simple; it fetches raw files via GitHub REST API.
     - Pin the ref (tag/SHA) once you want reproducibility.
 """
+
 from __future__ import annotations
 import argparse
 import base64
@@ -35,6 +36,7 @@ FILES = [
     "project-field-sync.yml",
 ]
 
+
 def gh_get_contents(path: str, ref: str, token: str) -> bytes:
     url = f"https://api.github.com/repos/{OWNER}/{REPO}/contents/{path}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
@@ -44,6 +46,7 @@ def gh_get_contents(path: str, ref: str, token: str) -> bytes:
     if isinstance(data, dict) and data.get("encoding") == "base64":
         return base64.b64decode(data["content"])
     raise RuntimeError(f"Unexpected response for {path}: {data}")
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -64,6 +67,7 @@ def main():
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(content)
         print(f"Wrote {out_path}")
+
 
 if __name__ == "__main__":
     main()

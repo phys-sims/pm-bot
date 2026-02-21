@@ -1,0 +1,121 @@
+{
+  "epic": {
+    "headings": [
+      "Objective (North Star)",
+      "User/Research Value",
+      "Scope In / Out",
+      "Success Metrics (definition of done for the epic)",
+      "Milestones (vertical slices)",
+      "Child Issues (link Features/Tasks/Tests/Benches/Docs)",
+      "Epic Acceptance (DoD)",
+      "Risks & Unknowns",
+      "Dependencies (Blocked By / Blocks)",
+      "Iteration Plan",
+      "Area",
+      "Priority",
+      "Size",
+      "Risk",
+      "ADR(s)",
+      "Links"
+    ],
+    "required_headings": [
+      "Objective (North Star)",
+      "Scope In / Out",
+      "Success Metrics (definition of done for the epic)",
+      "Area"
+    ]
+  },
+  "feature": {
+    "headings": [
+      "Goal",
+      "Acceptance criteria (DoD)",
+      "Child tasks",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk",
+      "Blocked by",
+      "ADR impact?",
+      "ADR link (if applicable)"
+    ],
+    "required_headings": ["Goal", "Area", "Priority"]
+  },
+  "task": {
+    "headings": [
+      "Parent Feature URL",
+      "Acceptance criteria",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk",
+      "Blocked by"
+    ],
+    "required_headings": []
+  },
+  "bug": {
+    "headings": [
+      "Repro steps",
+      "Expected vs actual",
+      "Logs/traceback",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk",
+      "Blocked by"
+    ],
+    "required_headings": []
+  },
+  "benchmark": {
+    "headings": [
+      "Scenario",
+      "Metrics",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk",
+      "Blocked by"
+    ],
+    "required_headings": []
+  },
+  "spike": {
+    "headings": [
+      "Question / hypothesis",
+      "Plan (time-box & method)",
+      "Exit criteria",
+      "Area",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk"
+    ],
+    "required_headings": []
+  },
+  "test": {
+    "headings": [
+      "Test type",
+      "Reference / contract",
+      "Test protocol",
+      "Expected artifacts",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority",
+      "Risk",
+      "Blocked by"
+    ],
+    "required_headings": ["Test type"]
+  },
+  "chore": {
+    "headings": [
+      "Scope",
+      "Area",
+      "Size",
+      "Estimate (hrs)",
+      "Priority"
+    ],
+    "required_headings": []
+  }
+}
