@@ -18,7 +18,8 @@ For Codex tasks, we keep a snapshot copy in:
 
 Update the snapshot with:
 ```bash
-export GITHUB_TOKEN=...
+export PM_BOT_GITHUB_TOKEN=...   # recommended
+# or: export GITHUB_TOKEN=...
 python scripts/sync_dotgithub.py --ref main
 ```
 

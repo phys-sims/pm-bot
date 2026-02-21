@@ -20,7 +20,8 @@ jobs:
         id: run_codex
         uses: openai/codex-action@v1
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # Repo-specific secret name to reduce accidental reuse across projects.
+          openai-api-key: ${{ secrets.PM_BOT_KEY }}
           prompt-file: .github/codex/prompts/review.md
           safety-strategy: drop-sudo
           sandbox: read-only

@@ -4,7 +4,8 @@ Usage:
     python scripts/sync_dotgithub.py --ref main
 
 Requires:
-    - GITHUB_TOKEN env var (fine-grained PAT or GitHub App token)
+    - PM_BOT_GITHUB_TOKEN env var (recommended) OR GITHUB_TOKEN env var
+      (fine-grained PAT or GitHub App installation token)
     - access to phys-sims/.github
 
 Notes:
@@ -50,9 +51,9 @@ def main():
     ap.add_argument("--dest", default="vendor/dotgithub", help="destination directory")
     args = ap.parse_args()
 
-    token = os.environ.get("GITHUB_TOKEN")
+    token = os.environ.get("PM_BOT_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise SystemExit("Missing GITHUB_TOKEN in environment.")
+        raise SystemExit("Missing PM_BOT_GITHUB_TOKEN (or GITHUB_TOKEN) in environment.")
 
     dest = Path(args.dest)
     (dest / "ISSUE_TEMPLATE").mkdir(parents=True, exist_ok=True)

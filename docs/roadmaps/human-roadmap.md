@@ -43,7 +43,7 @@ You need two separate credentials:
      - Contents: read (for ADR files in `docs/adr/`)
 
 2) **OpenAI/Codex** for agent runtime
-   - If you use the “Codex Issue Generator” workflow, set `OPENAI_API_KEY` as a repository secret where the workflow runs.
+   - If you use the “Codex Issue Generator” workflow, set `PM_BOT_KEY` as a repository secret where the workflow runs.
    - If you use Codex CLI / app, you authenticate via your ChatGPT account and point it at local clones.
 
 ### 0.4 Add “AGENTS.md” to each repo you want agents to work in (human-owned)
@@ -103,7 +103,7 @@ but in v2 you’ll want to migrate to sub-issues where possible for better rollu
    - Option A: keep it in `phys-sims/phys-pipeline`
    - Option B (cleaner): run it in `phys-sims/.github` or `pm-bot` and let it create issues elsewhere.
 3) Add secrets:
-   - `OPENAI_API_KEY` (for issue drafting workflow)
+   - `PM_BOT_KEY` (for issue drafting + Codex workflows)
    - `ADD_TO_PROJECT_PAT` if you keep your existing sync action (already required by the workflow)
 4) Merge template fixes (Section 1).
 

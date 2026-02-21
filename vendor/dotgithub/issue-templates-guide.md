@@ -83,6 +83,6 @@ Workflow inputs:
 - Optional: `labels`, `assignees`, and `model`.
 
 Operational notes:
-- Configure the `OPENAI_API_KEY` repository secret so Codex can generate the body.
+- Configure the `PM_BOT_KEY` repository secret so Codex can generate the body.
 - The workflow reads this guide and the chosen template to enforce required fields.
 - Keep the context aligned with PM tips to ensure consistent scope and acceptance criteria.
