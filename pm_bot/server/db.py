@@ -58,6 +58,14 @@ class OrchestratorDB:
                 event_json TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS agent_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prompt_profile TEXT NOT NULL,
+                model TEXT NOT NULL,
+                started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT
+            );
             """
         )
         self.conn.commit()
@@ -127,6 +135,35 @@ class OrchestratorDB:
             (event_type, json.dumps(payload)),
         )
         self.conn.commit()
+
+    def add_relationship(self, parent_ref: str, child_ref: str) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO relationships (parent_ref, child_ref)
+            VALUES (?, ?)
+            ON CONFLICT(parent_ref, child_ref) DO NOTHING
+            """,
+            (parent_ref, child_ref),
+        )
+        self.conn.commit()
+
+    def get_related(self, issue_ref: str) -> dict[str, list[str]]:
+        parent_rows = self.conn.execute(
+            "SELECT parent_ref FROM relationships WHERE child_ref = ? ORDER BY parent_ref ASC",
+            (issue_ref,),
+        ).fetchall()
+        child_rows = self.conn.execute(
+            "SELECT child_ref FROM relationships WHERE parent_ref = ? ORDER BY child_ref ASC",
+            (issue_ref,),
+        ).fetchall()
+        return {
+            "parents": [row[0] for row in parent_rows],
+            "children": [row[0] for row in child_rows],
+        }
+
+    def list_work_items(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute("SELECT payload_json FROM work_items ORDER BY issue_ref ASC")
+        return [json.loads(row[0]) for row in rows]
 
     def list_pending_changesets(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(

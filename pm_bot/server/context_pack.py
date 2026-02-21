@@ -25,7 +25,7 @@ def build_context_pack(
         "title": item.get("title", ""),
         "type": item.get("type", ""),
         "fields": item.get("fields", {}),
-        "relationships": item.get("relationships", {}),
+        "relationships": db.get_related(issue_ref),
     }
 
     serialized = json.dumps(canonical, sort_keys=True)
