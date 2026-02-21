@@ -1,0 +1,135 @@
+"""SQLite persistence for v1 orchestrator primitives."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+
+class OrchestratorDB:
+    """Small SQLite wrapper for work items, changesets, approvals, and audit events."""
+
+    def __init__(self, db_path: Path | str = ":memory:") -> None:
+        self.db_path = str(db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+        self._init_schema()
+
+    def _init_schema(self) -> None:
+        self.conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS work_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                issue_ref TEXT UNIQUE,
+                title TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS relationships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parent_ref TEXT NOT NULL,
+                child_ref TEXT NOT NULL,
+                UNIQUE(parent_ref, child_ref)
+            );
+
+            CREATE TABLE IF NOT EXISTS changesets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                operation TEXT NOT NULL,
+                repo TEXT NOT NULL,
+                target_ref TEXT,
+                payload_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending'
+            );
+
+            CREATE TABLE IF NOT EXISTS approvals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                changeset_id INTEGER NOT NULL,
+                approved_by TEXT NOT NULL,
+                approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(changeset_id) REFERENCES changesets(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                event_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        self.conn.commit()
+
+    def upsert_work_item(self, issue_ref: str, payload: dict[str, Any]) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO work_items (issue_ref, title, item_type, payload_json)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(issue_ref) DO UPDATE SET
+              title=excluded.title,
+              item_type=excluded.item_type,
+              payload_json=excluded.payload_json
+            """,
+            (issue_ref, payload.get("title", ""), payload.get("type", ""), json.dumps(payload)),
+        )
+        self.conn.commit()
+
+    def get_work_item(self, issue_ref: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT payload_json FROM work_items WHERE issue_ref = ?", (issue_ref,)
+        ).fetchone()
+        if row is None:
+            return None
+        return json.loads(row[0])
+
+    def create_changeset(
+        self, operation: str, repo: str, payload: dict[str, Any], target_ref: str = ""
+    ) -> int:
+        cur = self.conn.execute(
+            """
+            INSERT INTO changesets (operation, repo, target_ref, payload_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (operation, repo, target_ref or None, json.dumps(payload)),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def get_changeset(self, changeset_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM changesets WHERE id = ?", (changeset_id,)).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row["id"],
+            "operation": row["operation"],
+            "repo": row["repo"],
+            "target_ref": row["target_ref"],
+            "payload": json.loads(row["payload_json"]),
+            "status": row["status"],
+        }
+
+    def set_changeset_status(self, changeset_id: int, status: str) -> None:
+        self.conn.execute("UPDATE changesets SET status = ? WHERE id = ?", (status, changeset_id))
+        self.conn.commit()
+
+    def record_approval(self, changeset_id: int, approved_by: str) -> None:
+        self.conn.execute(
+            "INSERT INTO approvals (changeset_id, approved_by) VALUES (?, ?)",
+            (changeset_id, approved_by),
+        )
+        self.conn.commit()
+
+    def append_audit_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        self.conn.execute(
+            "INSERT INTO audit_events (event_type, event_json) VALUES (?, ?)",
+            (event_type, json.dumps(payload)),
+        )
+        self.conn.commit()
+
+    def list_pending_changesets(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id FROM changesets WHERE status = 'pending' ORDER BY id ASC"
+        )
+        return [self.get_changeset(int(row[0])) for row in rows if row is not None]

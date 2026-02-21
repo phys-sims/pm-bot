@@ -31,6 +31,11 @@ pip install -e ".[dev]"
 pm status
 ```
 
-## Next steps
-- Implement v0 commands (draft/parse/render/tree) in `pm_bot/` per roadmap.
-- Add `AGENTS.md` rules for Codex.
+## Roadmap status
+- v0: CLI draft/parse/tree plus deterministic parse/render and WorkItem schema are implemented in `pm_bot/`.
+- v1: a minimal approval-gated write orchestrator and context-pack API now live under `pm_bot/server/`.
+
+## Run v1 API locally
+```bash
+uvicorn pm_bot.server.app:app --reload
+```
