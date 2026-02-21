@@ -58,9 +58,7 @@ def parse_issue_body(markdown: str, item_type: str, title: str = "") -> dict[str
 
         if heading in CHILD_HEADINGS:
             refs = parse_child_refs(value)
-            work_item.setdefault("relationships", {}).setdefault("children_refs", []).extend(
-                refs
-            )
+            work_item.setdefault("relationships", {}).setdefault("children_refs", []).extend(refs)
 
     work_item["relationships"]["children_refs"] = list(
         dict.fromkeys(work_item["relationships"]["children_refs"])
