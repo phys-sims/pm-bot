@@ -1,3 +1,4 @@
+from pm_bot.cli import _primary_context_heading
 from pm_bot.github.body_parser import parse_child_refs, parse_headings
 from pm_bot.github.parse_issue_body import parse_issue_body
 from pm_bot.github.render_issue_body import render_issue_body
@@ -44,3 +45,11 @@ def test_epic_size_epic_heading_supported_by_parser():
     md = "### Area\nphys-pipeline\n\n### Size (Epic)\nL\n"
     parsed = parse_issue_body(md, item_type="epic", title="[epic] x")
     assert parsed["size"] == "L"
+
+
+def test_primary_context_heading_prefers_first_non_project_heading():
+    assert _primary_context_heading("feature") == "Goal"
+
+
+def test_primary_context_heading_skips_child_headings_for_epic():
+    assert _primary_context_heading("epic") == "Objective (North Star)"
