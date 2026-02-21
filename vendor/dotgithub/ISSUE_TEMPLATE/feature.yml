@@ -1,0 +1,87 @@
+name: "Feature"
+description: "New capability or significant refactor"
+title: "[feat] <short summary>"
+labels: ["type:feature","status:backlog"]
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      placeholder: "e.g., DAGRunner executes fan-out graphs with cache hits"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (DoD)
+      value: |
+        - [ ] Code + unit tests (≥85% in touched files)
+        - [ ] Example notebook/plot
+        - [ ] API docstring + README snippet
+        - [ ] Bench (if perf sensitive)
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Child tasks
+      description: "Link child Issues (#123) so progress rolls up."
+      value: |
+        ### Child tasks
+        - [ ] #<issue-number-1>
+        - [ ] #<issue-number-2>
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["XS","S","M","L","XL"]
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 12"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"
+
+  - type: dropdown
+    id: adr-impact
+    attributes:
+      label: ADR impact?
+      options:
+        - No ADR impact
+        - Amend existing ADR
+        - New ADR required
+
+  - type: input
+    id: adr-link
+    attributes:
+      label: ADR link (if applicable)
+      placeholder: "docs/adr/0002-cache-keys.md"

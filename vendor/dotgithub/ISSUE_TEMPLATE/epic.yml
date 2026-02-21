@@ -1,0 +1,151 @@
+name: "Epic"
+description: "A multi-issue body of work delivering a demo-level outcome"
+title: "[epic] <short objective>"
+labels: ["type:epic"]
+body:
+  - type: input
+    id: objective
+    attributes:
+      label: Objective (North Star)
+      placeholder: "e.g., End-to-end cached DAG execution with perf demo"
+    validations:
+      required: true
+
+  - type: textarea
+    id: value
+    attributes:
+      label: User/Research Value
+      placeholder: "Who benefits and how? What demo/artifact will you show?"
+      value: |
+        - Audience:
+        - Outcome:
+        - Demo artifact:
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope In / Out
+      value: |
+        **In**
+        -
+        **Out (explicitly not doing)**
+        -
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success Metrics (definition of done for the epic)
+      value: |
+        - [ ] Metric 1 (target / threshold)
+        - [ ] Metric 2 (correctness/accuracy)
+        - [ ] Docs/example shipped
+        - [ ] CI passing on required matrix
+    validations:
+      required: true
+
+  - type: textarea
+    id: milestones
+    attributes:
+      label: Milestones (vertical slices)
+      description: "2–5 demoable slices that map to Features"
+      value: |
+        1)
+        2)
+        3)
+
+  - type: textarea
+    id: breakdown
+    attributes:
+      label: Child Issues (link Features/Tasks/Tests/Benches/Docs)
+      description: "Link child issues so progress rolls up"
+      value: |
+        ### Features
+        - [ ] #<issue>
+        ### Tasks
+        - [ ] #<issue>
+        ### Tests
+        - [ ] #<issue>
+        ### Benchmarks
+        - [ ] #<issue>
+        ### Chores
+        - [ ] #<issue>
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Epic Acceptance (DoD)
+      value: |
+        - [ ] All child issues closed
+        - [ ] Demo notebook/plot uploaded as artifact
+        - [ ] README/Docs updated (How-to + API snippet)
+        - [ ] Benchmarks recorded and linked
+        - [ ] ADRs referenced/updated
+        - [ ] Changelog entry added
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks & Unknowns
+      value: |
+        - Risk:
+        - Mitigation:
+        - Spike needed? (#issue)
+
+  - type: textarea
+    id: deps
+    attributes:
+      label: Dependencies (Blocked By / Blocks)
+      value: |
+        Blocked by:
+        Blocks:
+
+  - type: textarea
+    id: iterations
+    attributes:
+      label: Iteration Plan
+      value: |
+        Iteration N: goals, demo, issues (#)
+        Iteration N+1: …
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size (Epic)
+      options: ["S","M","L","XL"]
+
+  - type: dropdown
+    id: risklevel
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]
+
+  - type: input
+    id: adr_link
+    attributes:
+      label: ADR(s)
+      placeholder: "docs/adr/0003-dag-runner.md"
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      value: |
+        - Project view:
+        - Related PRs:
+        - Datasets/Notebooks:

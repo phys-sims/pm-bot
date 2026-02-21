@@ -1,0 +1,37 @@
+name: "Chore / Infra"
+description: "Non-feature work: CI, lint, docs, build, repo hygiene"
+title: "[chore] <short summary>"
+labels: ["type:chore","status:backlog","infra"]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      value: |
+        - Current pain: …
+        - Change: …
+        - Acceptance: …
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["XS","S","M","L","XL"]
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 2"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]

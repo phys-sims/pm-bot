@@ -1,0 +1,58 @@
+name: "Benchmark"
+description: "Performance measurement"
+title: "[bench] <summary>"
+labels: ["type:bench","status:backlog"]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Scenario
+      value: |
+        - Graph size:
+        - Cache: on/off
+        - N evals:
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics
+      value: |
+        - Walltime
+        - Cache hit rate
+        - Speedup vs baseline
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["XS","S","M","L","XL"]
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 3"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"

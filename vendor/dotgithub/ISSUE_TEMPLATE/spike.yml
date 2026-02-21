@@ -1,0 +1,51 @@
+name: "Spike"
+description: "Time-boxed investigation to answer a question / reduce risk"
+title: "[spike] <question to answer>"
+labels: ["type:spike","status:backlog"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question / hypothesis
+      placeholder: "e.g., Can we bound TOD error with thin-beam model within 2% for NA<0.05?"
+
+  - type: textarea
+    id: plan
+    attributes:
+      label: Plan (time-box & method)
+      value: |
+        - Time-box: 4 hrs
+        - Method: papers to scan, prototype steps, datasets
+
+  - type: textarea
+    id: exit
+    attributes:
+      label: Exit criteria
+      value: |
+        - [ ] Answered yes/no with rationale
+        - [ ] Notes/links committed
+        - [ ] Follow-up issues created (if any)
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 4"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]

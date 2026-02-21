@@ -1,0 +1,73 @@
+name: "Test"
+description: "Verification work: physics validation or engineering (API/integration/regression)"
+title: "[test] <short summary>"
+labels: ["type:test","status:backlog"]
+body:
+  - type: dropdown
+    id: test_type
+    attributes:
+      label: Test type
+      options: ["Physics","API-contract","Integration","Regression","Property-based"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference / contract
+      placeholder: "Equation/spec/schema/endpoints, e.g., Treacy/Martinez; /v1/pulses POST schema"
+
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Test protocol
+      value: |
+        - Inputs / fixtures: …
+        - Sweep / cases: …
+        - Oracles / tolerances: …
+        - Failure examples: …
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Expected artifacts
+      value: |
+        - [ ] Test file(s) path(s)
+        - [ ] Notebook/plot (if applicable)
+        - [ ] Schema/contract snapshot (if applicable)
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["XS","S","M","L","XL"]
+
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (hrs)
+      placeholder: "e.g., 3"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0","P1","P2"]
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"

@@ -1,0 +1,370 @@
+name: Project field sync (labels -> fields)
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled]
+  pull_request_target:
+    types: [opened, edited, reopened, ready_for_review, synchronize, labeled, unlabeled, closed]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: proj-sync-${{ github.event.repository.full_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
+    if: ${{ github.actor != 'dependabot[bot]' }}
+
+    steps:
+      - name: Assert PAT present
+        run: |
+          if [ -z "${{ secrets.ADD_TO_PROJECT_PAT }}" ]; then
+            echo "ADD_TO_PROJECT_PAT is not available to this repo/event."
+            exit 1
+          fi
+
+      - name: Sync fields
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          script: |
+            // ===== CONFIG =====
+            const OWNER = "phys-sims";
+            const OWNER_KIND = "org";
+
+            const PROJECT_NUMBER = 2;
+            const PROJECT_TITLE  = null;
+
+            // Project field names (must match exactly)
+            const FIELD_STATUS    = "Status";         // single-select
+            const FIELD_PRIORITY  = "Priority";       // single-select
+            const FIELD_SIZE      = "Size";           // single-select
+            const FIELD_ESTIMATE  = "Estimate (hrs)"; // number
+            const FIELD_AREA      = "Area";           // single-select
+            const FIELD_ACTUAL    = "Actual (hrs)";   // number
+            const FIELD_RISK      = "Risk";           // single-select
+            const FIELD_BLOCKEDBY = "Blocked By";     // text
+            const FIELD_DELIV     = "Deliverable";    // single-select (we can disable below)
+
+            // Turn off Deliverable sync if you prefer to keep DoD only in body
+            const ENABLE_DELIVERABLE = false;
+
+            // Label -> option mappings
+            const MAP_STATUS = {
+              "status:backlog":     "Backlog",
+              "status:ready":       "Ready",
+              "status:in-progress": "In progress",
+              "status:review":      "In review",
+              "status:done":        "Done"
+            };
+            const MAP_AREA = {
+              "area:phys-pipeline":  "phys-pipeline",
+              "area:abcdef-sim":     "abcdef-sim",
+              "area:cpa-sim":        "cpa-sim",
+              "area:research-utils": "research-utils",
+              "area:infra/docs":     "infra/docs"
+            };
+            const MAP_PRIORITY = { "prio:P0":"P0", "prio:P1":"P1", "prio:P2":"P2" };
+            const MAP_SIZE     = { "size:XS":"XS","size:S":"S","size:M":"M","size:L":"L","size:XL":"XL" };
+            const MAP_RISK     = { "risk:Low":"Low","risk:Med":"Med","risk:High":"High" };
+            const MAP_DELIV    = { "deliverable:plot":"plot","deliverable:unit-tests":"unit-tests","deliverable:benchmark":"benchmark","deliverable:doc":"doc" };
+
+            const DEFAULT_STATUS_ON_OPEN = "Backlog";
+            // ===================
+
+            // --- helpers ---
+            const NO_RESP_RE = /^_?no response_?$/i;
+
+            function firstMatch(map, labelSet){
+              for (const k of Object.keys(map)) if (labelSet.has(k)) return map[k];
+              return null;
+            }
+
+            function escRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+            function readSection(body, heading){
+              if (!body) return null;
+              const re = new RegExp(`(?:^|\\r?\\n)###\\s*${escRe(heading)}\\s*\\r?\\n([\\s\\S]*?)(?=\\r?\\n###|$)`, "i");
+              const m = body.match(re);
+              if (!m) return null;
+              const raw = m[1].trim();
+              if (!raw) return null;
+              // take first non-empty line
+              const val = raw.split("\n").map(s=>s.trim()).find(Boolean) || null;
+              if (!val) return null;
+              const cleaned = val.replace(/\r/g,'').trim();
+              if (NO_RESP_RE.test(cleaned)) return null; // ignore GitHub's sentinel
+              return cleaned;
+            }
+
+            function readNumberFrom(body, ...headings){
+              for (const h of headings){
+                const raw = readSection(body, h);
+                if (!raw) continue;
+                // accept "4", "4.5", "~4", "≈4", "4 hrs", "4-6", "4 – 6", "about 4h"
+                const m = raw.replace(/[, ]/g,"")
+                             .replace(/[≈~]/g,"")
+                             .match(/-?\d+(\.\d+)?/);
+                if (m) return Number(m[0]);
+              }
+              return null;
+            }
+
+            function normalizeDeliverable(val){
+              if (!val) return null;
+              const t = val.toLowerCase().trim();
+              if (t.includes(",")) return normalizeDeliverable(t.split(",")[0]);
+              if (t === "unit tests" || t === "unittests" || t === "unit_test") return "unit-tests";
+              if (t === "bench" || t === "benchmarking") return "benchmark";
+              if (t === "plots") return "plot";
+              if (t === "docs" || t === "documentation") return "doc";
+              return t;
+            }
+
+            async function listAllProjects(ownerKind, owner){
+              const nodes = []; let after = null;
+              while (true){
+                const q = ownerKind === "org" ? `
+                  query($login:String!, $after:String){
+                    organization(login:$login){
+                      projectsV2(first:100, after:$after){
+                        nodes { id number title }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                  }` : `
+                  query($login:String!, $after:String){
+                    user(login:$login){
+                      projectsV2(first:100, after:$after){
+                        nodes { id number title }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                  }`;
+                const data = await github.graphql(q, { login: owner, after });
+                const container = ownerKind === "org" ? data.organization : data.user;
+                if (!container) break;
+                nodes.push(...(container.projectsV2.nodes || []));
+                const pi = container.projectsV2.pageInfo;
+                if (!pi?.hasNextPage) break;
+                after = pi.endCursor;
+              }
+              return nodes;
+            }
+
+            async function resolveProject(){
+              if (typeof PROJECT_NUMBER === "number"){
+                const q = OWNER_KIND === "org" ? `
+                  query($login:String!, $number:Int!){
+                    organization(login:$login){
+                      projectV2(number:$number){ id number title }
+                    }
+                  }` : `
+                  query($login:String!, $number:Int!){
+                    user(login:$login){
+                      projectV2(number:$number){ id number title }
+                    }
+                  }`;
+                const data = await github.graphql(q, { login: OWNER, number: PROJECT_NUMBER });
+                const container = OWNER_KIND === "org" ? data.organization : data.user;
+                if (container?.projectV2) return container.projectV2;
+              }
+              if (PROJECT_TITLE){
+                const all = await listAllProjects(OWNER_KIND, OWNER);
+                const hit = all.find(p => p.title === PROJECT_TITLE);
+                if (hit) return hit;
+                core.setFailed(`Project "${PROJECT_TITLE}" not found.`);
+                return null;
+              }
+              core.setFailed("Set PROJECT_NUMBER or PROJECT_TITLE.");
+              return null;
+            }
+
+            async function fetchFields(projectId){
+              // Only need names & options. Number/text types are updated by value kind.
+              const q = `
+                query($projectId:ID!){
+                  node(id:$projectId){
+                    ... on ProjectV2{
+                      id
+                      fields(first:100){
+                        nodes{
+                          __typename
+                          ... on ProjectV2FieldCommon { id name }
+                          ... on ProjectV2SingleSelectField { id name options { id name } }
+                          ... on ProjectV2IterationField { id name }
+                        }
+                      }
+                    }
+                  }
+                }`;
+              const { node } = await github.graphql(q, { projectId });
+              const byName = {};
+              for (const f of node.fields.nodes || []) if (f?.name) byName[f.name] = f;
+              return byName;
+            }
+
+            async function ensureItem(projectId, contentId){
+              const add = `
+                mutation($projectId:ID!, $contentId:ID!){
+                  addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}){ item { id } }
+                }`;
+              try {
+                const resp = await github.graphql(add, { projectId, contentId });
+                return resp.addProjectV2ItemById.item.id;
+              } catch (e) { /* already exists; scan */ }
+              let after = null;
+              while (true){
+                const q = `
+                  query($projectId:ID!, $after:String){
+                    node(id:$projectId){
+                      ... on ProjectV2{
+                        items(first:100, after:$after){
+                          nodes{ id content { __typename ... on Issue { id } ... on PullRequest { id } } }
+                          pageInfo { hasNextPage endCursor }
+                        }
+                      }
+                    }
+                  }`;
+                const { node } = await github.graphql(q, { projectId, after });
+                const hit = (node?.items?.nodes || []).find(n => n.content && n.content.id === contentId);
+                if (hit) return hit.id;
+                const pi = node?.items?.pageInfo;
+                if (!pi?.hasNextPage) break;
+                after = pi.endCursor;
+              }
+              return null;
+            }
+
+            async function setSelect(projectId, itemId, fieldId, optionId){
+              const m = `
+                mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $optionId:String!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$projectId, itemId:$itemId, fieldId:$fieldId,
+                    value:{ singleSelectOptionId:$optionId }
+                  }){ clientMutationId }
+                }`;
+              await github.graphql(m, { projectId, itemId, fieldId, optionId });
+            }
+            async function setNumber(projectId, itemId, fieldId, num){
+              const m = `
+                mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $num:Float!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$projectId, itemId:$itemId, fieldId:$fieldId,
+                    value:{ number:$num }
+                  }){ clientMutationId }
+                }`;
+              await github.graphql(m, { projectId, itemId, fieldId, num });
+            }
+            async function setText(projectId, itemId, fieldId, text){
+              const m = `
+                mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $text:String!){
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$projectId, itemId:$itemId, fieldId:$fieldId,
+                    value:{ text:$text }
+                  }){ clientMutationId }
+                }`;
+              await github.graphql(m, { projectId, itemId, fieldId, text });
+            }
+            function getSelectOptionId(fieldsByName, fieldName, optionName){
+              const f = fieldsByName[fieldName];
+              if (!f || !f.options) return null;
+              let opt = f.options.find(o => o.name === optionName);
+              if (!opt) opt = f.options.find(o => o.name.toLowerCase() === optionName.toLowerCase());
+              return opt ? opt.id : null;
+            }
+
+            // ---- MAIN ----
+            const isIssue = !!context.payload.issue;
+            const isPR    = !!context.payload.pull_request;
+            if (!isIssue && !isPR) return;
+
+            const project = await resolveProject();
+            if (!project) return;
+
+            const fields = await fetchFields(project.id);
+            const contentNodeId = isIssue ? context.payload.issue.node_id : context.payload.pull_request.node_id;
+            const itemId = await ensureItem(project.id, contentNodeId);
+            if (!itemId) { core.setFailed("Item not found/created in project."); return; }
+
+            const labels = new Set(
+              (isIssue
+                ? (context.payload.issue.labels || []).map(l => l.name)
+                : (context.payload.pull_request.labels || []).map(l => l.name)
+              ) || []
+            );
+            const body = isIssue ? (context.payload.issue.body || "") : (context.payload.pull_request?.body || "");
+            const action = context.payload.action;
+            const merged = isPR ? !!context.payload.pull_request.merged : false;
+
+            // select values (labels first, then form)
+            let statusVal = firstMatch(MAP_STATUS, labels);
+            let areaVal   = firstMatch(MAP_AREA, labels)   || readSection(body, "Area");
+            let prioVal   = firstMatch(MAP_PRIORITY, labels) || readSection(body, "Priority");
+            let sizeVal   = firstMatch(MAP_SIZE, labels)    || readSection(body, "Size");
+            let riskVal   = firstMatch(MAP_RISK, labels)    || readSection(body, "Risk");
+
+            // Deliverable (if enabled)
+            let delivVal  = null;
+            if (ENABLE_DELIVERABLE) {
+              delivVal = firstMatch(MAP_DELIV, labels) || normalizeDeliverable(readSection(body, "Deliverable"));
+              if (!delivVal) {
+                const t = (body||"").toLowerCase();
+                if (t.includes("unit test")) delivVal = "unit-tests";
+                else if (t.includes("bench")) delivVal = "benchmark";
+                else if (t.includes("plot") || t.includes("notebook")) delivVal = "plot";
+                else if (t.includes("docstring") || t.includes("readme") || t.includes("doc")) delivVal = "doc";
+              }
+            }
+
+            if (!statusVal && action === "opened") statusVal = DEFAULT_STATUS_ON_OPEN;
+            if (isPR && action === "closed" && merged) statusVal = "Done";
+
+            // numbers/text
+            const estNum  = readNumberFrom(body, "Estimate (hrs)", "Estimate");
+            const actNum  = readNumberFrom(body, "Actual (hrs)");
+            const blocked = readSection(body, "Blocked by") || readSection(body, "Blocked By") || readSection(body, "Block By");
+
+            // apply updates
+            const updates = [];
+
+            if (statusVal && fields[FIELD_STATUS]) {
+              const optId = getSelectOptionId(fields, FIELD_STATUS, statusVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_STATUS].id, optId));
+            }
+            if (areaVal && fields[FIELD_AREA]) {
+              const optId = getSelectOptionId(fields, FIELD_AREA, areaVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_AREA].id, optId));
+            }
+            if (prioVal && fields[FIELD_PRIORITY]) {
+              const optId = getSelectOptionId(fields, FIELD_PRIORITY, prioVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_PRIORITY].id, optId));
+            }
+            if (sizeVal && fields[FIELD_SIZE]) {
+              const optId = getSelectOptionId(fields, FIELD_SIZE, sizeVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_SIZE].id, optId));
+            }
+            if (riskVal && fields[FIELD_RISK]) {
+              const optId = getSelectOptionId(fields, FIELD_RISK, riskVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_RISK].id, optId));
+            }
+            if (Number.isFinite(estNum) && fields[FIELD_ESTIMATE]) {
+              updates.push(() => setNumber(project.id, itemId, fields[FIELD_ESTIMATE].id, estNum));
+            }
+            if (Number.isFinite(actNum) && fields[FIELD_ACTUAL]) {
+              updates.push(() => setNumber(project.id, itemId, fields[FIELD_ACTUAL].id, actNum));
+            }
+            if (blocked && fields[FIELD_BLOCKEDBY] && !fields[FIELD_BLOCKEDBY].options) {
+              updates.push(() => setText(project.id, itemId, fields[FIELD_BLOCKEDBY].id, blocked));
+            }
+            if (ENABLE_DELIVERABLE && delivVal && fields[FIELD_DELIV]) {
+              const optId = getSelectOptionId(fields, FIELD_DELIV, delivVal);
+              if (optId) updates.push(() => setSelect(project.id, itemId, fields[FIELD_DELIV].id, optId));
+            }
+
+            if (updates.length === 0) {
+              core.info("No field updates determined from labels/body.");
+              return;
+            }
+            for (const fn of updates) { await fn(); }
+            core.info(`Updated ${updates.length} project field(s).`);
