@@ -32,6 +32,12 @@ body:
       label: Area
       options: ["phys-pipeline","abcdef-sim","research-utils","cpa-sim","infra/docs"]
 
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: ["XS","S","M","L","XL"]
+
   - type: input
     id: estimate
     attributes:
@@ -49,3 +55,9 @@ body:
     attributes:
       label: Risk
       options: ["Low","Med","High"]
+
+  - type: input
+    id: blockedby
+    attributes:
+      label: Blocked by
+      placeholder: "@user / issue links"
