@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch/tag/SHA in phys-sims/.github to sync from (default: main HEAD SHA)"
+        description: "Branch/tag/SHA in phys-sims/.github to sync from (default: main)"
         required: false
         type: string
   schedule:
@@ -22,71 +22,127 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout pm-bot
-        uses: actions/checkout@v4
+      - name: Checkout this repo
+        uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Determine upstream ref
-        id: ref
+      - name: Decide upstream ref to checkout
+        id: requested
         env:
           INPUT_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
-
-          if [ -n "${INPUT_REF}" ]; then
+          if [ -n "${INPUT_REF:-}" ]; then
             echo "ref=${INPUT_REF}" >> "$GITHUB_OUTPUT"
-            exit 0
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
           fi
 
-          # Public repo: resolve main -> SHA with unauthenticated API
-          SHA=$(
-            curl -sS \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/phys-sims/.github/commits/main" \
-            | python -c "import sys,json; print(json.load(sys.stdin)['sha'])"
-          )
-          echo "ref=${SHA}" >> "$GITHUB_OUTPUT"
+      - name: Checkout upstream phys-sims/.github
+        uses: actions/checkout@v6
+        with:
+          repository: phys-sims/.github
+          ref: ${{ steps.requested.outputs.ref }}
+          path: _upstream_dotgithub
+          fetch-depth: 1
+
+      - name: Resolve upstream SHA
+        id: upstream
+        run: |
+          set -euo pipefail
+          SHA="$(git -C _upstream_dotgithub rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "short=${SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - name: Write pinned ref file
         run: |
           set -euo pipefail
           mkdir -p config
-          printf "%s\n" "${{ steps.ref.outputs.ref }}" > config/dotgithub.ref
+          printf "%s\n" "${{ steps.upstream.outputs.sha }}" > config/dotgithub.ref
 
-      - name: Download upstream files (raw)
-        env:
-          REF: ${{ steps.ref.outputs.ref }}
+      - name: Sync vendor/dotgithub from upstream checkout
         run: |
           set -euo pipefail
 
-          BASE="https://raw.githubusercontent.com/phys-sims/.github/${REF}"
+          SRC="_upstream_dotgithub"
+          DST="vendor/dotgithub"
 
-          mkdir -p vendor/dotgithub/ISSUE_TEMPLATE
+          # This directory is managed by this workflow. Start clean to avoid stale files lingering.
+          rm -rf "$DST"
+          mkdir -p "$DST"
 
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/benchmark.yml" -o vendor/dotgithub/ISSUE_TEMPLATE/benchmark.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/bug.yml"       -o vendor/dotgithub/ISSUE_TEMPLATE/bug.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/chore.yml"     -o vendor/dotgithub/ISSUE_TEMPLATE/chore.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/epic.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/epic.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/feature.yml"   -o vendor/dotgithub/ISSUE_TEMPLATE/feature.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/spike.yml"     -o vendor/dotgithub/ISSUE_TEMPLATE/spike.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/task.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/task.yml
-          curl -fsSL "${BASE}/ISSUE_TEMPLATE/test.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/test.yml
+          # ---- ISSUE_TEMPLATE directory (prefer .github/ISSUE_TEMPLATE; fallback to ISSUE_TEMPLATE; then shallow search) ----
+          TEMPLATE_SRC=""
+          if [ -d "$SRC/.github/ISSUE_TEMPLATE" ]; then
+            TEMPLATE_SRC="$SRC/.github/ISSUE_TEMPLATE"
+          elif [ -d "$SRC/ISSUE_TEMPLATE" ]; then
+            TEMPLATE_SRC="$SRC/ISSUE_TEMPLATE"
+          else
+            TEMPLATE_SRC="$(find "$SRC" -maxdepth 4 -type d -name "ISSUE_TEMPLATE" | head -n 1 || true)"
+          fi
 
-          curl -fsSL "${BASE}/project-field-sync.yml"       -o vendor/dotgithub/project-field-sync.yml
-          curl -fsSL "${BASE}/issue-templates-guide.md"     -o vendor/dotgithub/issue-templates-guide.md
+          if [ -z "$TEMPLATE_SRC" ] || [ ! -d "$TEMPLATE_SRC" ]; then
+            echo "::error::Could not find an ISSUE_TEMPLATE directory in upstream (checked .github/ISSUE_TEMPLATE, ISSUE_TEMPLATE, and a shallow search)."
+            echo "Upstream tree (depth 3):"
+            find "$SRC" -maxdepth 3 -print
+            exit 1
+          fi
+
+          mkdir -p "$DST/ISSUE_TEMPLATE"
+          rsync -a --delete "$TEMPLATE_SRC/" "$DST/ISSUE_TEMPLATE/"
+
+          # ---- Helper: sync a named file if it exists anywhere upstream; remove it locally if it doesn't ----
+          sync_named_file() {
+            local name="$1"
+            local dst="$2"
+            local found=""
+
+            # Common/known locations first
+            for cand in \
+              "$SRC/$name" \
+              "$SRC/.github/$name" \
+              "$SRC/.github/workflows/$name" \
+              ; do
+              if [ -f "$cand" ]; then
+                found="$cand"
+                break
+              fi
+            done
+
+            # Fallback: search (covers moves within reason)
+            if [ -z "$found" ]; then
+              found="$(find "$SRC" -maxdepth 6 -type f -name "$name" | head -n 1 || true)"
+            fi
+
+            if [ -n "$found" ] && [ -f "$found" ]; then
+              rsync -a "$found" "$dst"
+              echo "Synced $name from $found"
+            else
+              echo "Upstream does not contain $name; removing from vendor snapshot."
+              rm -f "$dst" || true
+            fi
+          }
+
+          sync_named_file "project-field-sync.yml"   "$DST/project-field-sync.yml"
+          sync_named_file "issue-templates-guide.md" "$DST/issue-templates-guide.md"
+
+      - name: Cleanup upstream checkout
+        run: rm -rf _upstream_dotgithub
+
+      - name: Show diff (for debugging)
+        run: |
+          set -euo pipefail
+          git status --porcelain
+          git diff --stat
 
       - name: Create PR
         uses: peter-evans/create-pull-request@v8
         with:
-          commit-message: "chore: sync .github snapshot @ ${{ steps.ref.outputs.ref }}"
+          commit-message: "chore: sync .github snapshot @ ${{ steps.upstream.outputs.sha }}"
           title: "chore: sync org .github snapshot"
           body: |
             Synced from `phys-sims/.github` at:
-            - `${{ steps.ref.outputs.ref }}`
+            - requested ref: `${{ steps.requested.outputs.ref }}`
+            - resolved SHA: `${{ steps.upstream.outputs.sha }}`
 
             Updated:
             - `vendor/dotgithub/**`
