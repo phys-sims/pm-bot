@@ -1,0 +1,100 @@
+name: Sync org .github snapshot (public)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/tag/SHA in phys-sims/.github to sync from (default: main HEAD SHA)"
+        required: false
+        type: string
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-dotgithub
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pm-bot
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Determine upstream ref
+        id: ref
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${INPUT_REF}" ]; then
+            echo "ref=${INPUT_REF}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Public repo: resolve main -> SHA with unauthenticated API
+          SHA=$(
+            curl -sS \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/phys-sims/.github/commits/main" \
+            | python -c "import sys,json; print(json.load(sys.stdin)['sha'])"
+          )
+          echo "ref=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Write pinned ref file
+        run: |
+          set -euo pipefail
+          mkdir -p config
+          printf "%s\n" "${{ steps.ref.outputs.ref }}" > config/dotgithub.ref
+
+      - name: Download upstream files (raw)
+        env:
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          set -euo pipefail
+
+          BASE="https://raw.githubusercontent.com/phys-sims/.github/${REF}"
+
+          mkdir -p vendor/dotgithub/ISSUE_TEMPLATE
+
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/benchmark.yml" -o vendor/dotgithub/ISSUE_TEMPLATE/benchmark.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/bug.yml"       -o vendor/dotgithub/ISSUE_TEMPLATE/bug.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/chore.yml"     -o vendor/dotgithub/ISSUE_TEMPLATE/chore.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/epic.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/epic.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/feature.yml"   -o vendor/dotgithub/ISSUE_TEMPLATE/feature.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/spike.yml"     -o vendor/dotgithub/ISSUE_TEMPLATE/spike.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/task.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/task.yml
+          curl -fsSL "${BASE}/ISSUE_TEMPLATE/test.yml"      -o vendor/dotgithub/ISSUE_TEMPLATE/test.yml
+
+          curl -fsSL "${BASE}/project-field-sync.yml"       -o vendor/dotgithub/project-field-sync.yml
+          curl -fsSL "${BASE}/issue-templates-guide.md"     -o vendor/dotgithub/issue-templates-guide.md
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "chore: sync .github snapshot @ ${{ steps.ref.outputs.ref }}"
+          title: "chore: sync org .github snapshot"
+          body: |
+            Synced from `phys-sims/.github` at:
+            - `${{ steps.ref.outputs.ref }}`
+
+            Updated:
+            - `vendor/dotgithub/**`
+            - `config/dotgithub.ref`
+          branch: chore/sync-dotgithub
+          add-paths: |
+            vendor/dotgithub
+            config/dotgithub.ref
+          labels: |
+            chore
+            automation
