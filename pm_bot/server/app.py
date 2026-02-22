@@ -8,7 +8,10 @@ from typing import Any
 from pm_bot.server.changesets import ChangesetService
 from pm_bot.server.context_pack import build_context_pack
 from pm_bot.server.db import OrchestratorDB
+from pm_bot.server.estimator import EstimatorService
 from pm_bot.server.github_connector import GitHubConnector
+from pm_bot.server.graph import GraphService
+from pm_bot.server.reporting import ReportingService
 
 
 class ServerApp:
@@ -20,6 +23,9 @@ class ServerApp:
             allowed_repos={"phys-sims/.github", "phys-sims/phys-pipeline"}
         )
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
+        self.estimator = EstimatorService(db=self.db)
+        self.graph = GraphService(db=self.db)
+        self.reporting = ReportingService(db=self.db)
 
     def draft(
         self, item_type: str, title: str, body_fields: dict[str, Any] | None = None
@@ -99,6 +105,22 @@ class ServerApp:
             },
         )
         return {"status": "ingested", "issue_ref": f"{repo}{issue_ref}"}
+
+    def estimator_snapshot(self) -> list[dict[str, Any]]:
+        return self.estimator.build_snapshots()
+
+    def estimate(self, item_type: str, area: str = "", size: str = "") -> dict[str, Any]:
+        return self.estimator.predict({"type": item_type, "area": area, "size": size})
+
+    def graph_tree(self, root_ref: str) -> dict[str, Any]:
+        return self.graph.tree(root_ref)
+
+    def graph_deps(self, area: str = "") -> dict[str, list[dict[str, Any]]]:
+        return self.graph.dependencies(area=area)
+
+    def generate_weekly_report(self, report_name: str = "weekly.md") -> dict[str, str]:
+        path = self.reporting.generate_weekly_report(report_name=report_name)
+        return {"status": "generated", "report_path": str(path)}
 
 
 def create_app(db_path: str | Path = ":memory:") -> ServerApp:

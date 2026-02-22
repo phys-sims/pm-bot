@@ -77,3 +77,71 @@ def test_webhook_ingestion_upserts_work_item():
     work_item = app.get_work_item("phys-sims/phys-pipeline#42")
     assert work_item is not None
     assert work_item["fields"]["title"] == "Hook event"
+
+
+def test_v2_estimator_snapshot_and_predict_fallback():
+    app = create_app()
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#1",
+        {
+            "title": "A",
+            "type": "task",
+            "area": "platform",
+            "size": "m",
+            "actual_hrs": 4.0,
+            "fields": {},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#2",
+        {
+            "title": "B",
+            "type": "task",
+            "area": "platform",
+            "size": "m",
+            "actual_hrs": 8.0,
+            "fields": {},
+            "relationships": {"children_refs": []},
+        },
+    )
+
+    snapshots = app.estimator_snapshot()
+    assert snapshots
+
+    prediction = app.estimate(item_type="task", area="platform", size="m")
+    assert prediction["p50"] == 4.0
+    assert prediction["p80"] == 8.0
+
+
+def test_v2_graph_tree_and_dependencies():
+    app = create_app()
+    parent = app.draft(item_type="epic", title="Root")
+    child = app.draft(item_type="feature", title="Child")
+    app.link_work_items(parent["issue_ref"], child["issue_ref"])
+
+    tree = app.graph_tree(parent["issue_ref"])
+    assert tree["issue_ref"] == parent["issue_ref"]
+    assert tree["children"][0]["issue_ref"] == child["issue_ref"]
+
+    app.db.upsert_work_item(
+        "x#1",
+        {
+            "title": "Blocked",
+            "type": "task",
+            "area": "platform",
+            "blocked_by": "x#0",
+            "fields": {"issue_ref": "x#1"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    deps = app.graph_deps(area="platform")
+    assert deps["edges"][0]["edge_type"] == "blocked_by"
+
+
+def test_v2_weekly_report_generation(tmp_path):
+    app = create_app()
+    app.reporting.reports_dir = tmp_path
+    report = app.generate_weekly_report("weekly-test.md")
+    assert report["status"] == "generated"
+    assert report["report_path"].endswith("weekly-test.md")

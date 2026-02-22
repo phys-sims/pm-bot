@@ -66,6 +66,23 @@ class OrchestratorDB:
                 started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 completed_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS estimate_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bucket_key TEXT NOT NULL,
+                p50 REAL NOT NULL,
+                p80 REAL NOT NULL,
+                sample_count INTEGER NOT NULL,
+                method TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_type TEXT NOT NULL,
+                report_path TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         self.conn.commit()
@@ -170,3 +187,56 @@ class OrchestratorDB:
             "SELECT id FROM changesets WHERE status = 'pending' ORDER BY id ASC"
         )
         return [self.get_changeset(int(row[0])) for row in rows if row is not None]
+
+    def list_audit_events(self, event_type: str | None = None) -> list[dict[str, Any]]:
+        if event_type:
+            rows = self.conn.execute(
+                "SELECT event_type, event_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
+                (event_type,),
+            )
+        else:
+            rows = self.conn.execute(
+                "SELECT event_type, event_json, created_at FROM audit_events ORDER BY id ASC"
+            )
+        return [
+            {
+                "event_type": row["event_type"],
+                "payload": json.loads(row["event_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def store_estimate_snapshot(
+        self, bucket_key: str, p50: float, p80: float, sample_count: int, method: str
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO estimate_snapshots (bucket_key, p50, p80, sample_count, method)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (bucket_key, p50, p80, sample_count, method),
+        )
+        self.conn.commit()
+
+    def latest_estimate_snapshots(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT s.bucket_key, s.p50, s.p80, s.sample_count, s.method
+            FROM estimate_snapshots s
+            INNER JOIN (
+                SELECT bucket_key, MAX(id) AS max_id
+                FROM estimate_snapshots
+                GROUP BY bucket_key
+            ) latest ON latest.max_id = s.id
+            ORDER BY s.bucket_key ASC
+            """
+        )
+        return [dict(row) for row in rows]
+
+    def record_report(self, report_type: str, report_path: str) -> None:
+        self.conn.execute(
+            "INSERT INTO reports (report_type, report_path) VALUES (?, ?)",
+            (report_type, report_path),
+        )
+        self.conn.commit()

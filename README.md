@@ -27,15 +27,29 @@ python scripts/sync_dotgithub.py --ref main
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e "[dev]"
 pm status
 ```
 
 ## Roadmap status
 - v0: CLI draft/parse/tree plus deterministic parse/render and WorkItem schema are implemented in `pm_bot/`.
-- v1: a minimal approval-gated write orchestrator and context-pack API now live under `pm_bot/server/`.
+- v1: approval-gated write orchestrator, webhook ingestion, and context-pack APIs live under `pm_bot/server/`.
+- v2: estimator snapshots + predictions, graph/tree APIs, and weekly meta-report generation are implemented in `pm_bot/server/`.
 
-## Run v1 API locally
+## Key commands
 ```bash
-uvicorn pm_bot.server.app:app --reload
+# v0
+pm draft feature --title "Parser" --context "Ship parser" --area platform --priority P1 --validate
+pm parse --file issue.md --type feature --validate
+pm parse --url https://example.com/issue.md --type feature
+pm tree --file epic.md
+
+# v1/v2 (library usage)
+python - <<'PY'
+from pm_bot.server.app import create_app
+app = create_app()
+print(app.propose_changeset(operation="create_issue", repo="phys-sims/phys-pipeline", payload={"issue_ref": "#1", "title": "Example"}))
+print(app.estimator_snapshot())
+print(app.generate_weekly_report())
+PY
 ```

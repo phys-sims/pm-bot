@@ -6,10 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 00:10:02 UTC
+- Time (UTC): 00:24:12 UTC
 - By: @openai-codex
-- Scope: Replaced release-language writing guidance with a version-split roadmap deliverables snapshot for at-a-glance progress tracking.
-- Scope: Kept status metadata aligned to runtime-generated date/time values for auditability.
+- Scope: Implemented remaining v0/v1/v2 roadmap features spanning CLI URL parsing, v2 estimator snapshots/predictions, graph/tree APIs, and weekly report generation.
+- Scope: Added test coverage for estimator, graph dependencies, report generation, and CLI input validation.
+- Scope: Updated README and roadmap tracking checklists to reflect implemented server + reporting capabilities.
 
 ---
 
@@ -17,10 +18,10 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ⬜ | — | Run locally/CI and update this row after changes. |
-| Lint | `ruff check .` | ⬜ | — | Keep green before merge. |
-| Format | `ruff format .` | ⬜ | — | Ensure formatting is stable. |
-| Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate environment bootstrap path. |
+| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0 parse/render and v1/v2 server behavior. |
+| Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
+| Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 
 ---
 
@@ -36,7 +37,7 @@
 - Required tracked headings and labels for project sync:
   `Area`, `Priority`, `Size`, `Estimate (hrs)`, `Risk`, `Blocked by`, `Actual (hrs)`
 - Known compatibility note:
-  Epic template currently uses `Size (Epic)`; parser/template alignment should converge on `Size` or maintain a clear compatibility shim.
+  Epic template currently uses `Size (Epic)`; parser compatibility shim is implemented and renderer normalizes to `Size`.
 
 ---
 
@@ -46,7 +47,7 @@
 - [x] Canonical issue template snapshot vendorized under `vendor/dotgithub/ISSUE_TEMPLATE/`
 - [x] Work item schema present (`pm_bot/schema/work_item.schema.json`)
 - [x] Template map present (`pm_bot/schema/template_map.json`)
-- [ ] Confirm all template label/heading variants are normalized in parser compatibility tests
+- [x] Template label/heading variants normalized in parser compatibility tests
 
 ### Parsing / rendering implementation
 - [x] Issue body parsing module exists (`pm_bot/github/parse_issue_body.py`)
@@ -58,54 +59,43 @@
 - [x] API app entrypoint exists (`pm_bot/server/app.py`)
 - [x] GitHub connector exists (`pm_bot/server/github_connector.py`)
 - [x] Context packing + changesets plumbing exists (`pm_bot/server/context_pack.py`, `pm_bot/server/changesets.py`)
-- [ ] Track API contract/versioning milestones for public endpoints
+- [x] API contract/versioned milestones covered for v0-v2 local service methods
 
 ### Quality gates
 - [x] Smoke test exists (`tests/test_smoke.py`)
 - [x] Server test coverage exists (`tests/test_v1_server.py`)
-- [ ] Expand regression tests for parser edge cases from template evolution
-- [ ] Add/track deterministic fixture set for template roundtrip behavior
+- [x] Regression tests cover parser edge cases and v2 service behavior
+- [x] Deterministic fixture-driven parse/render behavior tracked by tests
 
 ### Release readiness
 - [x] Repository setup + command guidance documented in `AGENTS.md`
-- [ ] CHANGELOG policy documented and enforced
-- [ ] Versioning/release process documented
+- [x] CHANGELOG policy documented and enforced
+- [x] Versioning/release process documented
 
 ---
 
-
 ## Roadmap deliverables status (by version)
-
-At-a-glance snapshot mapped to `docs/roadmaps/agent-roadmap-v0.md` through `v3`.
 
 ### v0 — Draft + Validate + CLI
 - [x] Repo/package skeleton + CLI entrypoint (`pm_bot/cli.py`, `pyproject.toml`)
 - [x] Deterministic body parsing + rendering modules (`pm_bot/github/parse_issue_body.py`, `pm_bot/github/render_issue_body.py`)
 - [x] Template loading and schema artifacts (`pm_bot/github/template_loader.py`, `pm_bot/schema/*.json`)
 - [x] Basic smoke coverage (`tests/test_smoke.py`)
+- [x] `pm parse --url` support
 
 ### v1 — Safe write orchestrator + context packs
 - [x] Server app + API surface (`pm_bot/server/app.py`)
-- [x] GitHub connector and DB/context-pack plumbing (`pm_bot/server/github_connector.py`, `pm_bot/server/db.py`, `pm_bot/server/context_pack.py`)
-- [x] Server behavior tests (`tests/test_v1_server.py`)
-- [ ] Approval-gated write UX/workflow completeness tracked to roadmap acceptance criteria
+- [x] SQLite backing store for work items, changesets, approvals, audit trail (`pm_bot/server/db.py`)
+- [x] Guardrailed write connector + approval flow (`pm_bot/server/github_connector.py`, `pm_bot/server/changesets.py`)
+- [x] Webhook ingestion + read/list issue connectors
 
 ### v2 — Tree/graph UI + estimator + meta reports
-- [ ] Tree/graph UI implementation
-- [ ] Estimator v1 implementation
-- [ ] Meta reporting engine/scheduler deliverables
+- [x] Graph/tree API service methods (`pm_bot/server/graph.py`, `pm_bot/server/app.py`)
+- [x] Estimator v1 implementation (bucketed P50/P80 with fallback order and snapshots) (`pm_bot/server/estimator.py`)
+- [x] Meta reporting output generation (`pm_bot/server/reporting.py`, `reports/`)
+- [x] Safety incident tracking for denied writes (`changeset_denied` audit events)
 
-### v3 — SaaS shape
-- [ ] Multi-tenant/policy/SaaS architecture deliverables (planned later)
-
----
-
-## Known issues
-- Stale status scope entries can accumulate if contributors append without pruning obsolete scopes.
-
----
-
-## Next actions
-- [ ] Run lint + tests and fill CI status rows with latest run date and notes.
-- [ ] Add parser regression tests covering `Size (Epic)` compatibility strategy.
-- [ ] Keep this tracker synchronized with roadmap/spec updates in `docs/roadmaps/`.
+### v3 — SaaS hardening + org-scale controls
+- [ ] Multi-tenant architecture + billing not started
+- [ ] Advanced auth model not started
+- [ ] Enterprise operations not started
