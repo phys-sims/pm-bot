@@ -1,0 +1,17 @@
+name: ADR index
+on:
+  push:
+    paths: ["docs/adr/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  reindex:
+    uses: phys-sims/.github/.github/workflows/docs-adr-index.yml@v1
+    with:
+      python-version: "3.x"
+      tool: "python scripts/adr_tools.py reindex"
+      index-path: "docs/adr/INDEX.md"
+      commit-message: "chore(docs): update ADR index"
