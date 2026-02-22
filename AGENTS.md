@@ -4,6 +4,9 @@
 - Keep changes small, reviewable, and well-tested.
 - Do not change template heading labels lightly. Downstream automation parses headings.
 - Prefer deterministic, schema-driven rendering over “pretty prose”.
+- Update `STATUS.md` in the same change whenever behavior, tests, schemas, workflows, roadmap progress, or repo health changes.
+- When updating `STATUS.md`, remove stale `Last updated` scope bullets that are obsolete or superseded; do not let stale scope reports accumulate.
+- For all `STATUS.md` date fields (for example `Last updated`), use a runtime date/time command (for example `date -u`) instead of guessing dates manually.
 
 ## Commands
 - Setup:
