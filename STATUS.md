@@ -2,12 +2,13 @@
 
 > **Source of truth:** Update this file whenever behavior, tests, schemas, workflows, or canonical inputs change.
 > **Agent rule:** Keep entries current. Add new `Scope` bullets for this change and remove stale scope bullets that no longer reflect repository state.
+> **Date integrity rule:** Populate dates/times with runtime commands (for example `date -u`); never guess dates.
 
 ## Last updated
 - Date: 2026-02-22
 - By: @openai-codex
-- Scope: Added repository-wide `STATUS.md` tracker for roadmap implementation progress and repo health.
-- Scope: Added AGENTS guidance requiring status updates and explicit stale-scope cleanup when work supersedes prior entries.
+- Scope: Added explicit date-integrity guidance requiring runtime date/time commands for `STATUS.md` updates.
+- Scope: Added roadmap release-language checklist section to keep release communication consistent and auditable.
 
 ---
 
@@ -68,6 +69,20 @@
 - [x] Repository setup + command guidance documented in `AGENTS.md`
 - [ ] CHANGELOG policy documented and enforced
 - [ ] Versioning/release process documented
+
+---
+
+
+## Roadmap release-language checklist
+
+Use this checklist when updating roadmap/release notes so language stays consistent and testable.
+
+- [ ] Explicitly state release phase using one of: `planned`, `in progress`, `blocked`, `ready`, `released`.
+- [ ] Tie each release claim to concrete artifacts (PRs, docs, tests, schemas, or workflows).
+- [ ] Avoid ambiguous wording like "almost done"; replace with measurable criteria or checklist status.
+- [ ] Include compatibility impact statements when changing headings/labels parsed by automation.
+- [ ] Include validation evidence (tests/check commands) for any "ready" or "released" claim.
+- [ ] Remove superseded release-status bullets so stale roadmap statements do not persist.
 
 ---
 
