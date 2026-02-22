@@ -107,10 +107,17 @@ Small whitespace differences are ok; semantic drift is not.
 
 This step validates “no writes without approval”.
 
-1. Start the pm-bot server locally (example):
+1. Start the pm-bot server locally:
 
 ```bash
-uvicorn pm_bot.server.app:app --reload --port 8000
+uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
+```
+
+1a. Validate startup contract:
+
+```bash
+python -m pm_bot.server.app --print-startup
+curl -s http://127.0.0.1:8000/health
 ```
 
 2. Configure the server with:

@@ -1,7 +1,9 @@
-"""v1 orchestration application surface without external web dependencies."""
+"""v1 orchestration application surface with a minimal ASGI HTTP layer."""
 
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 from typing import Any
 
@@ -144,5 +146,109 @@ class ServerApp:
         return self.db.list_operation_metrics()
 
 
+class ASGIServer:
+    """Minimal ASGI adapter exposing a safe subset of ServerApp methods."""
+
+    def __init__(self, service: ServerApp | None = None) -> None:
+        self.service = service or create_app()
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self._send_json(send, 500, {"error": "unsupported_scope"})
+            return
+
+        method = scope.get("method", "GET")
+        path = scope.get("path", "")
+        body = await self._read_body(receive)
+
+        try:
+            if method == "GET" and path == "/health":
+                await self._send_json(send, 200, {"status": "ok"})
+                return
+
+            if method == "POST" and path == "/changesets/propose":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                required = {"operation", "repo", "payload"}
+                if not required.issubset(payload):
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                result = self.service.propose_changeset(
+                    operation=payload["operation"],
+                    repo=payload["repo"],
+                    payload=payload["payload"],
+                    target_ref=payload.get("target_ref", ""),
+                    idempotency_key=payload.get("idempotency_key", ""),
+                    run_id=payload.get("run_id", ""),
+                )
+                await self._send_json(send, 200, result)
+                return
+
+            await self._send_json(send, 404, {"error": "not_found"})
+        except PermissionError as exc:
+            await self._send_json(send, 403, {"error": str(exc)})
+        except Exception as exc:  # pragma: no cover - defensive response mapping
+            await self._send_json(send, 500, {"error": str(exc)})
+
+    async def _read_body(self, receive: Any) -> bytes:
+        chunks: list[bytes] = []
+        while True:
+            message = await receive()
+            if message["type"] != "http.request":
+                continue
+            chunks.append(message.get("body", b""))
+            if not message.get("more_body", False):
+                break
+        return b"".join(chunks)
+
+    def _parse_json(self, body: bytes) -> dict[str, Any] | None:
+        if not body:
+            return {}
+        try:
+            parsed = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        return parsed
+
+    async def _send_json(self, send: Any, status: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
 def create_app(db_path: str | Path = ":memory:") -> ServerApp:
     return ServerApp(db_path=db_path)
+
+
+app = ASGIServer()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="pm-bot ASGI server entrypoint")
+    parser.add_argument(
+        "--print-startup",
+        action="store_true",
+        help="print the supported uvicorn startup command and exit",
+    )
+    args = parser.parse_args()
+
+    if args.print_startup:
+        print("uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000")
+        return 0
+
+    parser.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
