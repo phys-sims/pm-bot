@@ -6,10 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 00:54:11 UTC
+- Time (UTC): 04:03:54 UTC
 - By: @openai-codex
-- Scope: Rewrote README into a detailed usage guide covering architecture, setup, CLI/server workflows, compatibility expectations, and contribution practices.
-- Scope: Refreshed status metadata timestamp and replaced stale scope bullets with current change scope.
+- Scope: Added explicit agent documentation intake rules and a trigger matrix in `AGENTS.md` for architecture, contract, spec, and GitHub integration changes.
+- Scope: Refreshed status metadata timestamp and removed stale scope bullets so status reflects the latest repository-level documentation policy change.
 
 ---
 
