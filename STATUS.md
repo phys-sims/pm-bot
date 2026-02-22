@@ -6,11 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 00:24:12 UTC
+- Time (UTC): 00:54:11 UTC
 - By: @openai-codex
-- Scope: Implemented remaining v0/v1/v2 roadmap features spanning CLI URL parsing, v2 estimator snapshots/predictions, graph/tree APIs, and weekly report generation.
-- Scope: Added test coverage for estimator, graph dependencies, report generation, and CLI input validation.
-- Scope: Updated README and roadmap tracking checklists to reflect implemented server + reporting capabilities.
+- Scope: Rewrote README into a detailed usage guide covering architecture, setup, CLI/server workflows, compatibility expectations, and contribution practices.
+- Scope: Refreshed status metadata timestamp and replaced stale scope bullets with current change scope.
 
 ---
 
