@@ -6,11 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 04:12:03 UTC
+- Time (UTC): 04:14:03 UTC
 - By: @openai-codex
-- Scope: Fixed `scripts/adr_tools.py` metadata parsing so `reindex` reads markdown ADR header fields (`Status`, `Date`, `Tags`, `Area`) and populates ADR index columns.
-- Scope: Regenerated `docs/adr/INDEX.md` from script output so tags and related metadata render correctly in the generated table.
-- Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository health/documentation updates.
+- Scope: Normalized AGENTS ADR-index references to `docs/adr/INDEX.md` and removed obsolete lowercase `docs/adr/index.md` mentions.
+- Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository documentation consistency updates.
 
 ---
 

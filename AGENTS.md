@@ -33,7 +33,7 @@
 
 ## Agent documentation intake rules
 - Agents MUST read `STATUS.md` first to understand the current repository state, constraints, and health signals before making changes.
-- Agents MUST read `docs/adr/index.md` (or `docs/adr/INDEX.md` until renamed) before touching architecture, schema contracts, workflow behavior, or policy/safety logic.
+- Agents MUST read `docs/adr/INDEX.md` before touching architecture, schema contracts, workflow behavior, or policy/safety logic.
 - Agents MUST read only ADRs relevant to touched domains, selected by ADR index tags (for example contracts/github/auth/safety/db/tree/reporting).
 - Agents MUST read corresponding contract/spec docs before changing behavior:
   - `docs/contracts/*.md` for contract changes.
@@ -45,7 +45,7 @@
 ### Trigger matrix
 | Change type | Minimum required docs |
 | --- | --- |
-| Architecture, data model, safety policy, workflow semantics | `STATUS.md`; `docs/adr/index.md` (or `docs/adr/INDEX.md`); ADRs tagged for touched domains |
+| Architecture, data model, safety policy, workflow semantics | `STATUS.md`; `docs/adr/INDEX.md`; ADRs tagged for touched domains |
 | Schema/contract fields, parser-renderer contracts, compatibility labels | `STATUS.md`; ADR index + relevant tagged ADRs; `docs/contracts/*.md`; canonical inputs listed in this file |
 | Runtime behavior or decision logic | `STATUS.md`; ADR index + relevant tagged ADRs; `docs/spec/*.md` |
 | GitHub/project integration or sync workflow behavior | `STATUS.md`; ADR index + relevant tagged ADRs; `docs/github/*.md`; `vendor/dotgithub/project-field-sync.yml` |
