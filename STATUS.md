@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 04:26:15 UTC
+- Time (UTC): 05:29:12 UTC
 - By: @openai-codex
-- Scope: Consolidated documentation authority hierarchy in `docs/README.md` and added root README doc start points.
-- Scope: Recast `docs/spec/pm-agent-native-spec.md` as a navigator-only overview with explicit source-of-truth pointers and removed duplicated normative definitions.
-- Scope: Added docs consistency review checklist item in `docs/maintenance.md` for contract/spec changes against the navigator spec.
+- Scope: Removed `docs/spec/pm-agent-native-spec.md` to eliminate redundant navigator framing and consolidate doc authority in `docs/README.md` plus existing contracts/specs.
+- Scope: Updated root `README.md` doc start points to direct integrated behavior reads to `docs/spec/product.md`.
+- Scope: Replaced maintenance checklist reference to the removed navigator file with a cross-doc contradiction check across `docs/README.md`, `docs/spec/*.md`, and `docs/contracts/*.md`.
 
 
 ---
