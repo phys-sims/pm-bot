@@ -125,6 +125,25 @@ pm tree --file epic.md
 
 ---
 
+## Server startup path (ASGI)
+
+pm-bot now exports an actual ASGI `app` at `pm_bot.server.app:app`. Start it with:
+
+```bash
+uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
+```
+
+Optional contract check:
+
+```bash
+python -m pm_bot.server.app --print-startup
+```
+
+Exposed minimal HTTP endpoints:
+
+- `GET /health`
+- `POST /changesets/propose`
+
 ## How to use the server APIs
 
 You can instantiate the local app and call service methods directly:

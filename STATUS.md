@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 06:26:33 UTC
+- Time (UTC): 19:12:41 UTC
 - By: @openai-codex
-- Scope: Completed v4 reliability execution slice with idempotency-keyed changeset proposals, bounded retries, dead-letter reporting, and aggregated operation metrics with run-id correlation.
-- Scope: Added targeted reliability tests for idempotent reuse, retry success/failure paths, dead-letter events, and run-id propagation across webhook/reporting flows.
-- Scope: Updated roadmap/checklist/log/runbooks/spec/contracts so v4 roadmap items are marked complete with operational drill guidance.
+- Scope: Added a real ASGI `app` export in `pm_bot/server/app.py` with a minimal safe HTTP surface (`GET /health`, `POST /changesets/propose`) mapped to existing `ServerApp` behavior.
+- Scope: Updated quickstart, first-human-test runbook, and README to document a single supported startup command (`uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000`) and smoke-check flow.
+- Scope: Added HTTP contract tests for startup command discoverability and endpoint flow coverage from docs.
 
 
 ---
@@ -19,7 +19,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior including idempotency, retry/dead-letter reliability, and run-id observability correlation. |
+| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior plus ASGI startup contract checks and minimal HTTP endpoint flow coverage. |
 | Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |

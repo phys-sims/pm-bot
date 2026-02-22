@@ -92,11 +92,25 @@ In later versions, tree edges SHOULD come from GitHub sub-issues and dependencie
 
 pm-bot includes a server app entrypoint (`pm_bot/server/app.py`) and a local backing store (SQLite).
 
-Common local run patterns are:
+Use the supported ASGI startup path:
 
 ```bash
-# Example (if FastAPI/uvicorn is used):
-uvicorn pm_bot.server.app:app --reload --port 8000
+uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
+```
+
+Quick smoke checks:
+
+```bash
+python -m pm_bot.server.app --print-startup
+curl -s http://127.0.0.1:8000/health
+```
+
+Example proposal flow over HTTP:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/changesets/propose \
+  -H "content-type: application/json" \
+  -d '{"operation":"create_issue","repo":"phys-sims/phys-pipeline","payload":{"issue_ref":"#77","title":"Ingest events"}}'
 ```
 
 Once running, you typically use the server to:
