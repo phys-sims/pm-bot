@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 19:12:41 UTC
+- Time (UTC): 19:19:58 UTC
 - By: @openai-codex
-- Scope: Added a real ASGI `app` export in `pm_bot/server/app.py` with a minimal safe HTTP surface (`GET /health`, `POST /changesets/propose`) mapped to existing `ServerApp` behavior.
-- Scope: Updated quickstart, first-human-test runbook, and README to document a single supported startup command (`uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000`) and smoke-check flow.
-- Scope: Added HTTP contract tests for startup command discoverability and endpoint flow coverage from docs.
+- Scope: Added explicit `pm parse --url` source handling for GitHub issue URLs (via GitHub API issue-body fetch) and raw markdown URLs, with user-facing errors for unsupported formats and auth failures.
+- Scope: Added CLI coverage for raw markdown URL parsing, mocked GitHub issue URL parsing, and unsupported URL rejection.
+- Scope: Updated quickstart/auth documentation with exact URL formats and token requirements for GitHub issue URL parsing.
 
 
 ---

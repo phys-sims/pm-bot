@@ -78,6 +78,27 @@ Recommendation:
   - GitHub App token, or
   - a PAT stored as a secret
 
+
+## `pm parse --url` supported URL formats
+
+The CLI supports two explicit URL source types:
+
+1. **GitHub issue URL** (resolved via GitHub REST API and parsed from issue `body`)
+   - Format: `https://github.com/<owner>/<repo>/issues/<number>`
+   - Fetch path used by CLI: `https://api.github.com/repos/<owner>/<repo>/issues/<number>`
+
+2. **Raw markdown URL** (fetched directly as markdown text)
+   - Format: `https://.../*.md`
+   - Common example: `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.md`
+
+Unsupported URLs fail fast with an explicit error.
+
+Auth notes for GitHub issue URLs:
+
+- For public repos, unauthenticated reads may work but are still rate-limited.
+- For private/restricted repos, provide `PM_BOT_GITHUB_TOKEN` (preferred) or `GITHUB_TOKEN`.
+- Token should have read access to issues/metadata for the target repository.
+
 ## Secret handling
 
 ### Do

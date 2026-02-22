@@ -62,13 +62,26 @@ pm parse --file path/to/issue.md
 
 Expected result: a validated canonical WorkItem JSON output.
 
-### Parse a GitHub issue by URL
+### Parse by URL (supported formats)
+
+GitHub issue URL (fetches issue body through the GitHub Issues API):
 
 ```bash
-pm parse --url https://github.com/<org>/<repo>/issues/<number>
+pm parse --url https://github.com/<owner>/<repo>/issues/<number>
 ```
 
-This requires GitHub auth (read access). If this fails, see `docs/github/auth-and-tokens.md`.
+Raw markdown URL (fetches markdown directly):
+
+```bash
+pm parse --url https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.md
+```
+
+`pm parse --url` supports exactly these URL classes:
+
+- `https://github.com/<owner>/<repo>/issues/<number>`
+- `https://.../*.md` (including `raw.githubusercontent.com/.../*.md`)
+
+GitHub issue URLs require auth for private repos (or repos with restricted access). Set `PM_BOT_GITHUB_TOKEN` (preferred) or `GITHUB_TOKEN` with read access.
 
 ### Render canonical JSON back to Markdown
 
