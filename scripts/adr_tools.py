@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+import argparse, datetime as dt, glob, os, re, sys
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ADR_DIR = os.path.join(ROOT, "docs", "adr")
+INDEX = os.path.join(ADR_DIR, "INDEX.md")
+
+
+def slugify(s: str) -> str:
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", s.lower())).strip("-")
+
+
+def next_id() -> str:
+    os.makedirs(ADR_DIR, exist_ok=True)
+    ids = []
+    for p in glob.glob(os.path.join(ADR_DIR, "[0-9][0-9][0-9][0-9]-*.md")):
+        m = re.match(r".*([0-9]{4})-", os.path.basename(p))
+        if m:
+            ids.append(int(m.group(1)))
+    return f"{(max(ids) + 1 if ids else 1):04d}"
+
+
+def read_front_matter(path):
+    meta = {}
+    with open(path, "r", encoding="utf-8") as f:
+        s = f.read()
+    if s.startswith("---"):
+        parts = s.split("\n---", 1)
+        if len(parts) > 1:
+            fm = parts[0].lstrip("-\n")
+            for line in fm.splitlines():
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    meta[k.strip().lower()] = v.strip().strip('"').strip("'")
+    # fallback: first markdown H1 as title
+    if "title" not in meta:
+        m = re.search(r"^#\s+(.+)$", s, flags=re.M)
+        if m:
+            meta["title"] = m.group(1).strip()
+    return meta
+
+
+def cmd_new(args):
+    tid = next_id()
+    slug = slugify(args.title)
+    fname = os.path.join(ADR_DIR, f"{tid}-{slug}.md")
+    tmpl = {
+        "full": "_template-full.md",
+        "lite": "_template-lite.md",
+        "amend": "_template-amend.md",
+    }[args.type]
+    src = os.path.join(ADR_DIR, tmpl)
+    if not os.path.exists(src):
+        sys.exit(f"Template not found: {src}")
+    os.makedirs(ADR_DIR, exist_ok=True)
+    with open(src, "r", encoding="utf-8") as f:
+        s = f.read()
+    s = s.replace("<ADR-ID>", tid).replace("<DATE>", dt.date.today().isoformat())
+    with open(fname, "w", encoding="utf-8", newline="\n") as f:
+        f.write(s)
+    print(f"Created {os.path.relpath(fname, ROOT)}")
+
+
+def cmd_reindex(_args):
+    rows = []
+    for p in sorted(glob.glob(os.path.join(ADR_DIR, "[0-9][0-9][0-9][0-9]-*.md"))):
+        base = os.path.basename(p)
+        n = base.split("-", 1)[0]
+        meta = read_front_matter(p)
+        title = meta.get("title", base)
+        status = meta.get("status", "")
+        date = meta.get("date", "")
+        area = meta.get("area", "")
+        tags = meta.get("tags", "")
+        link = f"docs/adr/{base}"
+        rows.append((int(n), f"[ADR-{n}]({link})", title, status, date, area, tags))
+    lines = [
+        "# ADR Index",
+        "",
+        "| ADR | Title | Status | Date | Area | Tags |",
+        "|---:|---|---|---|---|---|",
+    ]
+    for _n, a, t, s, d, ar, tg in rows:
+        lines.append(f"| {a} | {t} | {s} | {d} | {ar} | {tg} |")
+    os.makedirs(ADR_DIR, exist_ok=True)
+    with open(INDEX, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"Updated {os.path.relpath(INDEX, ROOT)} with {len(rows)} ADRs")
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    pnew = sub.add_parser("new")
+    pnew.add_argument("title")
+    pnew.add_argument("--type", choices=["full", "lite", "amend"], default="full")
+    pnew.set_defaults(func=cmd_new)
+    sub.add_parser("reindex").set_defaults(func=cmd_reindex)
+    args = ap.parse_args()
+    args.func(args)
