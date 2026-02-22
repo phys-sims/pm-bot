@@ -61,7 +61,7 @@ Server APIs model write operations as changesets and apply approval gates and au
 - `pm_bot/server/` – orchestration app, DB layer, graph, estimator, reporting, and connector modules.
 - `tests/` – smoke, parser compatibility, server integration, and v2 behavior tests.
 - `vendor/dotgithub/` – vendored template/workflow snapshot used as stable parser input.
-- `docs/roadmaps/` – implementation roadmap phases (`v0` through `v3`).
+- `docs/roadmaps/` – implementation roadmaps (`v0`-`v2` complete history, near-term `v3`-`v5` execution stages, and separate long-horizon future roadmap).
 - `reports/` – generated reporting artifacts.
 
 ---
@@ -206,9 +206,18 @@ ruff format .
 - **v0**: CLI draft/parse/tree with deterministic parse/render + schema support.
 - **v1**: Approval-gated write orchestration, webhook ingestion, and context-pack APIs.
 - **v2**: Estimator snapshots/predictions, dependency graph/tree APIs, weekly reporting.
-- **v3**: SaaS hardening and org-scale controls (planned).
+- **N1 / v3 near-term**: post-v2 hardening, docs/contract alignment, operability.
+- **N2 / v4 platform**: single-tenant reliability and policy maturity.
+- **N3 / v5 org readiness**: tenant-aware prerequisites and onboarding/compliance prep.
+- **Future roadmap**: long-horizon SaaS shape (not default sequencing).
 
-Detailed phase planning lives in `docs/roadmaps/agent-roadmap-v*.md`.
+Default execution sequencing:
+- `docs/roadmaps/agent-roadmap-v3-near-term.md`
+- `docs/roadmaps/agent-roadmap-v4-platform.md`
+- `docs/roadmaps/agent-roadmap-v5-org-readiness.md`
+
+Long-horizon/non-executable-now planning:
+- `docs/roadmaps/future-roadmap.md`
 
 ---
 

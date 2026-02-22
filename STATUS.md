@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 05:29:12 UTC
+- Time (UTC): 06:12:05 UTC
 - By: @openai-codex
-- Scope: Removed `docs/spec/pm-agent-native-spec.md` to eliminate redundant navigator framing and consolidate doc authority in `docs/README.md` plus existing contracts/specs.
-- Scope: Updated root `README.md` doc start points to direct integrated behavior reads to `docs/spec/product.md`.
-- Scope: Replaced maintenance checklist reference to the removed navigator file with a cross-doc contradiction check across `docs/README.md`, `docs/spec/*.md`, and `docs/contracts/*.md`.
+- Scope: Reclassified former `agent-roadmap-v3.md` as `docs/roadmaps/future-roadmap.md` and added an explicit long-horizon/non-default sequencing banner.
+- Scope: Added new executable stage roadmaps for N1 (`agent-roadmap-v3-near-term.md`), N2 (`agent-roadmap-v4-platform.md`), and N3 (`agent-roadmap-v5-org-readiness.md`) with scope boundaries, KPIs, checks, and rollout/rollback guidance.
+- Scope: Added reusable roadmap generation prompt template plus per-stage prompt packages and updated docs navigation (`README.md`, `docs/README.md`, `docs/roadmaps/human-roadmap.md`, `docs/maintenance.md`) to default agents/humans to near-term sequencing.
 
 
 ---
@@ -96,7 +96,10 @@
 - [x] Meta reporting output generation (`pm_bot/server/reporting.py`, `reports/`)
 - [x] Safety incident tracking for denied writes (`changeset_denied` audit events)
 
-### v3 — SaaS hardening + org-scale controls
-- [ ] Multi-tenant architecture + billing not started
-- [ ] Advanced auth model not started
-- [ ] Enterprise operations not started
+### Active sequencing — N1/N2/N3
+- [ ] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
+- [ ] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
+- [ ] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
+
+### Future roadmap (long-horizon, non-default)
+- [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)

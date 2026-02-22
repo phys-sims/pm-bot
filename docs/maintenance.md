@@ -45,7 +45,7 @@ If you change behavior, you must update:
 - **Purpose:** design decisions (“why we did it this way”).
 - **Update on:** architecture changes, trade-off choices, long-lived decisions.
 
-### Roadmaps (`agent-roadmap-*.md`, `human-roadmap.md`)
+### Roadmaps (`agent-roadmap-*.md`, `future-roadmap.md`, `human-roadmap.md`)
 
 - **Purpose:** planning and sequencing.
 - **Update on:** priorities/timelines; not used as a contract.
