@@ -6,10 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 04:03:54 UTC
+- Time (UTC): 04:09:01 UTC
 - By: @openai-codex
-- Scope: Added explicit agent documentation intake rules and a trigger matrix in `AGENTS.md` for architecture, contract, spec, and GitHub integration changes.
-- Scope: Refreshed status metadata timestamp and removed stale scope bullets so status reflects the latest repository-level documentation policy change.
+- Scope: Fixed `scripts/adr_tools.py` lint failure by splitting imports and aligned ADR discovery/new-file naming with `ADR-0001-...` filenames.
+- Scope: Rebuilt `docs/adr/INDEX.md` from `python scripts/adr_tools.py reindex` so generated script output is the authoritative temporary index shape.
+- Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository health/documentation updates.
 
 ---
 
