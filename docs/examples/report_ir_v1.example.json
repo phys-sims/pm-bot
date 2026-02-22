@@ -1,0 +1,71 @@
+{
+  "schema_version": "report_ir/v1",
+  "report": {
+    "title": "pm-bot docs + contracts hardening",
+    "generated_at": "2026-02-22",
+    "scope": {
+      "org": "phys-sims",
+      "repos": [
+        "pm-bot"
+      ]
+    },
+    "source": {
+      "kind": "human",
+      "url": "N/A"
+    }
+  },
+  "epics": [
+    {
+      "stable_id": "epic:docs-hardening",
+      "title": "Docs hardening for deep research compliance",
+      "objective": "Add product spec + contracts + runbooks + ADRs",
+      "area": "pm-bot",
+      "priority": "P1",
+      "milestones": [
+        {
+          "title": "Docs merged",
+          "target_date": "2026-03-01"
+        }
+      ],
+      "risks": [
+        "Docs may drift without CI validation"
+      ],
+      "links": []
+    }
+  ],
+  "features": [
+    {
+      "stable_id": "feat:contracts-docs",
+      "epic_id": "epic:docs-hardening",
+      "title": "Contract-first documentation set",
+      "goal": "Define ReportIR/WorkGraph/Changesets/AgentRunSpec and examples",
+      "area": "pm-bot",
+      "priority": "P1",
+      "acceptance_criteria": [
+        "Docs added under docs/",
+        "Examples added under docs/examples/",
+        "Runbook passes in sandbox"
+      ],
+      "depends_on": []
+    }
+  ],
+  "tasks": [
+    {
+      "stable_id": "task:add-docs-readme",
+      "feature_id": "feat:contracts-docs",
+      "title": "Add docs/README.md + navigation",
+      "area": "pm-bot",
+      "priority": "P2"
+    },
+    {
+      "stable_id": "task:add-first-human-test-runbook",
+      "feature_id": "feat:contracts-docs",
+      "title": "Add first human test runbook",
+      "area": "pm-bot",
+      "priority": "P2",
+      "depends_on": [
+        "task:add-docs-readme"
+      ]
+    }
+  ]
+}

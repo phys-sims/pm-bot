@@ -1,0 +1,52 @@
+{
+  "schema_version": "workgraph/v1",
+  "nodes": [
+    {
+      "stable_id": "epic:docs-hardening",
+      "type": "epic",
+      "title": "Docs hardening for deep research compliance",
+      "area": "pm-bot",
+      "priority": "P1",
+      "github": {
+        "org": "phys-sims",
+        "repo": "pm-bot"
+      }
+    },
+    {
+      "stable_id": "feat:contracts-docs",
+      "type": "feature",
+      "title": "Contract-first documentation set",
+      "area": "pm-bot",
+      "priority": "P1",
+      "github": {
+        "org": "phys-sims",
+        "repo": "pm-bot"
+      }
+    },
+    {
+      "stable_id": "task:add-docs-readme",
+      "type": "task",
+      "title": "Add docs/README.md + navigation",
+      "area": "pm-bot",
+      "priority": "P2",
+      "github": {
+        "org": "phys-sims",
+        "repo": "pm-bot"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from_id": "epic:docs-hardening",
+      "to_id": "feat:contracts-docs",
+      "edge_type": "parent_child",
+      "provenance": "report_ir"
+    },
+    {
+      "from_id": "feat:contracts-docs",
+      "to_id": "task:add-docs-readme",
+      "edge_type": "parent_child",
+      "provenance": "report_ir"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "bundle_id": "bundle_2026-02-22_0001",
+  "source": {
+    "kind": "report_ir",
+    "ref": "epic:docs-hardening"
+  },
+  "status": "proposed",
+  "changesets": [
+    {
+      "changeset_id": "cs_0001",
+      "idempotency_key": "create_issue:phys-sims/pm-bot:feat:contracts-docs",
+      "operation": "create_issue",
+      "target": {
+        "org": "phys-sims",
+        "repo": "pm-bot"
+      },
+      "payload": {
+        "type": "feature",
+        "title": "[feat] Contract-first documentation set",
+        "body_markdown": "### Goal\\nDefine core contracts and examples.\\n\\n### Area\\npm-bot\\n\\n### Priority\\nP1\\n",
+        "labels": [
+          "type:feature",
+          "area:pm-bot",
+          "prio:P1"
+        ]
+      },
+      "requires_approval": true,
+      "status": "proposed"
+    },
+    {
+      "changeset_id": "cs_0002",
+      "idempotency_key": "set_parent:phys-sims/pm-bot:feat:contracts-docs->epic:docs-hardening",
+      "operation": "set_parent",
+      "target": {
+        "org": "phys-sims",
+        "repo": "pm-bot"
+      },
+      "payload": {
+        "child_stable_id": "feat:contracts-docs",
+        "parent_stable_id": "epic:docs-hardening"
+      },
+      "requires_approval": true,
+      "status": "proposed"
+    }
+  ]
+}

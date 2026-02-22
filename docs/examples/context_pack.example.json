@@ -1,0 +1,48 @@
+{
+  "schema_version": "context_pack/v1",
+  "pack_id": "cp_2026-02-22_0001",
+  "generated_at": "2026-02-22T01:20:00Z",
+  "profile": "drafting",
+  "root": {
+    "work_item_id": "feat:contracts-docs"
+  },
+  "inputs": [
+    "feat:contracts-docs",
+    "docs/contracts/changesets.md",
+    "docs/adr/INDEX.md"
+  ],
+  "budget": {
+    "max_chars": 15000,
+    "strategy": "truncate_tail"
+  },
+  "hash": "sha256:example",
+  "sections": [
+    {
+      "kind": "instructions",
+      "title": "Agent instructions (drafting)",
+      "source": {
+        "kind": "builtin"
+      },
+      "provenance": "profile",
+      "content": "Draft template-compliant markdown sections. Do not perform writes. Propose changes as a ChangesetBundle."
+    },
+    {
+      "kind": "work_item_json",
+      "title": "Work item (canonical)",
+      "source": {
+        "stable_id": "feat:contracts-docs"
+      },
+      "provenance": "root",
+      "content": "{...}"
+    },
+    {
+      "kind": "adr_excerpt",
+      "title": "ADR-0001 excerpt",
+      "source": {
+        "path": "docs/adr/ADR-0001-approval-gated-writes.md"
+      },
+      "provenance": "adr_ref",
+      "content": "# Approval-gated writes via ChangesetBundle\\n..."
+    }
+  ]
+}
