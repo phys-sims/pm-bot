@@ -6,9 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
+- Time (UTC): 00:10:02 UTC
 - By: @openai-codex
-- Scope: Added explicit date-integrity guidance requiring runtime date/time commands for `STATUS.md` updates.
-- Scope: Added roadmap release-language checklist section to keep release communication consistent and auditable.
+- Scope: Replaced release-language writing guidance with a version-split roadmap deliverables snapshot for at-a-glance progress tracking.
+- Scope: Kept status metadata aligned to runtime-generated date/time values for auditability.
 
 ---
 
@@ -73,16 +74,29 @@
 ---
 
 
-## Roadmap release-language checklist
+## Roadmap deliverables status (by version)
 
-Use this checklist when updating roadmap/release notes so language stays consistent and testable.
+At-a-glance snapshot mapped to `docs/roadmaps/agent-roadmap-v0.md` through `v3`.
 
-- [ ] Explicitly state release phase using one of: `planned`, `in progress`, `blocked`, `ready`, `released`.
-- [ ] Tie each release claim to concrete artifacts (PRs, docs, tests, schemas, or workflows).
-- [ ] Avoid ambiguous wording like "almost done"; replace with measurable criteria or checklist status.
-- [ ] Include compatibility impact statements when changing headings/labels parsed by automation.
-- [ ] Include validation evidence (tests/check commands) for any "ready" or "released" claim.
-- [ ] Remove superseded release-status bullets so stale roadmap statements do not persist.
+### v0 — Draft + Validate + CLI
+- [x] Repo/package skeleton + CLI entrypoint (`pm_bot/cli.py`, `pyproject.toml`)
+- [x] Deterministic body parsing + rendering modules (`pm_bot/github/parse_issue_body.py`, `pm_bot/github/render_issue_body.py`)
+- [x] Template loading and schema artifacts (`pm_bot/github/template_loader.py`, `pm_bot/schema/*.json`)
+- [x] Basic smoke coverage (`tests/test_smoke.py`)
+
+### v1 — Safe write orchestrator + context packs
+- [x] Server app + API surface (`pm_bot/server/app.py`)
+- [x] GitHub connector and DB/context-pack plumbing (`pm_bot/server/github_connector.py`, `pm_bot/server/db.py`, `pm_bot/server/context_pack.py`)
+- [x] Server behavior tests (`tests/test_v1_server.py`)
+- [ ] Approval-gated write UX/workflow completeness tracked to roadmap acceptance criteria
+
+### v2 — Tree/graph UI + estimator + meta reports
+- [ ] Tree/graph UI implementation
+- [ ] Estimator v1 implementation
+- [ ] Meta reporting engine/scheduler deliverables
+
+### v3 — SaaS shape
+- [ ] Multi-tenant/policy/SaaS architecture deliverables (planned later)
 
 ---
 
