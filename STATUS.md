@@ -6,10 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 06:19:57 UTC
+- Time (UTC): 06:26:33 UTC
 - By: @openai-codex
-- Scope: Added unified v1→v4 execution checklist (`docs/ROADMAP_V4_CHECKLIST.md`) and implementation log (`docs/IMPLEMENTATION_LOG.md`) to track slice-level progress, PR links, and blockers.
-- Scope: Implemented deterministic policy deny reason codes (`repo_not_allowlisted`, `operation_denylisted`) in changeset guardrails and audit events, with regression coverage and contract/spec updates.
+- Scope: Completed v4 reliability execution slice with idempotency-keyed changeset proposals, bounded retries, dead-letter reporting, and aggregated operation metrics with run-id correlation.
+- Scope: Added targeted reliability tests for idempotent reuse, retry success/failure paths, dead-letter events, and run-id propagation across webhook/reporting flows.
+- Scope: Updated roadmap/checklist/log/runbooks/spec/contracts so v4 roadmap items are marked complete with operational drill guidance.
 
 
 ---
@@ -18,7 +19,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0 parse/render and v1/v2 server behavior, including policy reason-code denials. |
+| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior including idempotency, retry/dead-letter reliability, and run-id observability correlation. |
 | Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
@@ -102,3 +103,13 @@
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
+
+
+## v4 ship readiness snapshot
+- Done: Policy reason normalization, idempotency-key reuse, bounded retry/dead-letter handling, operation metrics aggregation, and run-id correlation across changesets/webhooks/reports.
+- Remaining: N3 / v5 org-readiness stage only; v4 stage scope is complete.
+- End-to-end demo (local):
+  1) `pytest -q`
+  2) Propose + approve a normal changeset (`create_issue`) and verify `changeset_applied`.
+  3) Propose + approve with `_transient_failures` to validate retries and dead-letter path.
+  4) Ingest a webhook and generate a report with shared `run_id`; verify correlated audit events.

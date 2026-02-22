@@ -211,3 +211,30 @@ Once this runbook passes:
   - cycles in parent/child edges
   - parser missing link formats
 
+
+
+## Step 7 — Reliability incident drills (v4)
+
+Use these drills to validate retry/idempotency/observability behavior before shipping.
+
+### Drill A: Retry storm containment
+1. Propose a changeset whose payload includes `_transient_failures: 9`.
+2. Approve the changeset.
+3. Confirm behavior:
+   - changeset transitions to failed after bounded retries.
+   - `changeset_dead_lettered` audit event is emitted with `reason_code=retry_budget_exhausted`.
+   - metrics include `changeset_write` with `retryable_failure` outcome.
+
+### Drill B: Webhook drift correlation
+1. Call webhook ingest with explicit `run_id`.
+2. Generate a weekly report with the same `run_id`.
+3. Confirm both `webhook_received` and `report_generated` audit events carry that `run_id` for cross-signal triage.
+
+### Drill C: Policy denial spikes
+1. Propose writes to an unallowlisted repo and a denylisted operation.
+2. Confirm each emits `changeset_denied` with deterministic reason codes.
+3. If denial rate spikes, triage in this order:
+   - repo allowlist config drift
+   - unexpected operation type introduction
+   - attempted writes outside approved scope
+

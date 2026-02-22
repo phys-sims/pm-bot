@@ -213,6 +213,27 @@ Current reason codes:
 
 This enables deterministic policy reporting and v4 reliability checks.
 
+
+### Retry and dead-letter semantics
+
+Retry-eligible write execution MUST use bounded retries.
+
+Current deterministic policy:
+- Max retries: 2 (for 3 total attempts including first try).
+- Retryable error class: transient connector/runtime failures.
+- On exhaustion: set changeset status to `failed` and emit `changeset_dead_lettered` with `reason_code=retry_budget_exhausted`.
+
+### Observability and correlation
+
+Write execution attempts MUST emit structured `changeset_attempt` audit events including:
+- `changeset_id`
+- `attempt`
+- `result` (`success` or `retryable_failure`)
+- `latency_ms`
+- `run_id` (when provided)
+
+Operational metrics MUST aggregate by operation family + outcome (for example `changeset_write/success`, `changeset_write/retryable_failure`).
+
 ## Audit requirements
 
 pm-bot MUST record:

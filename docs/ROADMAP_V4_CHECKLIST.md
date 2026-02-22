@@ -19,14 +19,14 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`.
 | 11 | v3 | Docs authority pass + active stage defaults | agent | ◐ in progress | (this PR) | continue hardening and link validation |
 | 12 | v3 | ADR index/path hygiene and contradiction cleanup | agent | ◐ in progress | (this PR) | complete contradiction-check workflow |
 | 13 | v3 | Operability gates reflected in STATUS + docs | agent | ◐ in progress | (this PR) | continue with CI/report hygiene checks |
-| 14 | v4 | Policy decision normalization with reason codes | agent | ◐ in progress | (this PR) | extend matrix coverage + spec wording |
-| 15 | v4 | Queue/retry/idempotency hardening | agent | ☐ pending | — | design + implementation not started |
-| 16 | v4 | Observability/SLO instrumentation and correlation IDs | agent | ☐ pending | — | metrics/tracing surface not implemented |
-| 17 | v4 | Runbook completion for incident classes | agent | ☐ pending | — | runbook expansion not started |
+| 14 | v4 | Policy decision normalization with reason codes | agent | ☑ done | (this PR) | none |
+| 15 | v4 | Queue/retry/idempotency hardening | agent | ☑ done | (this PR) | none |
+| 16 | v4 | Observability/SLO instrumentation and correlation IDs | agent | ☑ done | (this PR) | none |
+| 17 | v4 | Runbook completion for incident classes | agent | ☑ done | (this PR) | none |
 
 ## Top remaining work (highest leverage)
-1. Finish v4 policy normalization (reason-code matrix and docs/spec linkage).
-2. Add idempotency keys + bounded retry behavior for writes.
-3. Add reliability tests for retry and partial-failure convergence.
-4. Add observability counters/traces tied to run/changeset IDs.
-5. Complete runbooks for retry storms, webhook drift, and denial spikes.
+1. Begin N3 / v5 org readiness sequencing once human sign-off confirms v4 acceptance.
+2. Expand reliability metrics export to dashboard/report rollups.
+3. Add production-grade backoff jitter controls when moving beyond in-memory connector.
+4. Add webhook drift auto-remediation tooling from runbook actions.
+5. Capture human validation evidence for v4 runbook scenarios.

@@ -19,3 +19,26 @@
 
 ### PRs
 - (this PR)
+
+## 2026-02-22 (slice: v4 reliability completion pass)
+- Implemented idempotency-keyed changeset proposals to reuse existing proposals for identical write intent.
+- Added bounded retry execution for approved changesets with deterministic dead-lettering when retry budget is exhausted.
+- Added operation metrics + audit attempt events with latency and run-id correlation for observability.
+- Extended app surface with run_id propagation across changesets, webhook ingestion, and report generation.
+- Added reliability tests covering idempotency reuse, retry success/failure paths, dead-letter reporting, and run-id correlation.
+- Marked all v4 checklist items complete and documented follow-on work as post-v4 improvements.
+
+### What worked
+- In-memory connector failure injection (`_transient_failures`) enabled deterministic retry testing without external dependencies.
+
+### What didn’t
+- Metrics are persisted as aggregate counters only; no histogram quantiles yet.
+
+### Strategy changes
+- Shifted from single-behavior updates to end-to-end reliability wiring (policy → retries → metrics → runbooks) in one cohesive slice.
+
+### Next slice
+- Start N3 org-readiness work after human validation of v4 runbook procedures.
+
+### PRs
+- (this PR)

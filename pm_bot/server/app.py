@@ -44,17 +44,27 @@ class ServerApp:
         self.db.add_relationship(parent_ref=parent_ref, child_ref=child_ref)
 
     def propose_changeset(
-        self, operation: str, repo: str, payload: dict[str, Any], target_ref: str = ""
+        self,
+        operation: str,
+        repo: str,
+        payload: dict[str, Any],
+        target_ref: str = "",
+        idempotency_key: str = "",
+        run_id: str = "",
     ) -> dict[str, Any]:
         return self.changesets.propose(
             operation=operation,
             repo=repo,
             payload=payload,
             target_ref=target_ref,
+            idempotency_key=idempotency_key,
+            run_id=run_id,
         )
 
-    def approve_changeset(self, changeset_id: int, approved_by: str) -> dict[str, Any]:
-        return self.changesets.approve(changeset_id, approved_by)
+    def approve_changeset(
+        self, changeset_id: int, approved_by: str, run_id: str = ""
+    ) -> dict[str, Any]:
+        return self.changesets.approve(changeset_id, approved_by, run_id=run_id)
 
     def get_work_item(self, issue_ref: str) -> dict[str, Any] | None:
         return self.db.get_work_item(issue_ref)
@@ -72,10 +82,12 @@ class ServerApp:
     def list_issues(self, repo: str, **filters: str) -> list[dict[str, Any]]:
         return self.connector.list_issues(repo=repo, **filters)
 
-    def ingest_webhook(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def ingest_webhook(
+        self, event_type: str, payload: dict[str, Any], run_id: str = ""
+    ) -> dict[str, Any]:
         self.db.append_audit_event(
             "webhook_received",
-            {"event_type": event_type, "payload": payload},
+            {"event_type": event_type, "payload": payload, "run_id": run_id},
         )
         if event_type != "issues":
             return {"status": "ignored"}
@@ -118,9 +130,18 @@ class ServerApp:
     def graph_deps(self, area: str = "") -> dict[str, list[dict[str, Any]]]:
         return self.graph.dependencies(area=area)
 
-    def generate_weekly_report(self, report_name: str = "weekly.md") -> dict[str, str]:
+    def generate_weekly_report(
+        self, report_name: str = "weekly.md", run_id: str = ""
+    ) -> dict[str, str]:
         path = self.reporting.generate_weekly_report(report_name=report_name)
+        self.db.append_audit_event(
+            "report_generated",
+            {"report_name": report_name, "report_path": str(path), "run_id": run_id},
+        )
         return {"status": "generated", "report_path": str(path)}
+
+    def observability_metrics(self) -> list[dict[str, Any]]:
+        return self.db.list_operation_metrics()
 
 
 def create_app(db_path: str | Path = ":memory:") -> ServerApp:

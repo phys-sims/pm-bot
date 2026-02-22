@@ -83,6 +83,7 @@ Given the same input plan, repeated runs MUST converge:
 - they MUST NOT create duplicate issues
 - they MUST NOT create duplicate edges or duplicate project-item mutations
 - they MUST be safe to “retry” after a partial failure
+- bounded retries with dead-letter outcomes must be deterministic and auditable
 
 ### P3 — Safety gates are non-bypassable
 
