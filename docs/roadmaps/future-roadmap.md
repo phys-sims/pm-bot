@@ -1,5 +1,10 @@
-# Agent Roadmap v3 — SaaS Shape (Implement Later)
+# Future Roadmap — Long-horizon SaaS Shape (Non-Executable Now)
 _Date: 2026-02-21_
+
+> [!WARNING]
+> **Long-horizon / non-executable now.**
+> **Not the default roadmap for current implementation sequencing.**
+> Use `docs/roadmaps/agent-roadmap-v3-near-term.md` (and successive near-term stages) for active execution planning.
 
 ## Mission (shape only)
 Turn the personal tool into a product without rewriting core logic.

@@ -1,4 +1,4 @@
-# PM Bot / Agent-native Work Orchestrator — Human Roadmap (v0→v3)
+# PM Bot / Agent-native Work Orchestrator — Human Roadmap (v0→future)
 _Date: 2026-02-21_
 
 You already have the hard part: a **structured PM framework** encoded as GitHub issue forms and a **Projects field sync** workflow.
@@ -13,7 +13,8 @@ This roadmap is written for **you (human)** and tells you what to do vs what you
 - **v0 (today/this week):** Start using it immediately: codex drafts issues in *your existing templates*, plus a local CLI to parse/render issues deterministically.
 - **v1:** “Safe write” orchestration: propose→approve→publish, context packs, and an audit trail.
 - **v2:** Tree UI (graph view) + estimation baseline (P50/P80) + meta reports on agent usage quality.
-- **v3 (later):** SaaS shape: multi-tenant, policy engine, vector retrieval, advanced estimator.
+- **N1/N2/N3 (next):** near-term execution across v3 near-term hardening, v4 platform reliability, and v5 org-readiness prerequisites.
+- **Future (later):** SaaS shape: multi-tenant, policy engine, vector retrieval, advanced estimator.
 
 ---
 
@@ -194,5 +195,6 @@ Make Codex output:
 ---
 
 ## Downloads
-- Agent Roadmap v0 / v1 / v2 / v3 (give these to Codex agents)
+- Agent Roadmap v0 / v1 / v2 + near-term stage roadmaps (`agent-roadmap-v3-near-term.md`, `agent-roadmap-v4-platform.md`, `agent-roadmap-v5-org-readiness.md`) for current execution
+- Future roadmap (`future-roadmap.md`) for long-horizon planning only
 - Human Roadmap (this file)
