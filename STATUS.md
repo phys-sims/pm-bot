@@ -6,10 +6,12 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 04:14:03 UTC
+- Time (UTC): 05:29:12 UTC
 - By: @openai-codex
-- Scope: Normalized AGENTS ADR-index references to `docs/adr/INDEX.md` and removed obsolete lowercase `docs/adr/index.md` mentions.
-- Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository documentation consistency updates.
+- Scope: Removed `docs/spec/pm-agent-native-spec.md` to eliminate redundant navigator framing and consolidate doc authority in `docs/README.md` plus existing contracts/specs.
+- Scope: Updated root `README.md` doc start points to direct integrated behavior reads to `docs/spec/product.md`.
+- Scope: Replaced maintenance checklist reference to the removed navigator file with a cross-doc contradiction check across `docs/README.md`, `docs/spec/*.md`, and `docs/contracts/*.md`.
+
 
 ---
 

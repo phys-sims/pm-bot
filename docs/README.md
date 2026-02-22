@@ -38,23 +38,26 @@ Minimum reading order:
 3. `docs/github/projects-field-sync.md` (constraints you must not break)
 4. `docs/adr/INDEX.md` (design decisions; read only what’s relevant)
 
-## Canonical sources and “stacking order”
+## Authority and intent
 
-pm-bot has multiple kinds of documents. They are not equal.
+pm-bot documentation follows a strict precedence model. If documents conflict, higher-precedence sources win.
 
-**In descending order of “source of truth”:**
-
-1. **Canonical inputs** that pm-bot must be compatible with:
+1. **Canonical inputs** (`vendor/dotgithub/...`)
    - `vendor/dotgithub/ISSUE_TEMPLATE/*.yml`
+   - `vendor/dotgithub/issue-templates-guide.md`
    - `vendor/dotgithub/project-field-sync.yml`
-2. **Machine-readable contracts** (schemas / examples):
+2. **Machine-readable contracts/schemas** (`pm_bot/schema/...`, `docs/contracts/...`)
    - `pm_bot/schema/work_item.schema.json`
-   - `docs/examples/*.json`
-3. **This documentation** (`docs/`) — explains the above and prescribes how to extend safely.
-4. **STATUS.md** — current repo state, health, and compatibility notes; update on every behavior change.
-5. **Roadmaps** (`agent-roadmap-v*.md`, `human-roadmap.md`) — planning docs; useful context, not a contract.
+   - all contract docs under `docs/contracts/`
+3. **Behavioral specs** (`docs/spec/...`)
+   - product and subsystem behavior definitions
+4. **ADR decisions** (`docs/adr/INDEX.md` + tagged ADRs)
+   - architecture and policy rationale that governs interpretation
+5. **Status snapshot** (`STATUS.md`)
+   - current repo health + compatibility snapshot aligned to higher sources
+6. **Roadmaps** (`docs/roadmaps/...`) — planning only, never normative
 
-If a roadmap disagrees with a contract or canonical input, **the contract/canonical input wins**.
+Roadmaps MUST NOT override canonical inputs, contracts/schemas, or specs.
 
 ## Quick links
 
@@ -86,4 +89,3 @@ If a roadmap disagrees with a contract or canonical input, **the contract/canoni
   - **SHOULD / SHOULD NOT** for strong recommendations
   - **MAY** for optional behavior
 - Prefer linking to the canonical file (schema/workflow/template) rather than copying it.
-

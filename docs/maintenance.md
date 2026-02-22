@@ -109,6 +109,7 @@ Before merging, ask:
 
 - Did we update `STATUS.md` scope bullets?
 - Did we update the relevant contract doc(s)?
+- If contracts/specs changed, did we verify no contradictory statements remain between `docs/README.md`, `docs/spec/*.md`, and `docs/contracts/*.md`?
 - Did we update example JSON and validation tests?
 - Did we preserve Projects sync invariants?
 - If this is a design change, did we add/supersede an ADR?
