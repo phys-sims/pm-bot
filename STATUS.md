@@ -6,10 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 00:54:11 UTC
+- Time (UTC): 04:14:03 UTC
 - By: @openai-codex
-- Scope: Rewrote README into a detailed usage guide covering architecture, setup, CLI/server workflows, compatibility expectations, and contribution practices.
-- Scope: Refreshed status metadata timestamp and replaced stale scope bullets with current change scope.
+- Scope: Normalized AGENTS ADR-index references to `docs/adr/INDEX.md` and removed obsolete lowercase `docs/adr/index.md` mentions.
+- Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository documentation consistency updates.
 
 ---
 
