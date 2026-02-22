@@ -6,6 +6,14 @@ It is designed for deterministic automation: parse issue content into machine-fr
 
 ---
 
+## Doc start points
+
+- `STATUS.md` for current repository state, compatibility notes, and health snapshot.
+- `docs/README.md` for the authoritative documentation hierarchy and precedence model.
+- `docs/spec/pm-agent-native-spec.md` for an integrated navigator overview across contracts/specs/GitHub behavior.
+
+---
+
 ## What this repository is for
 
 This repository provides:
