@@ -1,3 +1,4 @@
+from pathlib import Path
 from pm_bot.cli import _primary_context_heading
 from pm_bot.github.body_parser import parse_child_refs, parse_headings
 from pm_bot.github.parse_issue_body import parse_issue_body
@@ -53,3 +54,26 @@ def test_primary_context_heading_prefers_first_non_project_heading():
 
 def test_primary_context_heading_skips_child_headings_for_epic():
     assert _primary_context_heading("epic") == "Objective (North Star)"
+
+
+def test_parse_cli_rejects_both_file_and_url():
+    from typer.testing import CliRunner
+
+    from pm_bot.cli import app
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        Path("issue.md").write_text("### Goal\nTest\n")
+        result = runner.invoke(
+            app,
+            [
+                "parse",
+                "--file",
+                "issue.md",
+                "--url",
+                "https://example.com",
+                "--type",
+                "feature",
+            ],
+        )
+        assert result.exit_code != 0

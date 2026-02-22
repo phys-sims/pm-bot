@@ -21,6 +21,10 @@ class ChangesetService:
         target_ref: str = "",
     ) -> dict[str, Any]:
         if not self.connector.can_write(repo, operation):
+            self.db.append_audit_event(
+                "changeset_denied",
+                {"repo": repo, "operation": operation},
+            )
             raise PermissionError("Changeset rejected by guardrails")
 
         changeset_id = self.db.create_changeset(

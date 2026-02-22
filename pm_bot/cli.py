@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import requests
 import typer
 
 from pm_bot.github.body_parser import parse_child_refs
@@ -84,14 +85,23 @@ def draft(
 @app.command()
 def parse(
     file: Path = typer.Option(None, "--file"),
+    url: str = typer.Option("", "--url"),
     issue_type: str = typer.Option(..., "--type"),
     title: str = typer.Option("", "--title"),
     validate: bool = typer.Option(False, "--validate"),
 ) -> None:
-    """Parse an issue markdown file into canonical JSON."""
-    if file is None:
-        raise typer.BadParameter("--file is required in v0")
-    markdown = file.read_text()
+    """Parse an issue markdown file or URL into canonical JSON."""
+    if file is None and not url:
+        raise typer.BadParameter("Either --file or --url is required")
+    if file is not None and url:
+        raise typer.BadParameter("Use only one of --file or --url")
+
+    if file is not None:
+        markdown = file.read_text()
+    else:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        markdown = response.text
     parsed = parse_issue_body(markdown, item_type=issue_type, title=title)
     typer.echo(json.dumps(parsed, indent=2))
     if validate and parsed.get("validation_errors"):
