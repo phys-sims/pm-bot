@@ -20,12 +20,17 @@ class ChangesetService:
         payload: dict[str, Any],
         target_ref: str = "",
     ) -> dict[str, Any]:
-        if not self.connector.can_write(repo, operation):
+        decision = self.connector.evaluate_write(repo=repo, operation=operation)
+        if not decision.allowed:
             self.db.append_audit_event(
                 "changeset_denied",
-                {"repo": repo, "operation": operation},
+                {
+                    "repo": repo,
+                    "operation": operation,
+                    "reason_code": decision.reason_code,
+                },
             )
-            raise PermissionError("Changeset rejected by guardrails")
+            raise PermissionError(f"Changeset rejected by guardrails: {decision.reason_code}")
 
         changeset_id = self.db.create_changeset(
             operation=operation,

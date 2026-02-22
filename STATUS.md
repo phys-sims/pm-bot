@@ -6,11 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 06:12:05 UTC
+- Time (UTC): 06:19:57 UTC
 - By: @openai-codex
-- Scope: Reclassified former `agent-roadmap-v3.md` as `docs/roadmaps/future-roadmap.md` and added an explicit long-horizon/non-default sequencing banner.
-- Scope: Added new executable stage roadmaps for N1 (`agent-roadmap-v3-near-term.md`), N2 (`agent-roadmap-v4-platform.md`), and N3 (`agent-roadmap-v5-org-readiness.md`) with scope boundaries, KPIs, checks, and rollout/rollback guidance.
-- Scope: Added reusable roadmap generation prompt template plus per-stage prompt packages and updated docs navigation (`README.md`, `docs/README.md`, `docs/roadmaps/human-roadmap.md`, `docs/maintenance.md`) to default agents/humans to near-term sequencing.
+- Scope: Added unified v1→v4 execution checklist (`docs/ROADMAP_V4_CHECKLIST.md`) and implementation log (`docs/IMPLEMENTATION_LOG.md`) to track slice-level progress, PR links, and blockers.
+- Scope: Implemented deterministic policy deny reason codes (`repo_not_allowlisted`, `operation_denylisted`) in changeset guardrails and audit events, with regression coverage and contract/spec updates.
 
 
 ---
@@ -19,7 +18,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0 parse/render and v1/v2 server behavior. |
+| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0 parse/render and v1/v2 server behavior, including policy reason-code denials. |
 | Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
@@ -97,8 +96,8 @@
 - [x] Safety incident tracking for denied writes (`changeset_denied` audit events)
 
 ### Active sequencing — N1/N2/N3
-- [ ] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
-- [ ] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
+- [x] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
+- [x] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [ ] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 
 ### Future roadmap (long-horizon, non-default)

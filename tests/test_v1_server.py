@@ -21,12 +21,31 @@ def test_changesets_require_approval_before_write():
 def test_changeset_repo_guardrail_enforced():
     app = create_app()
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(PermissionError, match="repo_not_allowlisted"):
         app.propose_changeset(
             operation="update_issue",
             repo="untrusted/repo",
             payload={"title": "Nope"},
         )
+
+    denied_events = app.db.list_audit_events("changeset_denied")
+    assert denied_events
+    assert denied_events[0]["payload"]["reason_code"] == "repo_not_allowlisted"
+
+
+def test_changeset_operation_denylist_reason_code():
+    app = create_app()
+
+    with pytest.raises(PermissionError, match="operation_denylisted"):
+        app.propose_changeset(
+            operation="delete_issue",
+            repo="phys-sims/phys-pipeline",
+            payload={"issue_ref": "#10"},
+        )
+
+    denied_events = app.db.list_audit_events("changeset_denied")
+    assert denied_events
+    assert denied_events[0]["payload"]["reason_code"] == "operation_denylisted"
 
 
 def test_context_pack_returns_hash():

@@ -55,6 +55,7 @@ pm-bot MUST:
 - not run LLM-powered agents without a recorded human approval
 - not write issues, PRs, or Projects fields without a recorded human approval
 - keep privileged GitHub operations separate from agent execution surfaces
+- emit machine-readable policy reason codes for every denied write
 
 ## Non-goals
 

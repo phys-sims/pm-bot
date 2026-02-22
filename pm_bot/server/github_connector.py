@@ -17,6 +17,12 @@ class WriteRequest:
     payload: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class PolicyDecision:
+    allowed: bool
+    reason_code: str
+
+
 class GitHubConnector:
     """In-memory connector used for deterministic v1 workflow tests."""
 
@@ -25,16 +31,20 @@ class GitHubConnector:
         self.executed_writes: list[WriteRequest] = []
         self.issues: dict[tuple[str, str], dict[str, Any]] = {}
 
-    def can_write(self, repo: str, operation: str) -> bool:
+    def evaluate_write(self, repo: str, operation: str) -> PolicyDecision:
         if self.allowed_repos and repo not in self.allowed_repos:
-            return False
+            return PolicyDecision(allowed=False, reason_code="repo_not_allowlisted")
         if operation in DENIED_OPERATIONS:
-            return False
-        return True
+            return PolicyDecision(allowed=False, reason_code="operation_denylisted")
+        return PolicyDecision(allowed=True, reason_code="allowed")
+
+    def can_write(self, repo: str, operation: str) -> bool:
+        return self.evaluate_write(repo=repo, operation=operation).allowed
 
     def execute_write(self, request: WriteRequest) -> dict[str, Any]:
-        if not self.can_write(request.repo, request.operation):
-            raise PermissionError("Write denied by guardrails")
+        decision = self.evaluate_write(repo=request.repo, operation=request.operation)
+        if not decision.allowed:
+            raise PermissionError(f"Write denied by guardrails: {decision.reason_code}")
 
         self.executed_writes.append(request)
         if request.operation == "create_issue":

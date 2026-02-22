@@ -202,6 +202,17 @@ pm-bot SHOULD bound concurrency:
 - to avoid GitHub secondary rate limits
 - to keep operations reviewable
 
+
+### Policy decision reason codes
+
+Guardrail denials MUST include a machine-readable `reason_code` in audit payloads for `changeset_denied` events.
+
+Current reason codes:
+- `repo_not_allowlisted`: target repository is outside configured write allowlist.
+- `operation_denylisted`: operation is explicitly blocked by policy.
+
+This enables deterministic policy reporting and v4 reliability checks.
+
 ## Audit requirements
 
 pm-bot MUST record:
