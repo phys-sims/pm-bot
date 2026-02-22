@@ -41,6 +41,8 @@ def read_front_matter(path):
     meta = {}
     with open(path, "r", encoding="utf-8") as f:
         s = f.read()
+
+    # YAML front matter support (if present)
     if s.startswith("---"):
         parts = s.split("\n---", 1)
         if len(parts) > 1:
@@ -49,6 +51,13 @@ def read_front_matter(path):
                 if ":" in line:
                     k, v = line.split(":", 1)
                     meta[k.strip().lower()] = v.strip().strip('"').strip("'")
+
+    # Markdown ADR metadata support (current ADR format)
+    # Example: - **Tags:** safety, approvals
+    md_meta = re.findall(r"^\s*-\s*\*\*([^*]+?)\s*:?\*\*\s*:?[ \t]*(.+?)\s*$", s, flags=re.M)
+    for k, v in md_meta:
+        meta[k.strip().lower()] = v.strip().strip('"').strip("'")
+
     # fallback: first markdown H1 as title
     if "title" not in meta:
         m = re.search(r"^#\s+(.+)$", s, flags=re.M)

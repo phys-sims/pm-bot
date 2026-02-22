@@ -6,10 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 04:09:01 UTC
+- Time (UTC): 04:12:03 UTC
 - By: @openai-codex
-- Scope: Fixed `scripts/adr_tools.py` lint failure by splitting imports and aligned ADR discovery/new-file naming with `ADR-0001-...` filenames.
-- Scope: Rebuilt `docs/adr/INDEX.md` from `python scripts/adr_tools.py reindex` so generated script output is the authoritative temporary index shape.
+- Scope: Fixed `scripts/adr_tools.py` metadata parsing so `reindex` reads markdown ADR header fields (`Status`, `Date`, `Tags`, `Area`) and populates ADR index columns.
+- Scope: Regenerated `docs/adr/INDEX.md` from script output so tags and related metadata render correctly in the generated table.
 - Scope: Refreshed status metadata timestamp and removed stale scope bullets to reflect current repository health/documentation updates.
 
 ---

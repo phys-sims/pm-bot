@@ -4,9 +4,9 @@
 
 | ADR | Status | Date | Tags | Title | Area |
 | --- | --- | --- | --- | --- | --- |
-| [ADR-0001](ADR-0001-approval-gated-writes.md) |  |  |  | Approval-gated writes via ChangesetBundle |  |
-| [ADR-0002](ADR-0002-contract-first-schemas.md) |  |  |  | Contract-first core objects: ReportIR, WorkGraph, Changesets, AgentRunSpec |  |
-| [ADR-0003](ADR-0003-project-fields-contract.md) |  |  |  | Preserve Projects field sync via heading-value contract |  |
-| [ADR-0004](ADR-0004-tree-edge-priority.md) |  |  |  | Hierarchy derivation uses sub-issues first, then dependencies, then checklists |  |
-| [ADR-0005](ADR-0005-github-auth-strategy.md) |  |  |  | Prefer GitHub App or PAT over Actions GITHUB_TOKEN for write operations |  |
-| [ADR-0006](ADR-0006-local-first-architecture.md) |  |  |  | Local-first core with optional always-on service |  |
+| [ADR-0001](ADR-0001-approval-gated-writes.md) | Proposed | 2026-02-22 | safety, approvals, changesets, audit, github | Approval-gated writes via ChangesetBundle | server |
+| [ADR-0002](ADR-0002-contract-first-schemas.md) | Proposed | 2026-02-22 | contracts, idempotency, safety, schemas, docs | Contract-first core objects: ReportIR, WorkGraph, Changesets, AgentRunSpec | contracts |
+| [ADR-0003](ADR-0003-project-fields-contract.md) | Proposed | 2026-02-22 | github, projects, templates, compatibility, safety | Preserve Projects field sync via heading-value contract | github |
+| [ADR-0004](ADR-0004-tree-edge-priority.md) | Proposed | 2026-02-22 | tree, github, provenance, safety | Hierarchy derivation uses sub-issues first, then dependencies, then checklists | github |
+| [ADR-0005](ADR-0005-github-auth-strategy.md) | Proposed | 2026-02-22 | auth, github, safety, ops | Prefer GitHub App or PAT over Actions GITHUB_TOKEN for write operations | github |
+| [ADR-0006](ADR-0006-local-first-architecture.md) | Proposed | 2026-02-22 | architecture, ops, safety | Local-first core with optional always-on service | ops |
