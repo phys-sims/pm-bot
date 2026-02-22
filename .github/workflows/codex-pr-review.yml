@@ -1,33 +1,76 @@
-name: Codex PR review (optional)
+name: Codex PR review (opt-in)
+
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # Cost-control triggers:
+    # - labeled: run when you add the opt-in label
+    # - ready_for_review: run when a PR leaves draft (if label already present)
+    # - synchronize: run when new commits are pushed to the PR (if label present)
+    # - reopened: run if PR is reopened (if label present)
+    types: [labeled, ready_for_review, synchronize, reopened]
 
 jobs:
   codex:
     runs-on: ubuntu-latest
+
+    # (1) Concurrency: only allow one Codex run per PR at a time.
+    # Put this at the JOB level (not workflow level) so irrelevant label events
+    # don't cancel an in-progress Codex run.
+    concurrency:
+      group: codex-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
     permissions:
       contents: read
       pull-requests: write
+
+    # (2) Skip drafts + (3) label gating
+    #
+    # This job runs only if:
+    # - PR is NOT a draft
+    # - PR currently has the label "codex-review"
+    # - AND if the trigger is "labeled", it must be the *codex-review* label that was added
+    #
+    # That last condition prevents burning tokens when someone adds some other label (bug, wip, etc.)
+    if: >
+      ${{
+        github.event.pull_request.draft == false &&
+        contains(github.event.pull_request.labels.*.name, 'codex-review') &&
+        (
+          github.event.action != 'labeled' ||
+          github.event.label.name == 'codex-review'
+        )
+      }}
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v5
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
+
       - name: Pre-fetch base and head refs
         run: |
-          git fetch --no-tags origin                 ${{ github.event.pull_request.base.ref }}                 +refs/pull/${{ github.event.pull_request.number }}/head
+          git fetch --no-tags origin \
+            "${{ github.event.pull_request.base.ref }}" \
+            "+refs/pull/${{ github.event.pull_request.number }}/head"
+
+      # Optional but strongly recommended:
+      # If you haven't set PM_BOT_KEY yet, skip cleanly instead of failing.
       - name: Run Codex
         id: run_codex
+        if: ${{ secrets.PM_BOT_KEY != '' }}
         uses: openai/codex-action@v1
         with:
-          # Repo-specific secret name to reduce accidental reuse across projects.
           openai-api-key: ${{ secrets.PM_BOT_KEY }}
           prompt-file: .github/codex/prompts/review.md
           safety-strategy: drop-sudo
           sandbox: read-only
+
       - name: Post Codex feedback
-        if: steps.run_codex.outputs.final-message != ''
+        if: ${{ steps.run_codex.outputs.final-message != '' }}
         uses: actions/github-script@v7
+        env:
+          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
         with:
           github-token: ${{ github.token }}
           script: |
@@ -37,5 +80,3 @@ jobs:
               issue_number: context.payload.pull_request.number,
               body: process.env.CODEX_FINAL_MESSAGE,
             });
-        env:
-          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
