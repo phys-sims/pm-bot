@@ -55,6 +55,7 @@ pm-bot MUST:
 - not run LLM-powered agents without a recorded human approval
 - not write issues, PRs, or Projects fields without a recorded human approval
 - keep privileged GitHub operations separate from agent execution surfaces
+- emit machine-readable policy reason codes for every denied write
 
 ## Non-goals
 
@@ -82,6 +83,7 @@ Given the same input plan, repeated runs MUST converge:
 - they MUST NOT create duplicate issues
 - they MUST NOT create duplicate edges or duplicate project-item mutations
 - they MUST be safe to “retry” after a partial failure
+- bounded retries with dead-letter outcomes must be deterministic and auditable
 
 ### P3 — Safety gates are non-bypassable
 

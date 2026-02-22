@@ -17,6 +17,12 @@ class WriteRequest:
     payload: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class PolicyDecision:
+    allowed: bool
+    reason_code: str
+
+
 class GitHubConnector:
     """In-memory connector used for deterministic v1 workflow tests."""
 
@@ -24,17 +30,29 @@ class GitHubConnector:
         self.allowed_repos = allowed_repos or set()
         self.executed_writes: list[WriteRequest] = []
         self.issues: dict[tuple[str, str], dict[str, Any]] = {}
+        self._transient_failures_seen: dict[tuple[str, str, str], int] = {}
+
+    def evaluate_write(self, repo: str, operation: str) -> PolicyDecision:
+        if self.allowed_repos and repo not in self.allowed_repos:
+            return PolicyDecision(allowed=False, reason_code="repo_not_allowlisted")
+        if operation in DENIED_OPERATIONS:
+            return PolicyDecision(allowed=False, reason_code="operation_denylisted")
+        return PolicyDecision(allowed=True, reason_code="allowed")
 
     def can_write(self, repo: str, operation: str) -> bool:
-        if self.allowed_repos and repo not in self.allowed_repos:
-            return False
-        if operation in DENIED_OPERATIONS:
-            return False
-        return True
+        return self.evaluate_write(repo=repo, operation=operation).allowed
 
     def execute_write(self, request: WriteRequest) -> dict[str, Any]:
-        if not self.can_write(request.repo, request.operation):
-            raise PermissionError("Write denied by guardrails")
+        decision = self.evaluate_write(repo=request.repo, operation=request.operation)
+        if not decision.allowed:
+            raise PermissionError(f"Write denied by guardrails: {decision.reason_code}")
+
+        fail_budget = int(request.payload.get("_transient_failures", 0) or 0)
+        signature = (request.repo, request.operation, request.target_ref)
+        seen = self._transient_failures_seen.get(signature, 0)
+        if seen < fail_budget:
+            self._transient_failures_seen[signature] = seen + 1
+            raise RuntimeError("Transient connector failure")
 
         self.executed_writes.append(request)
         if request.operation == "create_issue":

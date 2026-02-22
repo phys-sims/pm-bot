@@ -202,6 +202,38 @@ pm-bot SHOULD bound concurrency:
 - to avoid GitHub secondary rate limits
 - to keep operations reviewable
 
+
+### Policy decision reason codes
+
+Guardrail denials MUST include a machine-readable `reason_code` in audit payloads for `changeset_denied` events.
+
+Current reason codes:
+- `repo_not_allowlisted`: target repository is outside configured write allowlist.
+- `operation_denylisted`: operation is explicitly blocked by policy.
+
+This enables deterministic policy reporting and v4 reliability checks.
+
+
+### Retry and dead-letter semantics
+
+Retry-eligible write execution MUST use bounded retries.
+
+Current deterministic policy:
+- Max retries: 2 (for 3 total attempts including first try).
+- Retryable error class: transient connector/runtime failures.
+- On exhaustion: set changeset status to `failed` and emit `changeset_dead_lettered` with `reason_code=retry_budget_exhausted`.
+
+### Observability and correlation
+
+Write execution attempts MUST emit structured `changeset_attempt` audit events including:
+- `changeset_id`
+- `attempt`
+- `result` (`success` or `retryable_failure`)
+- `latency_ms`
+- `run_id` (when provided)
+
+Operational metrics MUST aggregate by operation family + outcome (for example `changeset_write/success`, `changeset_write/retryable_failure`).
+
 ## Audit requirements
 
 pm-bot MUST record:

@@ -81,6 +81,7 @@ Every report MUST include:
 
 - report generation timestamp
 - snapshot IDs used (estimator snapshot, audit snapshot)
+- run IDs used to correlate ingestion/changesets/report generation events
 - counts and sample sizes for all metrics
 
 ## Remediation suggestions (examples)

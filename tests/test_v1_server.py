@@ -21,12 +21,31 @@ def test_changesets_require_approval_before_write():
 def test_changeset_repo_guardrail_enforced():
     app = create_app()
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(PermissionError, match="repo_not_allowlisted"):
         app.propose_changeset(
             operation="update_issue",
             repo="untrusted/repo",
             payload={"title": "Nope"},
         )
+
+    denied_events = app.db.list_audit_events("changeset_denied")
+    assert denied_events
+    assert denied_events[0]["payload"]["reason_code"] == "repo_not_allowlisted"
+
+
+def test_changeset_operation_denylist_reason_code():
+    app = create_app()
+
+    with pytest.raises(PermissionError, match="operation_denylisted"):
+        app.propose_changeset(
+            operation="delete_issue",
+            repo="phys-sims/phys-pipeline",
+            payload={"issue_ref": "#10"},
+        )
+
+    denied_events = app.db.list_audit_events("changeset_denied")
+    assert denied_events
+    assert denied_events[0]["payload"]["reason_code"] == "operation_denylisted"
 
 
 def test_context_pack_returns_hash():
@@ -145,3 +164,90 @@ def test_v2_weekly_report_generation(tmp_path):
     report = app.generate_weekly_report("weekly-test.md")
     assert report["status"] == "generated"
     assert report["report_path"].endswith("weekly-test.md")
+
+
+def test_idempotent_propose_reuses_existing_changeset():
+    app = create_app()
+
+    first = app.propose_changeset(
+        operation="update_issue",
+        repo="phys-sims/phys-pipeline",
+        target_ref="#42",
+        payload={"title": "Stable"},
+    )
+    second = app.propose_changeset(
+        operation="update_issue",
+        repo="phys-sims/phys-pipeline",
+        target_ref="#42",
+        payload={"title": "Stable"},
+    )
+
+    assert first["id"] == second["id"]
+    assert first["idempotency_key"] == second["idempotency_key"]
+
+
+def test_retryable_write_succeeds_within_budget_and_records_metrics():
+    app = create_app()
+    changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#90", "title": "Retry", "_transient_failures": 1},
+        run_id="run-retry-success",
+    )
+
+    result = app.approve_changeset(
+        changeset["id"], approved_by="reviewer", run_id="run-retry-success"
+    )
+    assert result["status"] == "applied"
+
+    attempts = app.db.list_audit_events("changeset_attempt")
+    assert len(attempts) == 2
+    assert attempts[0]["payload"]["result"] == "retryable_failure"
+    assert attempts[1]["payload"]["result"] == "success"
+    assert attempts[0]["payload"]["run_id"] == "run-retry-success"
+
+    metrics = app.observability_metrics()
+    outcomes = {(m["operation_family"], m["outcome"]) for m in metrics}
+    assert ("changeset_write", "retryable_failure") in outcomes
+    assert ("changeset_write", "success") in outcomes
+
+
+def test_retry_budget_exhaustion_dead_letters_changeset():
+    app = create_app()
+    changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#91", "title": "Fail", "_transient_failures": 9},
+    )
+
+    with pytest.raises(RuntimeError, match="retry_budget_exhausted"):
+        app.approve_changeset(changeset["id"], approved_by="reviewer", run_id="run-dead-letter")
+
+    stored = app.db.get_changeset(changeset["id"])
+    assert stored is not None
+    assert stored["status"] == "failed"
+    assert stored["retry_count"] == 3
+
+    dead_letters = app.db.list_audit_events("changeset_dead_lettered")
+    assert dead_letters[0]["payload"]["reason_code"] == "retry_budget_exhausted"
+    assert dead_letters[0]["payload"]["run_id"] == "run-dead-letter"
+
+
+def test_run_id_correlation_for_webhook_and_reporting_events(tmp_path):
+    app = create_app()
+    app.reporting.reports_dir = tmp_path
+
+    app.ingest_webhook(
+        "issues",
+        {
+            "repository": {"full_name": "phys-sims/phys-pipeline"},
+            "issue": {"number": 10, "title": "Traceable", "labels": []},
+        },
+        run_id="run-observe-1",
+    )
+    app.generate_weekly_report("obs.md", run_id="run-observe-1")
+
+    webhook_event = app.db.list_audit_events("webhook_received")[0]
+    report_event = app.db.list_audit_events("report_generated")[0]
+    assert webhook_event["payload"]["run_id"] == "run-observe-1"
+    assert report_event["payload"]["run_id"] == "run-observe-1"

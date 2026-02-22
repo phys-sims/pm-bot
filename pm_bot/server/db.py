@@ -41,7 +41,11 @@ class OrchestratorDB:
                 repo TEXT NOT NULL,
                 target_ref TEXT,
                 payload_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending'
+                idempotency_key TEXT NOT NULL,
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                UNIQUE(idempotency_key)
             );
 
             CREATE TABLE IF NOT EXISTS approvals (
@@ -85,7 +89,31 @@ class OrchestratorDB:
             );
             """
         )
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS operation_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                operation_family TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0,
+                total_latency_ms REAL NOT NULL DEFAULT 0,
+                UNIQUE(operation_family, outcome)
+            )
+            """
+        )
+        if not self._has_column("changesets", "idempotency_key"):
+            self.conn.execute("ALTER TABLE changesets ADD COLUMN idempotency_key TEXT")
+        if not self._has_column("changesets", "retry_count"):
+            self.conn.execute(
+                "ALTER TABLE changesets ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0"
+            )
+        if not self._has_column("changesets", "last_error"):
+            self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
         self.conn.commit()
+
+    def _has_column(self, table: str, column: str) -> bool:
+        rows = self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+        return any(row[1] == column for row in rows)
 
     def upsert_work_item(self, issue_ref: str, payload: dict[str, Any]) -> None:
         self.conn.execute(
@@ -110,14 +138,25 @@ class OrchestratorDB:
         return json.loads(row[0])
 
     def create_changeset(
-        self, operation: str, repo: str, payload: dict[str, Any], target_ref: str = ""
+        self,
+        operation: str,
+        repo: str,
+        payload: dict[str, Any],
+        target_ref: str = "",
+        idempotency_key: str = "",
     ) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO changesets (operation, repo, target_ref, payload_json)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO changesets (operation, repo, target_ref, payload_json, idempotency_key)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (operation, repo, target_ref or None, json.dumps(payload)),
+            (
+                operation,
+                repo,
+                target_ref or None,
+                json.dumps(payload),
+                idempotency_key,
+            ),
         )
         self.conn.commit()
         return int(cur.lastrowid)
@@ -132,11 +171,30 @@ class OrchestratorDB:
             "repo": row["repo"],
             "target_ref": row["target_ref"],
             "payload": json.loads(row["payload_json"]),
+            "idempotency_key": row["idempotency_key"],
+            "retry_count": row["retry_count"],
+            "last_error": row["last_error"],
             "status": row["status"],
         }
 
+    def get_changeset_by_idempotency_key(self, idempotency_key: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT id FROM changesets WHERE idempotency_key = ?",
+            (idempotency_key,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self.get_changeset(int(row[0]))
+
     def set_changeset_status(self, changeset_id: int, status: str) -> None:
         self.conn.execute("UPDATE changesets SET status = ? WHERE id = ?", (status, changeset_id))
+        self.conn.commit()
+
+    def update_changeset_retry(self, changeset_id: int, retry_count: int, last_error: str) -> None:
+        self.conn.execute(
+            "UPDATE changesets SET retry_count = ?, last_error = ? WHERE id = ?",
+            (retry_count, last_error, changeset_id),
+        )
         self.conn.commit()
 
     def record_approval(self, changeset_id: int, approved_by: str) -> None:
@@ -240,3 +298,28 @@ class OrchestratorDB:
             (report_type, report_path),
         )
         self.conn.commit()
+
+    def record_operation_metric(
+        self, operation_family: str, outcome: str, latency_ms: float
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO operation_metrics (operation_family, outcome, count, total_latency_ms)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(operation_family, outcome) DO UPDATE SET
+              count = count + 1,
+              total_latency_ms = total_latency_ms + excluded.total_latency_ms
+            """,
+            (operation_family, outcome, float(latency_ms)),
+        )
+        self.conn.commit()
+
+    def list_operation_metrics(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT operation_family, outcome, count, total_latency_ms
+            FROM operation_metrics
+            ORDER BY operation_family ASC, outcome ASC
+            """
+        )
+        return [dict(row) for row in rows]

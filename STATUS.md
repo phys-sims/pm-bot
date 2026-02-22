@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 06:12:05 UTC
+- Time (UTC): 06:26:33 UTC
 - By: @openai-codex
-- Scope: Reclassified former `agent-roadmap-v3.md` as `docs/roadmaps/future-roadmap.md` and added an explicit long-horizon/non-default sequencing banner.
-- Scope: Added new executable stage roadmaps for N1 (`agent-roadmap-v3-near-term.md`), N2 (`agent-roadmap-v4-platform.md`), and N3 (`agent-roadmap-v5-org-readiness.md`) with scope boundaries, KPIs, checks, and rollout/rollback guidance.
-- Scope: Added reusable roadmap generation prompt template plus per-stage prompt packages and updated docs navigation (`README.md`, `docs/README.md`, `docs/roadmaps/human-roadmap.md`, `docs/maintenance.md`) to default agents/humans to near-term sequencing.
+- Scope: Completed v4 reliability execution slice with idempotency-keyed changeset proposals, bounded retries, dead-letter reporting, and aggregated operation metrics with run-id correlation.
+- Scope: Added targeted reliability tests for idempotent reuse, retry success/failure paths, dead-letter events, and run-id propagation across webhook/reporting flows.
+- Scope: Updated roadmap/checklist/log/runbooks/spec/contracts so v4 roadmap items are marked complete with operational drill guidance.
 
 
 ---
@@ -19,7 +19,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0 parse/render and v1/v2 server behavior. |
+| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior including idempotency, retry/dead-letter reliability, and run-id observability correlation. |
 | Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
@@ -97,9 +97,19 @@
 - [x] Safety incident tracking for denied writes (`changeset_denied` audit events)
 
 ### Active sequencing — N1/N2/N3
-- [ ] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
-- [ ] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
+- [x] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
+- [x] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [ ] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
+
+
+## v4 ship readiness snapshot
+- Done: Policy reason normalization, idempotency-key reuse, bounded retry/dead-letter handling, operation metrics aggregation, and run-id correlation across changesets/webhooks/reports.
+- Remaining: N3 / v5 org-readiness stage only; v4 stage scope is complete.
+- End-to-end demo (local):
+  1) `pytest -q`
+  2) Propose + approve a normal changeset (`create_issue`) and verify `changeset_applied`.
+  3) Propose + approve with `_transient_failures` to validate retries and dead-letter path.
+  4) Ingest a webhook and generate a report with shared `run_id`; verify correlated audit events.
