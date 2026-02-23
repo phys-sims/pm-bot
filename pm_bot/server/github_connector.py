@@ -55,7 +55,11 @@ def build_connector_from_env(
 ) -> GitHubConnector:
     env_map = os.environ if env is None else env
     connector_type = (env_map.get("PM_BOT_GITHUB_CONNECTOR") or "in_memory").strip().lower()
-    repos = allowed_repos or {"phys-sims/.github", "phys-sims/phys-pipeline"}
+    repos = (
+        {"phys-sims/.github", "phys-sims/phys-pipeline"}
+        if allowed_repos is None
+        else allowed_repos
+    )
 
     if connector_type == "api":
         from pm_bot.server.github_connector_api import GitHubAPIConnector

@@ -60,6 +60,11 @@ def test_build_connector_from_env_explicit_empty_env_ignores_process(
     assert isinstance(connector, InMemoryGitHubConnector)
 
 
+def test_build_connector_from_env_preserves_explicit_empty_allowed_repos() -> None:
+    connector = build_connector_from_env(env={}, allowed_repos=set())
+    assert connector.allowed_repos == set()
+
+
 def test_auth_loads_read_write_tokens_with_shared_fallback() -> None:
     auth = load_github_auth_from_env(
         {
