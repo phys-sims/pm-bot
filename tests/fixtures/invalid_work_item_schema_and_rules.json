@@ -1,0 +1,15 @@
+{
+  "title": "Bad item",
+  "type": "feature",
+  "area": "unknown-area",
+  "estimate_hrs": -5,
+  "relationships": {
+    "children_refs": [
+      "abc",
+      "https://example.com/not-an-issue/123"
+    ]
+  },
+  "fields": {
+    "Goal": "Valid goal"
+  }
+}
