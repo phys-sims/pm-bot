@@ -262,6 +262,12 @@ class OrchestratorDB:
         rows = self.conn.execute("SELECT payload_json FROM work_items ORDER BY issue_ref ASC")
         return [json.loads(row[0]) for row in rows]
 
+    def list_work_item_records(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, payload_json FROM work_items ORDER BY id ASC"
+        ).fetchall()
+        return [{"id": int(row["id"]), "payload": json.loads(row["payload_json"])} for row in rows]
+
     def list_pending_changesets(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT id FROM changesets WHERE status = 'pending' ORDER BY id ASC"
@@ -271,15 +277,16 @@ class OrchestratorDB:
     def list_audit_events(self, event_type: str | None = None) -> list[dict[str, Any]]:
         if event_type:
             rows = self.conn.execute(
-                "SELECT event_type, event_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
+                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
                 (event_type,),
             )
         else:
             rows = self.conn.execute(
-                "SELECT event_type, event_json, created_at FROM audit_events ORDER BY id ASC"
+                "SELECT id, event_type, event_json, created_at FROM audit_events ORDER BY id ASC"
             )
         return [
             {
+                "id": int(row["id"]),
                 "event_type": row["event_type"],
                 "payload": json.loads(row["event_json"]),
                 "created_at": row["created_at"],
@@ -302,7 +309,7 @@ class OrchestratorDB:
     def latest_estimate_snapshots(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
-            SELECT s.bucket_key, s.p50, s.p80, s.sample_count, s.method
+            SELECT s.id, s.bucket_key, s.p50, s.p80, s.sample_count, s.method
             FROM estimate_snapshots s
             INNER JOIN (
                 SELECT bucket_key, MAX(id) AS max_id
