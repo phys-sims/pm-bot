@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from urllib.parse import parse_qs
 from typing import Any
 
 from pm_bot.server.changesets import ChangesetService
@@ -170,11 +171,25 @@ class ASGIServer:
 
         method = scope.get("method", "GET")
         path = scope.get("path", "")
+        query_params = self._parse_query_params(scope.get("query_string", b""))
         body = await self._read_body(receive)
 
         try:
             if method == "GET" and path == "/health":
                 await self._send_json(send, 200, {"status": "ok"})
+                return
+
+            if method == "GET" and path == "/changesets/pending":
+                await self._send_json(
+                    send,
+                    200,
+                    {
+                        "items": self.service.db.list_pending_changesets(),
+                        "summary": {
+                            "count": len(self.service.db.list_pending_changesets()),
+                        },
+                    },
+                )
                 return
 
             if method == "POST" and path == "/changesets/propose":
@@ -197,9 +212,74 @@ class ASGIServer:
                 await self._send_json(send, 200, result)
                 return
 
+            if method == "POST" and path.startswith("/changesets/") and path.endswith("/approve"):
+                changeset_id = self._parse_changeset_approve_path(path)
+                if changeset_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                approved_by = str(payload.get("approved_by", "")).strip()
+                if not approved_by:
+                    await self._send_json(send, 400, {"error": "missing_approved_by"})
+                    return
+                result = self.service.approve_changeset(
+                    changeset_id,
+                    approved_by=approved_by,
+                    run_id=str(payload.get("run_id", "")),
+                )
+                await self._send_json(send, 200, result)
+                return
+
+            if method == "GET" and path == "/graph/tree":
+                root_ref = query_params.get("root", "")
+                if not root_ref:
+                    await self._send_json(send, 400, {"error": "missing_root"})
+                    return
+                await self._send_json(send, 200, self.service.graph_tree(root_ref=root_ref))
+                return
+
+            if method == "GET" and path == "/graph/deps":
+                area = query_params.get("area", "")
+                await self._send_json(send, 200, self.service.graph_deps(area=area))
+                return
+
+            if method == "GET" and path == "/estimator/snapshot":
+                snapshots = self.service.estimator_snapshot()
+                await self._send_json(
+                    send,
+                    200,
+                    {
+                        "items": snapshots,
+                        "summary": {
+                            "count": len(snapshots),
+                        },
+                    },
+                )
+                return
+
+            if method == "GET" and path == "/reports/weekly/latest":
+                latest = self.service.db.latest_report("weekly")
+                if latest is None:
+                    await self._send_json(send, 404, {"error": "report_not_found"})
+                    return
+                await self._send_json(send, 200, latest)
+                return
+
             await self._send_json(send, 404, {"error": "not_found"})
         except PermissionError as exc:
-            await self._send_json(send, 403, {"error": str(exc)})
+            reason_code = "unknown"
+            message = str(exc)
+            prefix = "Changeset rejected by guardrails: "
+            if message.startswith(prefix):
+                reason_code = message[len(prefix) :]
+            await self._send_json(send, 403, {"error": message, "reason_code": reason_code})
+        except ValueError as exc:
+            await self._send_json(send, 400, {"error": str(exc)})
+        except RuntimeError as exc:
+            await self._send_json(send, 409, {"error": str(exc)})
         except Exception as exc:  # pragma: no cover - defensive response mapping
             await self._send_json(send, 500, {"error": str(exc)})
 
@@ -213,6 +293,21 @@ class ASGIServer:
             if not message.get("more_body", False):
                 break
         return b"".join(chunks)
+
+    def _parse_query_params(self, raw_query: bytes) -> dict[str, str]:
+        if not raw_query:
+            return {}
+        parsed = parse_qs(raw_query.decode("utf-8"), keep_blank_values=False)
+        return {key: values[-1] for key, values in parsed.items() if values}
+
+    def _parse_changeset_approve_path(self, path: str) -> int | None:
+        parts = [part for part in path.split("/") if part]
+        if len(parts) != 3 or parts[0] != "changesets" or parts[2] != "approve":
+            return None
+        try:
+            return int(parts[1])
+        except ValueError:
+            return None
 
     def _parse_json(self, body: bytes) -> dict[str, Any] | None:
         if not body:

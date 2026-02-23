@@ -328,6 +328,26 @@ class OrchestratorDB:
         )
         self.conn.commit()
 
+    def latest_report(self, report_type: str = "weekly") -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT id, report_type, report_path, created_at
+            FROM reports
+            WHERE report_type = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (report_type,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "report_type": str(row["report_type"]),
+            "report_path": str(row["report_path"]),
+            "created_at": str(row["created_at"]),
+        }
+
     def record_operation_metric(
         self, operation_family: str, outcome: str, latency_ms: float
     ) -> None:

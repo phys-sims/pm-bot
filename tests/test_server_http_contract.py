@@ -6,8 +6,19 @@ import sys
 from pm_bot.server.app import ASGIServer, ServerApp
 
 
-def _asgi_request(app: ASGIServer, method: str, path: str, body: bytes = b"") -> tuple[int, dict]:
-    scope = {"type": "http", "method": method, "path": path}
+def _asgi_request(
+    app: ASGIServer,
+    method: str,
+    path: str,
+    body: bytes = b"",
+    query_string: bytes = b"",
+) -> tuple[int, dict]:
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "query_string": query_string,
+    }
     sent: list[dict] = []
     received = False
 
@@ -40,7 +51,7 @@ def test_documented_server_startup_command_is_available():
     assert "uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000" in result.stdout
 
 
-def test_http_health_and_propose_changeset_flow():
+def test_http_health_and_changesets_routes_for_ui():
     service = ServerApp()
     app = ASGIServer(service=service)
 
@@ -62,3 +73,74 @@ def test_http_health_and_propose_changeset_flow():
     assert status == 200
     assert payload["status"] == "pending"
     assert payload["operation"] == "create_issue"
+
+    pending_status, pending_payload = _asgi_request(app, "GET", "/changesets/pending")
+    assert pending_status == 200
+    assert pending_payload["summary"]["count"] == 1
+    assert pending_payload["items"][0]["id"] == payload["id"]
+
+    approve_status, approve_payload = _asgi_request(
+        app,
+        "POST",
+        f"/changesets/{payload['id']}/approve",
+        body=json.dumps({"approved_by": "human"}).encode("utf-8"),
+    )
+    assert approve_status == 200
+    assert approve_payload["status"] == "applied"
+
+
+def test_approval_denials_are_reason_coded_for_http_clients():
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    status, payload = _asgi_request(
+        app,
+        "POST",
+        "/changesets/propose",
+        body=json.dumps(
+            {
+                "operation": "create_issue",
+                "repo": "outside/repo",
+                "payload": {"title": "Denied"},
+            }
+        ).encode("utf-8"),
+    )
+
+    assert status == 403
+    assert payload["reason_code"] == "repo_not_allowlisted"
+
+
+def test_graph_estimator_and_report_routes_for_ui():
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    service.draft("epic", "Root")
+    service.draft("task", "Child")
+    service.link_work_items("draft:epic:root", "draft:task:child", source="sub_issue")
+
+    tree_status, tree_payload = _asgi_request(
+        app,
+        "GET",
+        "/graph/tree",
+        query_string=b"root=draft:epic:root",
+    )
+    assert tree_status == 200
+    assert tree_payload["root"]["issue_ref"] == "draft:epic:root"
+    assert tree_payload["root"]["children"][0]["provenance"] == "sub_issue"
+
+    deps_status, deps_payload = _asgi_request(app, "GET", "/graph/deps")
+    assert deps_status == 200
+    assert "summary" in deps_payload
+
+    estimator_status, estimator_payload = _asgi_request(app, "GET", "/estimator/snapshot")
+    assert estimator_status == 200
+    assert estimator_payload["summary"]["count"] == len(estimator_payload["items"])
+
+    no_report_status, no_report_payload = _asgi_request(app, "GET", "/reports/weekly/latest")
+    assert no_report_status == 404
+    assert no_report_payload["error"] == "report_not_found"
+
+    service.generate_weekly_report(report_name="weekly-ui.md")
+    latest_status, latest_payload = _asgi_request(app, "GET", "/reports/weekly/latest")
+    assert latest_status == 200
+    assert latest_payload["report_type"] == "weekly"
