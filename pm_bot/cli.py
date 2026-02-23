@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 
 import requests
@@ -17,6 +19,57 @@ CHILD_REF_HEADINGS = {
     "Child tasks",
     "Child Issues (link Features/Tasks/Tests/Benches/Docs)",
 }
+
+GITHUB_ISSUE_URL_RE = re.compile(
+    r"^https://github\.com/(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)/issues/(?P<number>\d+)(?:[/?#].*)?$"
+)
+RAW_MARKDOWN_URL_RE = re.compile(r"^https://.+\.md(?:[?#].*)?$", re.IGNORECASE)
+
+
+def _load_raw_markdown_url(url: str) -> str:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.text
+
+
+def _load_github_issue_url(url: str) -> str:
+    match = GITHUB_ISSUE_URL_RE.match(url)
+    if not match:
+        raise typer.BadParameter(
+            "Unsupported GitHub issue URL format. Expected: "
+            "https://github.com/<owner>/<repo>/issues/<number>"
+        )
+    owner = match.group("owner")
+    repo = match.group("repo")
+    number = match.group("number")
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{number}"
+
+    token = os.getenv("PM_BOT_GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    response = requests.get(api_url, headers=headers, timeout=10)
+    if response.status_code in {401, 403, 404}:
+        raise typer.BadParameter(
+            "Failed to fetch GitHub issue body. Provide a token via PM_BOT_GITHUB_TOKEN "
+            "(preferred) or GITHUB_TOKEN with read access to the target repo."
+        )
+    response.raise_for_status()
+    body = response.json().get("body") or ""
+    return body
+
+
+def _load_markdown_from_url(url: str) -> str:
+    if GITHUB_ISSUE_URL_RE.match(url):
+        return _load_github_issue_url(url)
+    if RAW_MARKDOWN_URL_RE.match(url) or "raw.githubusercontent.com" in url:
+        return _load_raw_markdown_url(url)
+    raise typer.BadParameter(
+        "Unsupported --url value. Supported formats: "
+        "https://github.com/<owner>/<repo>/issues/<number> (GitHub issue URL) or "
+        "https://.../*.md (raw markdown URL)."
+    )
 
 
 def _primary_context_heading(item_type: str) -> str:
@@ -105,9 +158,11 @@ def parse(
     if file is not None:
         markdown = file.read_text()
     else:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        markdown = response.text
+        try:
+            markdown = _load_markdown_from_url(url)
+        except typer.BadParameter as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
     parsed = parse_issue_body(markdown, item_type=issue_type, title=title)
     typer.echo(json.dumps(parsed, indent=2))
     if validate:

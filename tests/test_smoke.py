@@ -77,3 +77,103 @@ def test_parse_cli_rejects_both_file_and_url():
             ],
         )
         assert result.exit_code != 0
+
+
+def test_parse_cli_url_raw_markdown_flow(monkeypatch):
+    from typer.testing import CliRunner
+
+    from pm_bot.cli import app
+
+    class DummyResponse:
+        status_code = 200
+
+        def __init__(self, text: str):
+            self.text = text
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, timeout=10):
+        assert url == "https://raw.githubusercontent.com/org/repo/main/issue.md"
+        return DummyResponse("### Goal\nFrom raw\n")
+
+    monkeypatch.setattr("pm_bot.cli.requests.get", fake_get)
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "parse",
+            "--url",
+            "https://raw.githubusercontent.com/org/repo/main/issue.md",
+            "--type",
+            "feature",
+            "--title",
+            "raw title",
+        ],
+    )
+    assert result.exit_code == 0
+    assert '"Goal": "From raw"' in result.output
+
+
+def test_parse_cli_url_github_issue_flow_mocked(monkeypatch):
+    from typer.testing import CliRunner
+
+    from pm_bot.cli import app
+
+    class DummyResponse:
+        status_code = 200
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=10):
+        captured["url"] = url
+        captured["headers"] = headers
+        return DummyResponse({"body": "### Goal\nFrom github issue\n"})
+
+    monkeypatch.setattr("pm_bot.cli.requests.get", fake_get)
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "parse",
+            "--url",
+            "https://github.com/acme/roadmap/issues/42",
+            "--type",
+            "feature",
+            "--title",
+            "gh title",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["url"] == "https://api.github.com/repos/acme/roadmap/issues/42"
+    assert captured["headers"]["Accept"] == "application/vnd.github+json"
+    assert '"Goal": "From github issue"' in result.output
+
+
+def test_parse_cli_url_unsupported_flow():
+    from typer.testing import CliRunner
+
+    from pm_bot.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "parse",
+            "--url",
+            "https://example.com/not-supported.txt",
+            "--type",
+            "feature",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Unsupported --url value" in result.output
