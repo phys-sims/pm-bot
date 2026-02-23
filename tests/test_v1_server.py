@@ -77,6 +77,29 @@ def test_connector_read_endpoints_after_approved_write():
     assert len(issues) == 1
 
 
+def test_connector_link_issue_write_is_applied():
+    app = create_app()
+
+    create_changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#77", "title": "Ingest events", "area": "platform"},
+    )
+    app.approve_changeset(create_changeset["id"], approved_by="reviewer")
+
+    link_changeset = app.propose_changeset(
+        operation="link_issue",
+        repo="phys-sims/phys-pipeline",
+        target_ref="#77",
+        payload={"linked_issue_ref": "#76", "relationship": "blocked_by"},
+    )
+    app.approve_changeset(link_changeset["id"], approved_by="reviewer")
+
+    issue = app.fetch_issue("phys-sims/phys-pipeline", "#77")
+    assert issue is not None
+    assert issue["linked_issues"] == ["#76"]
+
+
 def test_webhook_ingestion_upserts_work_item():
     app = create_app()
     result = app.ingest_webhook(
@@ -96,6 +119,61 @@ def test_webhook_ingestion_upserts_work_item():
     work_item = app.get_work_item("phys-sims/phys-pipeline#42")
     assert work_item is not None
     assert work_item["fields"]["title"] == "Hook event"
+
+
+def test_webhook_ingestion_with_api_connector_still_upserts_work_item() -> None:
+    from pm_bot.server.github_auth import GitHubAuth
+    from pm_bot.server.github_connector_api import GitHubAPIConnector
+
+    app = create_app()
+    app.connector = GitHubAPIConnector(auth=GitHubAuth(read_token=None, write_token="token"))
+
+    result = app.ingest_webhook(
+        "issues",
+        {
+            "repository": {"full_name": "phys-sims/phys-pipeline"},
+            "issue": {
+                "number": 51,
+                "title": "Webhook API mode",
+                "state": "open",
+                "labels": [{"name": "area:platform"}],
+            },
+        },
+    )
+
+    assert result["status"] == "ingested"
+    work_item = app.get_work_item("phys-sims/phys-pipeline#51")
+    assert work_item is not None
+    assert work_item["fields"]["title"] == "Webhook API mode"
+
+
+def test_non_retryable_write_failure_marks_changeset_failed_and_audits() -> None:
+    app = create_app()
+    changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#100", "title": "Will fail"},
+    )
+
+    def _fail(_request: object) -> dict[str, object]:
+        raise RuntimeError("HTTP 401")
+
+    app.connector.execute_write = _fail  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="non_retryable_failure"):
+        app.approve_changeset(changeset["id"], approved_by="reviewer", run_id="run-hard-fail")
+
+    stored = app.db.get_changeset(changeset["id"])
+    assert stored is not None
+    assert stored["status"] == "failed"
+
+    attempts = app.db.list_audit_events("changeset_attempt")
+    assert attempts[-1]["payload"]["result"] == "failure"
+    assert attempts[-1]["payload"]["reason_code"] == "non_retryable_failure"
+
+    dead_letters = app.db.list_audit_events("changeset_dead_lettered")
+    assert dead_letters[-1]["payload"]["reason_code"] == "non_retryable_failure"
+    assert dead_letters[-1]["payload"]["run_id"] == "run-hard-fail"
 
 
 def test_v2_estimator_snapshot_and_predict_fallback():
@@ -203,6 +281,8 @@ def test_retryable_write_succeeds_within_budget_and_records_metrics():
     attempts = app.db.list_audit_events("changeset_attempt")
     assert len(attempts) == 2
     assert attempts[0]["payload"]["result"] == "retryable_failure"
+    assert attempts[0]["payload"]["reason_code"] == "transient_failure"
+    assert attempts[0]["payload"]["backoff_ms"] == 100
     assert attempts[1]["payload"]["result"] == "success"
     assert attempts[0]["payload"]["run_id"] == "run-retry-success"
 

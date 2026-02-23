@@ -1,9 +1,12 @@
-"""GitHub connector abstraction with approval and guardrails."""
+"""GitHub connector contracts, policy primitives, and factory helpers."""
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
+
+from pm_bot.server.github_auth import GitHubAuth, load_github_auth_from_env
 
 
 DENIED_OPERATIONS = {"delete_issue", "edit_workflow"}
@@ -23,65 +26,56 @@ class PolicyDecision:
     reason_code: str
 
 
-class GitHubConnector:
-    """In-memory connector used for deterministic v1 workflow tests."""
+class RetryableGitHubError(RuntimeError):
+    def __init__(self, message: str, reason_code: str, retry_after_s: float | None = None) -> None:
+        super().__init__(message)
+        self.reason_code = reason_code
+        self.retry_after_s = retry_after_s
 
-    def __init__(self, allowed_repos: set[str] | None = None) -> None:
-        self.allowed_repos = allowed_repos or set()
-        self.executed_writes: list[WriteRequest] = []
-        self.issues: dict[tuple[str, str], dict[str, Any]] = {}
-        self._transient_failures_seen: dict[tuple[str, str, str], int] = {}
 
-    def evaluate_write(self, repo: str, operation: str) -> PolicyDecision:
-        if self.allowed_repos and repo not in self.allowed_repos:
-            return PolicyDecision(allowed=False, reason_code="repo_not_allowlisted")
-        if operation in DENIED_OPERATIONS:
-            return PolicyDecision(allowed=False, reason_code="operation_denylisted")
-        return PolicyDecision(allowed=True, reason_code="allowed")
+class GitHubConnector(Protocol):
+    """Connector contract for all GitHub integration implementations."""
 
-    def can_write(self, repo: str, operation: str) -> bool:
-        return self.evaluate_write(repo=repo, operation=operation).allowed
+    allowed_repos: set[str]
 
-    def execute_write(self, request: WriteRequest) -> dict[str, Any]:
-        decision = self.evaluate_write(repo=request.repo, operation=request.operation)
-        if not decision.allowed:
-            raise PermissionError(f"Write denied by guardrails: {decision.reason_code}")
+    def evaluate_write(self, repo: str, operation: str) -> PolicyDecision: ...
 
-        fail_budget = int(request.payload.get("_transient_failures", 0) or 0)
-        signature = (request.repo, request.operation, request.target_ref)
-        seen = self._transient_failures_seen.get(signature, 0)
-        if seen < fail_budget:
-            self._transient_failures_seen[signature] = seen + 1
-            raise RuntimeError("Transient connector failure")
+    def can_write(self, repo: str, operation: str) -> bool: ...
 
-        self.executed_writes.append(request)
-        if request.operation == "create_issue":
-            issue_ref = request.payload.get("issue_ref", "")
-            if issue_ref:
-                self.issues[(request.repo, issue_ref)] = dict(request.payload)
-        elif request.operation == "update_issue":
-            issue_ref = request.target_ref
-            issue = self.issues.get((request.repo, issue_ref), {})
-            issue.update(request.payload)
-            self.issues[(request.repo, issue_ref)] = issue
+    def execute_write(self, request: WriteRequest) -> dict[str, Any]: ...
 
-        return {
-            "repo": request.repo,
-            "operation": request.operation,
-            "target_ref": request.target_ref,
-            "status": "applied",
-        }
+    def fetch_issue(self, repo: str, issue_ref: str) -> dict[str, Any] | None: ...
 
-    def fetch_issue(self, repo: str, issue_ref: str) -> dict[str, Any] | None:
-        return self.issues.get((repo, issue_ref))
+    def list_issues(self, repo: str, **filters: str) -> list[dict[str, Any]]: ...
 
-    def list_issues(self, repo: str, **filters: str) -> list[dict[str, Any]]:
-        issues = [issue for (issue_repo, _), issue in self.issues.items() if issue_repo == repo]
-        if not filters:
-            return issues
 
-        matched: list[dict[str, Any]] = []
-        for issue in issues:
-            if all(str(issue.get(key, "")) == value for key, value in filters.items()):
-                matched.append(issue)
-        return matched
+def build_connector_from_env(
+    env: dict[str, str] | None = None,
+    allowed_repos: set[str] | None = None,
+) -> GitHubConnector:
+    env_map = os.environ if env is None else env
+    connector_type = (env_map.get("PM_BOT_GITHUB_CONNECTOR") or "in_memory").strip().lower()
+    repos = (
+        {"phys-sims/.github", "phys-sims/phys-pipeline"} if allowed_repos is None else allowed_repos
+    )
+
+    if connector_type == "api":
+        from pm_bot.server.github_connector_api import GitHubAPIConnector
+
+        auth = load_github_auth_from_env(env_map)
+        return GitHubAPIConnector(allowed_repos=repos, auth=auth)
+
+    from pm_bot.server.github_connector_inmemory import InMemoryGitHubConnector
+
+    return InMemoryGitHubConnector(allowed_repos=repos)
+
+
+__all__ = [
+    "DENIED_OPERATIONS",
+    "GitHubAuth",
+    "GitHubConnector",
+    "PolicyDecision",
+    "RetryableGitHubError",
+    "WriteRequest",
+    "build_connector_from_env",
+]

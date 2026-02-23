@@ -11,7 +11,7 @@ from pm_bot.server.changesets import ChangesetService
 from pm_bot.server.context_pack import build_context_pack
 from pm_bot.server.db import OrchestratorDB
 from pm_bot.server.estimator import EstimatorService
-from pm_bot.server.github_connector import GitHubConnector
+from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
 
@@ -21,7 +21,7 @@ class ServerApp:
 
     def __init__(self, db_path: str | Path = ":memory:") -> None:
         self.db = OrchestratorDB(db_path)
-        self.connector = GitHubConnector(
+        self.connector = build_connector_from_env(
             allowed_repos={"phys-sims/.github", "phys-sims/phys-pipeline"}
         )
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
@@ -108,7 +108,7 @@ class ServerApp:
             "labels": [label.get("name", "") for label in issue.get("labels", [])],
             "area": issue.get("area", ""),
         }
-        self.connector.issues[(repo, issue_ref)] = normalized
+        self._cache_issue_if_supported(repo=repo, issue_ref=issue_ref, issue=normalized)
         self.db.upsert_work_item(
             f"{repo}{issue_ref}",
             {
@@ -119,6 +119,17 @@ class ServerApp:
             },
         )
         return {"status": "ingested", "issue_ref": f"{repo}{issue_ref}"}
+
+    def _cache_issue_if_supported(self, repo: str, issue_ref: str, issue: dict[str, Any]) -> None:
+        """Mirror webhook payload into connector-local cache when available.
+
+        The in-memory connector keeps an `issues` map for deterministic reads in tests.
+        API-backed connectors do not expose this cache and should simply skip this step.
+        """
+
+        issues_store = getattr(self.connector, "issues", None)
+        if isinstance(issues_store, dict):
+            issues_store[(repo, issue_ref)] = issue
 
     def estimator_snapshot(self) -> list[dict[str, Any]]:
         return self.estimator.build_snapshots()

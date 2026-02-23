@@ -210,6 +210,14 @@ Primary responsibilities:
 - isolate GitHub integration logic
 - enforce allowlists/denylists
 - handle rate limiting and auth refresh
+- expose a stable connector contract so implementations can be injected via runtime config
+
+Operational constraints:
+
+- The default connector MUST remain deterministic in-memory for local tests.
+- A real GitHub API implementation MUST be selectable by environment/config without changing orchestration code.
+- Connector auth loading MUST support separate read and write credentials, with write paths failing closed when write scope is missing.
+- Retryable GitHub failures (5xx/rate limit) MUST use bounded backoff and emit deterministic per-attempt audit records including reason codes and backoff timing.
 
 ## Additional specs
 

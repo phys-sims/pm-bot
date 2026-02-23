@@ -6,12 +6,19 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 00:56:05 UTC
+- Time (UTC): 01:30:07 UTC
 - By: @openai-codex
-- Scope: Added dedicated schema + business-rule validation module for WorkItem payloads and integrated it into parse/draft flows.
-- Scope: Updated CLI `--validate` behavior to return deterministic machine-readable error payloads with stable error codes.
-- Scope: Added invalid fixtures and validation-focused tests for schema/rule failures and deterministic error output.
-- Scope: Updated contract/spec documentation to formalize validation and error payload guarantees.
+- Scope: Added connector contract + runtime connector factory with environment-based implementation injection (in-memory default, API optional).
+- Scope: Added GitHub API connector module with create/update/list/fetch/link operations, plus read/write token auth loading and redaction helpers.
+- Scope: Added bounded retry/backoff audit fields for retryable GitHub errors (5xx/rate-limit) in changeset approval execution.
+- Scope: Added integration-style connector tests using fake session responses and expanded v1 tests for link + deterministic retry audit details.
+- Scope: Expanded GitHub auth/token guidance and product spec operational constraints for connector selection, token separation, and retry behavior.
+- Scope: Fixed webhook ingestion to avoid connector-specific in-memory state assumptions so API connector mode ingests safely.
+- Scope: Added non-retryable write failure handling/audit in approval flow and env factory isolation for explicit empty env overrides.
+- Scope: Added regression tests for API-mode webhook ingestion, non-retryable approval failures, and explicit-empty-env connector selection.
+- Scope: Normalized non-retryable approval attempt audit reason codes to `non_retryable_failure` for deterministic dead-letter correlation.
+- Scope: Preserved explicit empty `allowed_repos` overrides in connector factory (no fallback when empty set is intentionally provided).
+- Scope: Applied `ruff format` normalization for `pm_bot/server/github_connector.py` to clear CI formatting failure.
 
 
 ---
@@ -20,7 +27,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus validation module fixture tests and deterministic CLI validation output. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus API connector integration-style mocks, link behavior, and deterministic retry audit output. |
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
