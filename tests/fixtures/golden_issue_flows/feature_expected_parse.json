@@ -1,0 +1,23 @@
+{
+  "title": "Feature: deterministic parser fixtures",
+  "type": "feature",
+  "fields": {
+    "Goal": "Ship deterministic parser fixtures",
+    "Acceptance criteria (DoD)": "- Parse + render fixtures are golden-tested",
+    "Child tasks": "- [ ] #321\n- [ ] #654",
+    "ADR impact?": "No",
+    "ADR link (if applicable)": ""
+  },
+  "relationships": {
+    "children_refs": [
+      "#321",
+      "#654"
+    ]
+  },
+  "area": "phys-pipeline",
+  "size": "M",
+  "estimate_hrs": 8.0,
+  "priority": "P1",
+  "risk": "Med",
+  "blocked_by": "#100"
+}

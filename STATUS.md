@@ -6,13 +6,13 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 02:31:39 UTC
+- Time (UTC): 02:40:02 UTC
 - By: @openai-codex
-- Scope: Added configurable estimator minimum-sample thresholds by bucket level and specific bucket key with deterministic fallback gating.
-- Scope: Extended estimator prediction output with fallback-path attempt metadata and explicit chosen-bucket rationale.
-- Scope: Recorded historical sample exclusion reasons for estimator training and surfaced exclusion totals in weekly reporting output.
-- Scope: Added estimator-focused tests for sparse buckets, threshold-triggered fallback, deterministic nearest-rank quantiles, and exclusion-reason tracking.
-- Scope: Updated estimator spec documentation with default thresholds and concrete output/reporting fields.
+- Scope: Added `docs/qa-matrix.md` mapping user-critical flows to automated/manual checks and release gating requirements.
+- Scope: Added scripted runbook scenario tests for draft/parse/render, approval gating, idempotency reuse, and retry/dead-letter reliability drills.
+- Scope: Introduced golden issue-body parse/render fixtures and fixture-driven regression tests.
+- Scope: Split CI into grouped jobs (contract, reliability, regression fixtures, docs-command validation) plus a dependent `release-gate` job.
+- Scope: Updated release/runbook documentation to align matrix-driven quality gates and scripted scenario coverage.
 
 
 ---
@@ -21,7 +21,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus estimator fallback-threshold/exclusion cases, API connector integration-style mocks, link behavior, and deterministic retry audit output. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus runbook scripted flows, golden parse/render fixtures, reliability drills, and docs-command validation. |
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
