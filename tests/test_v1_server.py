@@ -218,8 +218,8 @@ def test_v2_graph_tree_and_dependencies():
     app.link_work_items(parent["issue_ref"], child["issue_ref"])
 
     tree = app.graph_tree(parent["issue_ref"])
-    assert tree["issue_ref"] == parent["issue_ref"]
-    assert tree["children"][0]["issue_ref"] == child["issue_ref"]
+    assert tree["root"]["issue_ref"] == parent["issue_ref"]
+    assert tree["root"]["children"][0]["issue_ref"] == child["issue_ref"]
 
     app.db.upsert_work_item(
         "x#1",
@@ -234,6 +234,64 @@ def test_v2_graph_tree_and_dependencies():
     )
     deps = app.graph_deps(area="platform")
     assert deps["edges"][0]["edge_type"] == "blocked_by"
+
+
+def test_graph_tree_reports_cycle_warning():
+    app = create_app()
+    root = app.draft(item_type="epic", title="Cycle A")
+    child = app.draft(item_type="feature", title="Cycle B")
+
+    app.link_work_items(root["issue_ref"], child["issue_ref"], source="sub_issue")
+    app.link_work_items(child["issue_ref"], root["issue_ref"], source="sub_issue")
+
+    tree = app.graph_tree(root["issue_ref"])
+    assert tree["warnings"]
+    assert tree["warnings"][0]["code"] == "cycle_detected"
+
+
+def test_graph_tree_prioritizes_sub_issue_and_warns_on_conflict():
+    app = create_app()
+    parent_dep = app.draft(item_type="epic", title="Dependency Parent")
+    parent_sub = app.draft(item_type="epic", title="Sub Parent")
+    child = app.draft(item_type="task", title="Shared Child")
+
+    app.link_work_items(parent_dep["issue_ref"], child["issue_ref"], source="dependency_api")
+    app.link_work_items(parent_sub["issue_ref"], child["issue_ref"], source="sub_issue")
+
+    tree = app.graph_tree(parent_sub["issue_ref"])
+    assert tree["root"]["children"][0]["issue_ref"] == child["issue_ref"]
+    assert any(w["code"] == "conflicting_parent_edge" for w in tree["warnings"])
+
+
+def test_graph_dependencies_include_mixed_provenance_and_summary():
+    app = create_app()
+    app.db.upsert_work_item(
+        "r#1",
+        {
+            "title": "Dependency node",
+            "type": "task",
+            "area": "platform",
+            "blocked_by": "r#0",
+            "fields": {"issue_ref": "r#1"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.upsert_work_item(
+        "r#2",
+        {
+            "title": "Relationship node",
+            "type": "task",
+            "area": "platform",
+            "fields": {"issue_ref": "r#2"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.link_work_items("r#0", "r#2", source="dependency_api")
+
+    deps = app.graph_deps(area="platform")
+    assert deps["summary"]["edge_count"] == 2
+    assert all(edge["provenance"] == "dependency_api" for edge in deps["edges"])
+    assert deps["warnings"] == []
 
 
 def test_v2_weekly_report_generation(tmp_path):

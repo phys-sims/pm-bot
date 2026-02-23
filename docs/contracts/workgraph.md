@@ -132,6 +132,67 @@ When deriving WorkGraph from GitHub, pm-bot SHOULD prioritize sources in this or
 
 This is documented in detail in `docs/github/tree-and-dependencies.md`.
 
+
+## Graph API output schema and guarantees
+
+This section defines the concrete output contract for server graph endpoints.
+
+### `graph.tree(root_ref)` output
+
+```json
+{
+  "root": {
+    "issue_ref": "<string>",
+    "title": "<string>",
+    "type": "<string>",
+    "provenance": "sub_issue|dependency_api|checklist",
+    "children": ["<recursive node>"]
+  },
+  "warnings": [
+    {
+      "code": "cycle_detected|conflicting_parent_edge",
+      "message": "<human-readable diagnostic>",
+      "diagnostic": {"<object>": "<shape depends on code>"}
+    }
+  ]
+}
+```
+
+Guarantees:
+
+- Tree responses MUST include `warnings` (possibly empty).
+- Parent-child edge selection MUST apply source priority: `sub_issue` > `dependency_api` > `checklist`.
+- If multiple parent candidates exist for one child, the selected edge MUST be the highest-priority source and a `conflicting_parent_edge` warning MUST be returned.
+- If a cycle is detected in selected parent-child edges, responses MUST include a `cycle_detected` warning with diagnostic cycle path data.
+
+### `graph.dependencies(area="")` output
+
+```json
+{
+  "nodes": [
+    {"id": "<string>", "title": "<string>", "type": "<string>", "area": "<string>"}
+  ],
+  "edges": [
+    {
+      "from": "<string>",
+      "to": "<string>",
+      "edge_type": "blocked_by",
+      "provenance": "dependency_api"
+    }
+  ],
+  "warnings": [
+    {"code": "no_dependencies", "message": "<string>"}
+  ],
+  "summary": {"node_count": 0, "edge_count": 0}
+}
+```
+
+Guarantees:
+
+- Dependency edges MUST include `provenance`.
+- Responses MUST include `summary.node_count` and `summary.edge_count`.
+- Responses MUST include `warnings` (possibly empty), with `no_dependencies` when no edges match filters.
+
 ## Mapping: WorkGraph → GitHub
 
 WorkGraph is mapped into GitHub issues using the canonical templates.

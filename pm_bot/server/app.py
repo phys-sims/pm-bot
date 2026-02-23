@@ -42,8 +42,8 @@ class ServerApp:
         self.db.upsert_work_item(issue_ref, work_item)
         return {"issue_ref": issue_ref, "work_item": work_item}
 
-    def link_work_items(self, parent_ref: str, child_ref: str) -> None:
-        self.db.add_relationship(parent_ref=parent_ref, child_ref=child_ref)
+    def link_work_items(self, parent_ref: str, child_ref: str, source: str = "checklist") -> None:
+        self.db.add_relationship(parent_ref=parent_ref, child_ref=child_ref, source=source)
 
     def propose_changeset(
         self,
