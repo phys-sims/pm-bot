@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from pm_bot.github.body_parser import parse_child_refs, parse_headings
+from pm_bot.validation import validate_work_item
 
 PROJECT_FIELDS = {
     "Area": "area",
@@ -69,9 +70,9 @@ def parse_issue_body(markdown: str, item_type: str, title: str = "") -> dict[str
         raw_value = parsed.headings.get(required_heading, "").strip()
         if not raw_value:
             missing.append(required_heading)
-    if missing:
-        work_item["validation_errors"] = [
-            f"Missing required heading content: {name}" for name in missing
-        ]
+
+    validation_errors = validate_work_item(work_item, required_headings=missing)
+    if validation_errors:
+        work_item["validation_errors"] = validation_errors
 
     return work_item

@@ -13,6 +13,7 @@ import typer
 from pm_bot.github.body_parser import parse_child_refs
 from pm_bot.github.parse_issue_body import parse_issue_body
 from pm_bot.github.render_issue_body import FIELD_TO_HEADING, load_template_map, render_issue_body
+from pm_bot.validation import validate_work_item
 
 CHILD_REF_HEADINGS = {
     "Child tasks",
@@ -84,6 +85,10 @@ def _primary_context_heading(item_type: str) -> str:
 app = typer.Typer(add_completion=False, help="pm-bot: agent-native PM orchestrator")
 
 
+def _emit_validation_errors(errors: list[dict[str, str]]) -> None:
+    typer.echo(json.dumps({"errors": errors}, indent=2))
+
+
 @app.command()
 def status() -> None:
     """Print basic repo status and where to look next."""
@@ -130,8 +135,9 @@ def draft(
     typer.echo(json.dumps(item, indent=2))
 
     if validate:
-        parsed = parse_issue_body(markdown, item_type=item_type, title=title)
-        if parsed.get("validation_errors"):
+        errors = validate_work_item(item)
+        if errors:
+            _emit_validation_errors(errors)
             raise typer.Exit(code=1)
 
 
@@ -159,8 +165,11 @@ def parse(
             raise typer.Exit(code=2) from exc
     parsed = parse_issue_body(markdown, item_type=issue_type, title=title)
     typer.echo(json.dumps(parsed, indent=2))
-    if validate and parsed.get("validation_errors"):
-        raise typer.Exit(code=1)
+    if validate:
+        errors = parsed.get("validation_errors", [])
+        if errors:
+            _emit_validation_errors(errors)
+            raise typer.Exit(code=1)
 
 
 @app.command()

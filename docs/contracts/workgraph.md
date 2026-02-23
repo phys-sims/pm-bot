@@ -189,6 +189,18 @@ This enables Projects field sync even if labels drift, and keeps issues usable w
 }
 ```
 
+## WorkItem validation behavior
+
+When WorkItem-like JSON is produced by parser/draft flows, validation is contractually split into two layers:
+
+1. Schema checks (required fields, enums, numeric constraints) using `pm_bot/schema/work_item.schema.json`.
+2. Business-rule checks for semantic constraints, including:
+   - required template heading semantics (for example empty required headings),
+   - reference validity (for example child issue refs must be issue numbers or issue URLs),
+   - type-specific requirements (for example task `Parent Feature URL` content).
+
+Consumers should treat validator `code` values as stable automation contracts.
+
 ## Versioning
 
 - `schema_version` MUST be versioned.

@@ -23,3 +23,36 @@ If you change a contract, you must:
 - AgentRunSpec: [`agent_run_spec.md`](agent_run_spec.md)
 - ContextPack v1: [`context_pack.md`](context_pack.md)
 
+
+
+## Validation contract (CLI parse/draft)
+
+`pm parse --validate` and `pm draft --validate` enforce a two-layer validation contract:
+
+1. **JSON Schema validation** against `pm_bot/schema/work_item.schema.json`.
+2. **Business-rule validation** for deterministic semantics not expressible in schema alone.
+
+Validation failures MUST be emitted as machine-readable JSON:
+
+```json
+{
+  "errors": [
+    {
+      "code": "SCHEMA_REQUIRED",
+      "path": "$.area",
+      "message": "'area' is a required property"
+    }
+  ]
+}
+```
+
+Error objects MUST include stable fields:
+
+- `code`: stable identifier (`SCHEMA_*` / `RULE_*`) suitable for automation.
+- `path`: JSONPath-like pointer into the WorkItem payload.
+- `message`: human-readable diagnostic text.
+
+Determinism requirements:
+
+- Error arrays MUST be sorted stably (`code`, `path`, `message`).
+- Re-running validation on unchanged input MUST yield byte-for-byte equivalent error payloads.

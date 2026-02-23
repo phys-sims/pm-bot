@@ -5,12 +5,13 @@
 > **Date integrity rule:** Populate dates/times with runtime commands (for example `date -u`); never guess dates.
 
 ## Last updated
-- Date: 2026-02-22
-- Time (UTC): 19:25:18 UTC
+- Date: 2026-02-23
+- Time (UTC): 00:56:05 UTC
 - By: @openai-codex
-- Scope: Adjusted CLI parse error handling for `--url` so unsupported/malformed URL failures print explicit user-facing error text before exiting.
-- Scope: Fixed regression test expectations for unsupported URL flow by ensuring the CLI output contains the unsupported URL guidance consistently in test and CI environments.
-- Scope: Re-ran lint and full test suite to verify URL parsing flows remain green.
+- Scope: Added dedicated schema + business-rule validation module for WorkItem payloads and integrated it into parse/draft flows.
+- Scope: Updated CLI `--validate` behavior to return deterministic machine-readable error payloads with stable error codes.
+- Scope: Added invalid fixtures and validation-focused tests for schema/rule failures and deterministic error output.
+- Scope: Updated contract/spec documentation to formalize validation and error payload guarantees.
 
 
 ---
@@ -19,9 +20,9 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior plus ASGI startup contract checks and minimal HTTP endpoint flow coverage. |
-| Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
-| Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus validation module fixture tests and deterministic CLI validation output. |
+| Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 
 ---
