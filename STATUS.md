@@ -6,11 +6,11 @@
 
 ## Last updated
 - Date: 2026-02-22
-- Time (UTC): 19:19:58 UTC
+- Time (UTC): 19:25:18 UTC
 - By: @openai-codex
-- Scope: Added explicit `pm parse --url` source handling for GitHub issue URLs (via GitHub API issue-body fetch) and raw markdown URLs, with user-facing errors for unsupported formats and auth failures.
-- Scope: Added CLI coverage for raw markdown URL parsing, mocked GitHub issue URL parsing, and unsupported URL rejection.
-- Scope: Updated quickstart/auth documentation with exact URL formats and token requirements for GitHub issue URL parsing.
+- Scope: Adjusted CLI parse error handling for `--url` so unsupported/malformed URL failures print explicit user-facing error text before exiting.
+- Scope: Fixed regression test expectations for unsupported URL flow by ensuring the CLI output contains the unsupported URL guidance consistently in test and CI environments.
+- Scope: Re-ran lint and full test suite to verify URL parsing flows remain green.
 
 
 ---

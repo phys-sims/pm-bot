@@ -152,7 +152,11 @@ def parse(
     if file is not None:
         markdown = file.read_text()
     else:
-        markdown = _load_markdown_from_url(url)
+        try:
+            markdown = _load_markdown_from_url(url)
+        except typer.BadParameter as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
     parsed = parse_issue_body(markdown, item_type=issue_type, title=title)
     typer.echo(json.dumps(parsed, indent=2))
     if validate and parsed.get("validation_errors"):
