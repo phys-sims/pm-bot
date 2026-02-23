@@ -77,6 +77,29 @@ def test_connector_read_endpoints_after_approved_write():
     assert len(issues) == 1
 
 
+def test_connector_link_issue_write_is_applied():
+    app = create_app()
+
+    create_changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#77", "title": "Ingest events", "area": "platform"},
+    )
+    app.approve_changeset(create_changeset["id"], approved_by="reviewer")
+
+    link_changeset = app.propose_changeset(
+        operation="link_issue",
+        repo="phys-sims/phys-pipeline",
+        target_ref="#77",
+        payload={"linked_issue_ref": "#76", "relationship": "blocked_by"},
+    )
+    app.approve_changeset(link_changeset["id"], approved_by="reviewer")
+
+    issue = app.fetch_issue("phys-sims/phys-pipeline", "#77")
+    assert issue is not None
+    assert issue["linked_issues"] == ["#76"]
+
+
 def test_webhook_ingestion_upserts_work_item():
     app = create_app()
     result = app.ingest_webhook(
@@ -203,6 +226,8 @@ def test_retryable_write_succeeds_within_budget_and_records_metrics():
     attempts = app.db.list_audit_events("changeset_attempt")
     assert len(attempts) == 2
     assert attempts[0]["payload"]["result"] == "retryable_failure"
+    assert attempts[0]["payload"]["reason_code"] == "transient_failure"
+    assert attempts[0]["payload"]["backoff_ms"] == 100
     assert attempts[1]["payload"]["result"] == "success"
     assert attempts[0]["payload"]["run_id"] == "run-retry-success"
 

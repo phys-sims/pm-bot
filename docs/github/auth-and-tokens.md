@@ -157,3 +157,37 @@ Likely cause: the issue was created by `GITHUB_TOKEN` in a workflow.
 
 Mitigation: use a GitHub App token or PAT for that step.
 
+## Connector runtime selection
+
+pm-bot supports explicit connector selection through environment config:
+
+- `PM_BOT_GITHUB_CONNECTOR=in_memory` (default): deterministic test connector, no live API calls.
+- `PM_BOT_GITHUB_CONNECTOR=api`: GitHub REST API connector for real create/update/list/link operations.
+
+Operational constraint:
+
+- Production-like runs SHOULD set connector type explicitly; silent fallback to in-memory is intended only for local tests/dev.
+
+## Environment variables and token split
+
+Connector auth is loaded with read/write separation:
+
+- `PM_BOT_GITHUB_READ_TOKEN`: read-only token for fetch/list operations.
+- `PM_BOT_GITHUB_WRITE_TOKEN`: write-capable token for create/update/link operations.
+- `PM_BOT_GITHUB_TOKEN` (or `GITHUB_TOKEN`) acts as shared fallback if split tokens are not configured.
+
+Safety requirements:
+
+- Write paths MUST fail closed when no write token is available (`missing_write_token`).
+- Logs/audit records MUST never contain raw token values; only redacted fingerprints are allowed.
+- Prefer separate credentials (or separate GitHub App installations) for read vs write privilege domains.
+
+## Retry and rate-limit behavior
+
+GitHub API connector retry behavior is bounded and deterministic at orchestration level:
+
+- Retry only on retryable outcomes: GitHub 5xx or rate-limit responses (`429` and rate-limit flavored `403`).
+- Backoff schedule uses bounded exponential timing (default 100ms, 200ms, 400ms; capped).
+- `Retry-After` headers are respected as a lower-bound when present.
+- Every attempt emits audit data with reason code and scheduled backoff (`changeset_attempt`).
+- Exhausted retries produce dead-letter status with deterministic reason code (`retry_budget_exhausted`).

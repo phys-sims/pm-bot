@@ -8,7 +8,7 @@ import time
 from typing import Any
 
 from pm_bot.server.db import OrchestratorDB
-from pm_bot.server.github_connector import GitHubConnector, WriteRequest
+from pm_bot.server.github_connector import GitHubConnector, RetryableGitHubError, WriteRequest
 
 
 class ChangesetService:
@@ -17,10 +17,20 @@ class ChangesetService:
         db: OrchestratorDB,
         connector: GitHubConnector,
         max_retries: int = 2,
+        base_backoff_ms: int = 100,
+        max_backoff_ms: int = 1000,
     ) -> None:
         self.db = db
         self.connector = connector
         self.max_retries = max_retries
+        self.base_backoff_ms = base_backoff_ms
+        self.max_backoff_ms = max_backoff_ms
+
+    def _compute_backoff_ms(self, attempt: int, retry_after_s: float | None) -> int:
+        scheduled_ms = min(self.max_backoff_ms, self.base_backoff_ms * (2 ** max(attempt - 1, 0)))
+        if retry_after_s is None:
+            return scheduled_ms
+        return max(scheduled_ms, int(retry_after_s * 1000))
 
     def _build_idempotency_key(
         self,
@@ -138,17 +148,20 @@ class ChangesetService:
                     },
                 )
                 return result
-            except RuntimeError as exc:
+            except RetryableGitHubError as exc:
                 latency_ms = (time.perf_counter() - started) * 1000
                 self.db.record_operation_metric("changeset_write", "retryable_failure", latency_ms)
                 self.db.update_changeset_retry(changeset_id, attempts, str(exc))
+                backoff_ms = self._compute_backoff_ms(attempts, exc.retry_after_s)
                 self.db.append_audit_event(
                     "changeset_attempt",
                     {
                         "changeset_id": changeset_id,
                         "attempt": attempts,
                         "result": "retryable_failure",
+                        "reason_code": exc.reason_code,
                         "error": str(exc),
+                        "backoff_ms": backoff_ms,
                         "latency_ms": round(latency_ms, 3),
                         "run_id": run_id,
                     },
@@ -166,5 +179,6 @@ class ChangesetService:
                         },
                     )
                     raise RuntimeError("Changeset failed: retry_budget_exhausted") from exc
+                time.sleep(backoff_ms / 1000)
 
         raise RuntimeError("Unreachable retry state")

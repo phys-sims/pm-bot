@@ -11,7 +11,7 @@ from pm_bot.server.changesets import ChangesetService
 from pm_bot.server.context_pack import build_context_pack
 from pm_bot.server.db import OrchestratorDB
 from pm_bot.server.estimator import EstimatorService
-from pm_bot.server.github_connector import GitHubConnector
+from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
 
@@ -21,7 +21,7 @@ class ServerApp:
 
     def __init__(self, db_path: str | Path = ":memory:") -> None:
         self.db = OrchestratorDB(db_path)
-        self.connector = GitHubConnector(
+        self.connector = build_connector_from_env(
             allowed_repos={"phys-sims/.github", "phys-sims/phys-pipeline"}
         )
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
