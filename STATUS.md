@@ -6,12 +6,12 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 01:35:18 UTC
+- Time (UTC): 02:02:49 UTC
 - By: @openai-codex
-- Scope: Extended relationship persistence to store edge provenance/source and exposed relationship listing for graph derivation.
-- Scope: Updated graph/tree services to emit warnings + diagnostics, apply source-priority selection (`sub_issue` > `dependency_api` > `checklist`), and return dependency summaries.
-- Scope: Added graph tests for cycle detection, conflicting parent edges, and mixed provenance dependency views.
-- Scope: Updated WorkGraph contract docs with explicit graph API output schemas and guarantees for warnings, diagnostics, provenance, and summaries.
+- Scope: Replaced weekly reporting placeholders with deterministic metrics derived from audit events, work-item records, and estimator snapshots.
+- Scope: Added traceability metadata in reports (generation timestamp, estimator/audit snapshot IDs, correlated run IDs, and metric sample sizes).
+- Scope: Updated report rendering to match the documented section layout in `docs/spec/reporting.md`.
+- Scope: Added seeded-data metric tests and a golden weekly report fixture for regression detection.
 
 
 ---
