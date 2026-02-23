@@ -6,12 +6,13 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 02:02:49 UTC
+- Time (UTC): 02:31:39 UTC
 - By: @openai-codex
-- Scope: Replaced weekly reporting placeholders with deterministic metrics derived from audit events, work-item records, and estimator snapshots.
-- Scope: Added traceability metadata in reports (generation timestamp, estimator/audit snapshot IDs, correlated run IDs, and metric sample sizes).
-- Scope: Updated report rendering to match the documented section layout in `docs/spec/reporting.md`.
-- Scope: Added seeded-data metric tests and a golden weekly report fixture for regression detection.
+- Scope: Added configurable estimator minimum-sample thresholds by bucket level and specific bucket key with deterministic fallback gating.
+- Scope: Extended estimator prediction output with fallback-path attempt metadata and explicit chosen-bucket rationale.
+- Scope: Recorded historical sample exclusion reasons for estimator training and surfaced exclusion totals in weekly reporting output.
+- Scope: Added estimator-focused tests for sparse buckets, threshold-triggered fallback, deterministic nearest-rank quantiles, and exclusion-reason tracking.
+- Scope: Updated estimator spec documentation with default thresholds and concrete output/reporting fields.
 
 
 ---
@@ -20,7 +21,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus API connector integration-style mocks, link behavior, and deterministic retry audit output. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus estimator fallback-threshold/exclusion cases, API connector integration-style mocks, link behavior, and deterministic retry audit output. |
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |

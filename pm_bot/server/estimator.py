@@ -26,8 +26,26 @@ class EstimatorService:
         tuple(),
     )
 
-    def __init__(self, db: OrchestratorDB) -> None:
+    DEFAULT_MIN_SAMPLES = 3
+
+    def __init__(
+        self,
+        db: OrchestratorDB,
+        min_samples_by_bucket: dict[str | tuple[str, ...], int] | None = None,
+        default_min_samples: int = DEFAULT_MIN_SAMPLES,
+    ) -> None:
         self.db = db
+        self.default_min_samples = max(1, int(default_min_samples))
+        self._min_samples_by_bucket_key: dict[str, int] = {}
+        self._min_samples_by_level: dict[tuple[str, ...], int] = {}
+        self._last_exclusion_reasons: dict[str, int] = {}
+
+        for bucket, threshold in (min_samples_by_bucket or {}).items():
+            normalized = max(1, int(threshold))
+            if isinstance(bucket, tuple):
+                self._min_samples_by_level[bucket] = normalized
+            else:
+                self._min_samples_by_bucket_key[bucket] = normalized
 
     def _bucket_key(self, item: dict[str, Any], keys: tuple[str, ...]) -> str:
         if not keys:
@@ -38,24 +56,51 @@ class EstimatorService:
             parts.append(f"{key}:{value}")
         return "|".join(parts)
 
-    def _historical_items(self) -> list[dict[str, Any]]:
+    def _threshold_for_bucket(self, keys: tuple[str, ...], bucket_key: str) -> int:
+        return self._min_samples_by_bucket_key.get(
+            bucket_key,
+            self._min_samples_by_level.get(keys, self.default_min_samples),
+        )
+
+    def _historical_items(self) -> tuple[list[dict[str, Any]], dict[str, int]]:
         rows = self.db.list_work_items()
         out: list[dict[str, Any]] = []
+        exclusions: dict[str, int] = {}
         for row in rows:
             actual = row.get("actual_hrs")
-            if isinstance(actual, (int, float)) and actual > 0:
-                out.append(
-                    {
-                        "type": str(row.get("type", "")).strip().lower(),
-                        "area": str(row.get("area", "")).strip().lower(),
-                        "size": str(row.get("size", "")).strip().lower(),
-                        "actual_hrs": float(actual),
-                    }
+            if actual is None:
+                exclusions["missing_actual_hrs"] = exclusions.get("missing_actual_hrs", 0) + 1
+                continue
+            if not isinstance(actual, (int, float)):
+                exclusions["non_numeric_actual_hrs"] = (
+                    exclusions.get("non_numeric_actual_hrs", 0) + 1
                 )
-        return out
+                continue
+            if actual <= 0:
+                exclusions["non_positive_actual_hrs"] = (
+                    exclusions.get("non_positive_actual_hrs", 0) + 1
+                )
+                continue
+            out.append(
+                {
+                    "type": str(row.get("type", "")).strip().lower(),
+                    "area": str(row.get("area", "")).strip().lower(),
+                    "size": str(row.get("size", "")).strip().lower(),
+                    "actual_hrs": float(actual),
+                }
+            )
+        return out, exclusions
+
+    def exclusion_reasons(self) -> dict[str, int]:
+        return dict(self._last_exclusion_reasons)
 
     def build_snapshots(self) -> list[dict[str, Any]]:
-        history = self._historical_items()
+        history, exclusions = self._historical_items()
+        self._last_exclusion_reasons = exclusions
+        self.db.append_audit_event(
+            "estimator_samples_excluded",
+            {"reasons": exclusions, "excluded_total": sum(exclusions.values())},
+        )
         snapshots: list[dict[str, Any]] = []
         for keys in self.FALLBACKS:
             groups: dict[str, list[float]] = {}
@@ -93,17 +138,43 @@ class EstimatorService:
             "size": str(item.get("size", "")).strip().lower(),
         }
 
+        fallback_path: list[dict[str, Any]] = []
+
         for keys in self.FALLBACKS:
             bucket_key = self._bucket_key(normalized, keys)
-            if bucket_key in snapshots:
-                row = snapshots[bucket_key]
+            row = snapshots.get(bucket_key)
+            sample_count = int(row["sample_count"]) if row else 0
+            min_samples = self._threshold_for_bucket(keys, bucket_key)
+            selected = bool(row and sample_count >= min_samples)
+            fallback_path.append(
+                {
+                    "bucket_key": bucket_key,
+                    "bucket_keys": list(keys),
+                    "sample_count": sample_count,
+                    "min_samples_required": min_samples,
+                    "selected": selected,
+                    "reason": (
+                        "selected"
+                        if selected
+                        else ("missing_snapshot" if row is None else "below_min_samples")
+                    ),
+                }
+            )
+
+            if selected and row is not None:
                 return {
                     "p50": row["p50"],
                     "p80": row["p80"],
                     "sample_count": row["sample_count"],
+                    "bucket_used": bucket_key,
                     "bucket_key": bucket_key,
                     "fallback_level": len(keys),
+                    "fallback_path": fallback_path,
+                    "bucket_rationale": (
+                        f"Selected '{bucket_key}' with sample_count={sample_count} "
+                        f">= min_samples_required={min_samples}."
+                    ),
                     "method": row["method"],
                 }
 
-        raise ValueError("No estimator snapshots available")
+        raise ValueError(f"No estimator snapshots satisfy configured thresholds: {fallback_path}")

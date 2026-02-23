@@ -22,6 +22,7 @@
 - Snapshot bucket count: 2.
 - Sparse buckets:
   - task|platform|S (sample_count=2)
+- Excluded historical samples: total=0 reasons={}.
 
 ## Safety incidents
 - Denied changesets: 1 (blocked write attempts=1, sample=5).

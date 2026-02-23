@@ -203,11 +203,24 @@ def test_v2_estimator_snapshot_and_predict_fallback():
         },
     )
 
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#3",
+        {
+            "title": "C",
+            "type": "task",
+            "area": "platform",
+            "size": "m",
+            "actual_hrs": 6.0,
+            "fields": {},
+            "relationships": {"children_refs": []},
+        },
+    )
+
     snapshots = app.estimator_snapshot()
     assert snapshots
 
     prediction = app.estimate(item_type="task", area="platform", size="m")
-    assert prediction["p50"] == 4.0
+    assert prediction["p50"] == 6.0
     assert prediction["p80"] == 8.0
 
 
