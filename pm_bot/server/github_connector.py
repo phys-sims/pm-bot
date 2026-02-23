@@ -53,7 +53,7 @@ def build_connector_from_env(
     env: dict[str, str] | None = None,
     allowed_repos: set[str] | None = None,
 ) -> GitHubConnector:
-    env_map = env or os.environ
+    env_map = os.environ if env is None else env
     connector_type = (env_map.get("PM_BOT_GITHUB_CONNECTOR") or "in_memory").strip().lower()
     repos = allowed_repos or {"phys-sims/.github", "phys-sims/phys-pipeline"}
 

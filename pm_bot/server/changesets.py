@@ -180,5 +180,33 @@ class ChangesetService:
                     )
                     raise RuntimeError("Changeset failed: retry_budget_exhausted") from exc
                 time.sleep(backoff_ms / 1000)
+            except Exception as exc:
+                latency_ms = (time.perf_counter() - started) * 1000
+                self.db.record_operation_metric("changeset_write", "failure", latency_ms)
+                self.db.update_changeset_retry(changeset_id, attempts, str(exc))
+                self.db.append_audit_event(
+                    "changeset_attempt",
+                    {
+                        "changeset_id": changeset_id,
+                        "attempt": attempts,
+                        "result": "failure",
+                        "reason_code": "write_failed",
+                        "error": str(exc),
+                        "latency_ms": round(latency_ms, 3),
+                        "run_id": run_id,
+                    },
+                )
+                self.db.set_changeset_status(changeset_id, "failed")
+                self.db.append_audit_event(
+                    "changeset_dead_lettered",
+                    {
+                        "changeset_id": changeset_id,
+                        "attempts": attempts,
+                        "error": str(exc),
+                        "reason_code": "non_retryable_failure",
+                        "run_id": run_id,
+                    },
+                )
+                raise RuntimeError("Changeset failed: non_retryable_failure") from exc
 
         raise RuntimeError("Unreachable retry state")

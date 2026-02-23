@@ -6,13 +6,16 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 01:09:35 UTC
+- Time (UTC): 01:20:22 UTC
 - By: @openai-codex
 - Scope: Added connector contract + runtime connector factory with environment-based implementation injection (in-memory default, API optional).
 - Scope: Added GitHub API connector module with create/update/list/fetch/link operations, plus read/write token auth loading and redaction helpers.
 - Scope: Added bounded retry/backoff audit fields for retryable GitHub errors (5xx/rate-limit) in changeset approval execution.
 - Scope: Added integration-style connector tests using fake session responses and expanded v1 tests for link + deterministic retry audit details.
 - Scope: Expanded GitHub auth/token guidance and product spec operational constraints for connector selection, token separation, and retry behavior.
+- Scope: Fixed webhook ingestion to avoid connector-specific in-memory state assumptions so API connector mode ingests safely.
+- Scope: Added non-retryable write failure handling/audit in approval flow and env factory isolation for explicit empty env overrides.
+- Scope: Added regression tests for API-mode webhook ingestion, non-retryable approval failures, and explicit-empty-env connector selection.
 
 
 ---

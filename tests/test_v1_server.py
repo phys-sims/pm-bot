@@ -121,6 +121,61 @@ def test_webhook_ingestion_upserts_work_item():
     assert work_item["fields"]["title"] == "Hook event"
 
 
+def test_webhook_ingestion_with_api_connector_still_upserts_work_item() -> None:
+    from pm_bot.server.github_auth import GitHubAuth
+    from pm_bot.server.github_connector_api import GitHubAPIConnector
+
+    app = create_app()
+    app.connector = GitHubAPIConnector(auth=GitHubAuth(read_token=None, write_token="token"))
+
+    result = app.ingest_webhook(
+        "issues",
+        {
+            "repository": {"full_name": "phys-sims/phys-pipeline"},
+            "issue": {
+                "number": 51,
+                "title": "Webhook API mode",
+                "state": "open",
+                "labels": [{"name": "area:platform"}],
+            },
+        },
+    )
+
+    assert result["status"] == "ingested"
+    work_item = app.get_work_item("phys-sims/phys-pipeline#51")
+    assert work_item is not None
+    assert work_item["fields"]["title"] == "Webhook API mode"
+
+
+def test_non_retryable_write_failure_marks_changeset_failed_and_audits() -> None:
+    app = create_app()
+    changeset = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"issue_ref": "#100", "title": "Will fail"},
+    )
+
+    def _fail(_request: object) -> dict[str, object]:
+        raise RuntimeError("HTTP 401")
+
+    app.connector.execute_write = _fail  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="non_retryable_failure"):
+        app.approve_changeset(changeset["id"], approved_by="reviewer", run_id="run-hard-fail")
+
+    stored = app.db.get_changeset(changeset["id"])
+    assert stored is not None
+    assert stored["status"] == "failed"
+
+    attempts = app.db.list_audit_events("changeset_attempt")
+    assert attempts[-1]["payload"]["result"] == "failure"
+    assert attempts[-1]["payload"]["reason_code"] == "write_failed"
+
+    dead_letters = app.db.list_audit_events("changeset_dead_lettered")
+    assert dead_letters[-1]["payload"]["reason_code"] == "non_retryable_failure"
+    assert dead_letters[-1]["payload"]["run_id"] == "run-hard-fail"
+
+
 def test_v2_estimator_snapshot_and_predict_fallback():
     app = create_app()
     app.db.upsert_work_item(

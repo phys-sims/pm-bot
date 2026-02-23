@@ -52,6 +52,14 @@ def test_build_connector_from_env_defaults_to_inmemory() -> None:
     assert isinstance(connector, InMemoryGitHubConnector)
 
 
+def test_build_connector_from_env_explicit_empty_env_ignores_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PM_BOT_GITHUB_CONNECTOR", "api")
+    connector = build_connector_from_env(env={})
+    assert isinstance(connector, InMemoryGitHubConnector)
+
+
 def test_auth_loads_read_write_tokens_with_shared_fallback() -> None:
     auth = load_github_auth_from_env(
         {
