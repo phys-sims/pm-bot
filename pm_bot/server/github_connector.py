@@ -56,9 +56,7 @@ def build_connector_from_env(
     env_map = os.environ if env is None else env
     connector_type = (env_map.get("PM_BOT_GITHUB_CONNECTOR") or "in_memory").strip().lower()
     repos = (
-        {"phys-sims/.github", "phys-sims/phys-pipeline"}
-        if allowed_repos is None
-        else allowed_repos
+        {"phys-sims/.github", "phys-sims/phys-pipeline"} if allowed_repos is None else allowed_repos
     )
 
     if connector_type == "api":

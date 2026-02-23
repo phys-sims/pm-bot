@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 01:27:32 UTC
+- Time (UTC): 01:30:07 UTC
 - By: @openai-codex
 - Scope: Added connector contract + runtime connector factory with environment-based implementation injection (in-memory default, API optional).
 - Scope: Added GitHub API connector module with create/update/list/fetch/link operations, plus read/write token auth loading and redaction helpers.
@@ -18,6 +18,7 @@
 - Scope: Added regression tests for API-mode webhook ingestion, non-retryable approval failures, and explicit-empty-env connector selection.
 - Scope: Normalized non-retryable approval attempt audit reason codes to `non_retryable_failure` for deterministic dead-letter correlation.
 - Scope: Preserved explicit empty `allowed_repos` overrides in connector factory (no fallback when empty set is intentionally provided).
+- Scope: Applied `ruff format` normalization for `pm_bot/server/github_connector.py` to clear CI formatting failure.
 
 
 ---
