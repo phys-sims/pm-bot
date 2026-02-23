@@ -6,19 +6,12 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 01:30:07 UTC
+- Time (UTC): 01:35:18 UTC
 - By: @openai-codex
-- Scope: Added connector contract + runtime connector factory with environment-based implementation injection (in-memory default, API optional).
-- Scope: Added GitHub API connector module with create/update/list/fetch/link operations, plus read/write token auth loading and redaction helpers.
-- Scope: Added bounded retry/backoff audit fields for retryable GitHub errors (5xx/rate-limit) in changeset approval execution.
-- Scope: Added integration-style connector tests using fake session responses and expanded v1 tests for link + deterministic retry audit details.
-- Scope: Expanded GitHub auth/token guidance and product spec operational constraints for connector selection, token separation, and retry behavior.
-- Scope: Fixed webhook ingestion to avoid connector-specific in-memory state assumptions so API connector mode ingests safely.
-- Scope: Added non-retryable write failure handling/audit in approval flow and env factory isolation for explicit empty env overrides.
-- Scope: Added regression tests for API-mode webhook ingestion, non-retryable approval failures, and explicit-empty-env connector selection.
-- Scope: Normalized non-retryable approval attempt audit reason codes to `non_retryable_failure` for deterministic dead-letter correlation.
-- Scope: Preserved explicit empty `allowed_repos` overrides in connector factory (no fallback when empty set is intentionally provided).
-- Scope: Applied `ruff format` normalization for `pm_bot/server/github_connector.py` to clear CI formatting failure.
+- Scope: Extended relationship persistence to store edge provenance/source and exposed relationship listing for graph derivation.
+- Scope: Updated graph/tree services to emit warnings + diagnostics, apply source-priority selection (`sub_issue` > `dependency_api` > `checklist`), and return dependency summaries.
+- Scope: Added graph tests for cycle detection, conflicting parent edges, and mixed provenance dependency views.
+- Scope: Updated WorkGraph contract docs with explicit graph API output schemas and guarantees for warnings, diagnostics, provenance, and summaries.
 
 
 ---

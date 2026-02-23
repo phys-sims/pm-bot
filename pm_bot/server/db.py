@@ -32,7 +32,8 @@ class OrchestratorDB:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 parent_ref TEXT NOT NULL,
                 child_ref TEXT NOT NULL,
-                UNIQUE(parent_ref, child_ref)
+                source TEXT NOT NULL DEFAULT 'checklist',
+                UNIQUE(parent_ref, child_ref, source)
             );
 
             CREATE TABLE IF NOT EXISTS changesets (
@@ -109,6 +110,10 @@ class OrchestratorDB:
             )
         if not self._has_column("changesets", "last_error"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
+        if not self._has_column("relationships", "source"):
+            self.conn.execute(
+                "ALTER TABLE relationships ADD COLUMN source TEXT NOT NULL DEFAULT 'checklist'"
+            )
         self.conn.commit()
 
     def _has_column(self, table: str, column: str) -> bool:
@@ -211,14 +216,14 @@ class OrchestratorDB:
         )
         self.conn.commit()
 
-    def add_relationship(self, parent_ref: str, child_ref: str) -> None:
+    def add_relationship(self, parent_ref: str, child_ref: str, source: str = "checklist") -> None:
         self.conn.execute(
             """
-            INSERT INTO relationships (parent_ref, child_ref)
-            VALUES (?, ?)
-            ON CONFLICT(parent_ref, child_ref) DO NOTHING
+            INSERT INTO relationships (parent_ref, child_ref, source)
+            VALUES (?, ?, ?)
+            ON CONFLICT(parent_ref, child_ref, source) DO NOTHING
             """,
-            (parent_ref, child_ref),
+            (parent_ref, child_ref, source),
         )
         self.conn.commit()
 
@@ -235,6 +240,23 @@ class OrchestratorDB:
             "parents": [row[0] for row in parent_rows],
             "children": [row[0] for row in child_rows],
         }
+
+    def list_relationships(self) -> list[dict[str, str]]:
+        rows = self.conn.execute(
+            """
+            SELECT parent_ref, child_ref, source
+            FROM relationships
+            ORDER BY parent_ref ASC, child_ref ASC, source ASC
+            """
+        ).fetchall()
+        return [
+            {
+                "parent_ref": str(row["parent_ref"]),
+                "child_ref": str(row["child_ref"]),
+                "source": str(row["source"] or "checklist"),
+            }
+            for row in rows
+        ]
 
     def list_work_items(self) -> list[dict[str, Any]]:
         rows = self.conn.execute("SELECT payload_json FROM work_items ORDER BY issue_ref ASC")
