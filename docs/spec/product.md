@@ -185,6 +185,14 @@ Primary responsibilities:
 - parse issue bodies into canonical WorkItem JSON
 - render WorkItem JSON back to deterministic markdown
 - show trees / graphs in read-only form
+- validate parse/draft payloads with schema + business-rule checks (`--validate`)
+
+Validation guarantees for `--validate`:
+
+- MUST apply JSON Schema validation against `pm_bot/schema/work_item.schema.json`.
+- MUST apply deterministic business-rule validators for semantic constraints.
+- MUST return machine-readable error payloads with stable `code`, `path`, `message` fields.
+- MUST exit non-zero when any validation error exists.
 
 ### Server
 

@@ -5,12 +5,13 @@
 > **Date integrity rule:** Populate dates/times with runtime commands (for example `date -u`); never guess dates.
 
 ## Last updated
-- Date: 2026-02-22
-- Time (UTC): 19:12:41 UTC
+- Date: 2026-02-23
+- Time (UTC): 00:56:05 UTC
 - By: @openai-codex
-- Scope: Added a real ASGI `app` export in `pm_bot/server/app.py` with a minimal safe HTTP surface (`GET /health`, `POST /changesets/propose`) mapped to existing `ServerApp` behavior.
-- Scope: Updated quickstart, first-human-test runbook, and README to document a single supported startup command (`uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000`) and smoke-check flow.
-- Scope: Added HTTP contract tests for startup command discoverability and endpoint flow coverage from docs.
+- Scope: Added dedicated schema + business-rule validation module for WorkItem payloads and integrated it into parse/draft flows.
+- Scope: Updated CLI `--validate` behavior to return deterministic machine-readable error payloads with stable error codes.
+- Scope: Added invalid fixtures and validation-focused tests for schema/rule failures and deterministic error output.
+- Scope: Updated contract/spec documentation to formalize validation and error payload guarantees.
 
 
 ---
@@ -19,9 +20,9 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-22 | Covers v0-v4 behavior plus ASGI startup contract checks and minimal HTTP endpoint flow coverage. |
-| Lint | `ruff check .` | ✅ | 2026-02-22 | No lint violations. |
-| Format | `ruff format .` | ✅ | 2026-02-22 | Formatting is stable. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus validation module fixture tests and deterministic CLI validation output. |
+| Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 
 ---
