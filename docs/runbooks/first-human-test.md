@@ -10,6 +10,18 @@ It is designed to answer:
 - “Can I build a tree view without nonsense?”
 - “Do reruns avoid duplicates?”
 
+## Scripted scenario coverage (automated)
+
+The following runbook flows now have scripted pytest scenarios:
+
+- Draft + parse/render flow: `tests/test_runbook_scenarios.py::test_runbook_flow_draft_parse_render_roundtrip`
+- Approval gate flow: `tests/test_runbook_scenarios.py::test_runbook_flow_approve_changeset`
+- Idempotency flow: `tests/test_runbook_scenarios.py::test_runbook_flow_idempotency_reuses_existing_changeset`
+- Reliability drills: `tests/test_runbook_scenarios.py::test_reliability_drill_retries_then_succeeds` and `::test_reliability_drill_retry_budget_exhaustion_dead_letters`
+- Golden parse/render fixtures: `tests/test_golden_issue_fixtures.py`
+
+Use these scripted checks as the automated baseline and keep this runbook for end-to-end human validation in real GitHub environments.
+
 ## Safety rules
 
 - Use a **sandbox repository** and/or a test Project first.
