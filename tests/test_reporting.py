@@ -75,6 +75,7 @@ def test_weekly_report_metrics_from_seeded_data(tmp_path, monkeypatch):
     assert "- P80 coverage: 50.00% (covered=1, sample=2)." in content
     assert "- Sparse buckets:" in content
     assert "  - task|platform|S (sample_count=2)" in content
+    assert "- Excluded historical samples: total=0 reasons={}." in content
     assert "- Denied changesets: 1 (blocked write attempts=1, sample=5)." in content
     assert "- Missing `Area`: 33.33% (count=1, sample=3)." in content
     assert "- Missing `Size`: 33.33% (count=1, sample=3)." in content

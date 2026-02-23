@@ -30,15 +30,18 @@ Estimator v1 buckets historical samples by:
 
 When estimating a new item, it chooses the most specific bucket with enough samples and falls back deterministically.
 
-### Minimum sample thresholds (recommended)
+### Minimum sample thresholds (default + configuration)
 
-- A bucket SHOULD have at least N samples to be considered reliable.
-  - Example: `N = 5`
+- **Default threshold:** `3` samples per bucket.
+- The estimator supports deterministic overrides for:
+  - bucket level (for example `("type", "area", "size")`)
+  - specific bucket key (for example `type:task|area:platform|size:m`)
+- Buckets with fewer than the configured minimum are considered sparse and must be skipped.
 
 If a bucket is sparse, the estimator MUST:
 
 - fall back to the next broader bucket
-- record the fallback path and sample counts
+- record the full fallback path, sample counts, and threshold checks
 
 ## Quantiles
 
@@ -64,14 +67,23 @@ Exclusions SHOULD be reported in meta reports.
 
 ## Outputs
 
-For a given work item, the estimator should return:
+For a given work item, the estimator returns:
 
-- `p50_hrs`
-- `p80_hrs`
-- `bucket_used` (which bucket level)
+- `p50`
+- `p80`
 - `sample_count`
-- `fallback_path` (exact → broader → …)
-- `snapshot_id` / `estimator_version`
+- `bucket_used`
+- `bucket_key` (alias retained for compatibility)
+- `fallback_level` (number of dimensions in selected bucket)
+- `fallback_path` containing each attempted bucket in order with:
+  - `bucket_key`
+  - `bucket_keys`
+  - `sample_count`
+  - `min_samples_required`
+  - `selected`
+  - `reason` (`selected`, `below_min_samples`, `missing_snapshot`)
+- `bucket_rationale` (human-readable explanation of the selected bucket)
+- `method` (`nearest-rank`)
 
 This output should be displayable in:
 
@@ -113,3 +125,14 @@ To improve estimates:
 - See roadmap v2 for the intended estimator behavior.
 - See `docs/github/projects-field-sync.md` for how these fields are populated.
 
+
+
+## Reporting exclusions
+
+When building snapshots, historical items excluded from training are counted by reason and emitted for reporting.
+
+- `missing_actual_hrs`
+- `non_numeric_actual_hrs`
+- `non_positive_actual_hrs`
+
+Reports consume these counters through the `estimator_samples_excluded` audit event payload (`reasons`, `excluded_total`).

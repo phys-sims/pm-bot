@@ -78,6 +78,16 @@ class ReportingService:
         ]
         sparse_buckets.sort(key=lambda bucket: (bucket["sample_count"], bucket["bucket_key"]))
 
+        exclusion_reasons: dict[str, int] = {}
+        excluded_total = 0
+        exclusion_events = self.db.list_audit_events("estimator_samples_excluded")
+        if exclusion_events:
+            latest = exclusion_events[-1]["payload"]
+            raw_reasons = latest.get("reasons")
+            if isinstance(raw_reasons, dict):
+                exclusion_reasons = {str(k): int(v) for k, v in raw_reasons.items()}
+            excluded_total = int(latest.get("excluded_total") or sum(exclusion_reasons.values()))
+
         return {
             "p80_coverage": p80_coverage,
             "coverage_sample": len(comparable_items),
@@ -85,6 +95,8 @@ class ReportingService:
             "snapshot_ids": snapshot_ids,
             "bucket_count": len(snapshots),
             "sparse_buckets": sparse_buckets[:5],
+            "excluded_total": excluded_total,
+            "excluded_reasons": exclusion_reasons,
         }
 
     def _safety_metrics(self, counts: dict[str, int]) -> dict[str, int]:
@@ -232,6 +244,11 @@ class ReportingService:
                 lines.append(f"  - {bucket['bucket_key']} (sample_count={bucket['sample_count']})")
         else:
             lines.append("  - none")
+
+        lines.append(
+            "- Excluded historical samples: "
+            f"total={estimation['excluded_total']} reasons={estimation['excluded_reasons']}."
+        )
 
         lines.extend(
             [
