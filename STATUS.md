@@ -6,8 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 02:40:02 UTC
+- Time (UTC): 03:02:13 UTC
 - By: @openai-codex
+- Scope: Fixed CI workflow checkout action pin from unsupported `actions/checkout@v5` to `actions/checkout@v4` to restore GitHub Actions compatibility.
 - Scope: Added `docs/qa-matrix.md` mapping user-critical flows to automated/manual checks and release gating requirements.
 - Scope: Added scripted runbook scenario tests for draft/parse/render, approval gating, idempotency reuse, and retry/dead-letter reliability drills.
 - Scope: Introduced golden issue-body parse/render fixtures and fixture-driven regression tests.
