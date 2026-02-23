@@ -169,7 +169,7 @@ def test_non_retryable_write_failure_marks_changeset_failed_and_audits() -> None
 
     attempts = app.db.list_audit_events("changeset_attempt")
     assert attempts[-1]["payload"]["result"] == "failure"
-    assert attempts[-1]["payload"]["reason_code"] == "write_failed"
+    assert attempts[-1]["payload"]["reason_code"] == "non_retryable_failure"
 
     dead_letters = app.db.list_audit_events("changeset_dead_lettered")
     assert dead_letters[-1]["payload"]["reason_code"] == "non_retryable_failure"

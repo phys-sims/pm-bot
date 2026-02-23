@@ -190,7 +190,7 @@ class ChangesetService:
                         "changeset_id": changeset_id,
                         "attempt": attempts,
                         "result": "failure",
-                        "reason_code": "write_failed",
+                        "reason_code": "non_retryable_failure",
                         "error": str(exc),
                         "latency_ms": round(latency_ms, 3),
                         "run_id": run_id,
