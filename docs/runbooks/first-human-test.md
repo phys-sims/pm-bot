@@ -149,7 +149,7 @@ Expected:
 - it is denied
 - an audit event is recorded (denied)
 
-5. Approve the changeset via the server UI/CLI.
+5. Approve the changeset via the server UI/CLI (UI path: open `ui/`, go to Inbox, click **Approve**).
 6. Apply the changeset.
 
 Expected:
@@ -210,6 +210,23 @@ Once this runbook passes:
   - renderer/parser changes
   - workflow changes
   - GitHub auth changes
+
+## UI local startup quick check (MVP)
+
+Run backend and UI together:
+
+```bash
+uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
+cd ui
+npm install
+npm run dev -- --host 127.0.0.1 --port 4173
+```
+
+Then validate:
+
+1. Inbox shows pending changesets from `GET /changesets/pending`.
+2. Approve from UI calls `POST /changesets/{id}/approve` and surfaces success/error reason codes.
+3. Tree page loads from `GET /graph/tree` + `GET /graph/deps`, including warnings panel content.
 
 ## Troubleshooting checklist
 

@@ -139,10 +139,16 @@ Optional contract check:
 python -m pm_bot.server.app --print-startup
 ```
 
-Exposed minimal HTTP endpoints:
+Exposed HTTP endpoints for the MVP UI:
 
 - `GET /health`
 - `POST /changesets/propose`
+- `GET /changesets/pending`
+- `POST /changesets/{id}/approve`
+- `GET /graph/tree?root=<issue_ref>`
+- `GET /graph/deps`
+- `GET /estimator/snapshot`
+- `GET /reports/weekly/latest`
 
 ## How to use the server APIs
 
@@ -175,6 +181,36 @@ Typical server capabilities include:
 - Emitting weekly meta-reports.
 
 ---
+
+
+## Web UI (MVP)
+
+A lightweight React + Vite UI now ships under `ui/` with two routes:
+
+- **Inbox**: review and approve pending changesets.
+- **Tree**: inspect hierarchy provenance and dependency warnings.
+
+Start backend + UI in separate terminals:
+
+```bash
+# terminal 1
+uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
+
+# terminal 2
+cd ui
+npm install
+npm run dev -- --host 127.0.0.1 --port 4173
+```
+
+Optional tests for UI:
+
+```bash
+cd ui
+npm test
+npm run test:e2e
+```
+
+If your API runs on a non-default host/port, set `VITE_PM_BOT_API_BASE`.
 
 ## Keeping vendor templates in sync
 
