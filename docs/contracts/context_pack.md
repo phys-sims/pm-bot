@@ -1,156 +1,85 @@
-# ContextPack v1
+# ContextPack contract
 
-Context packs are deterministic bundles of information meant for downstream agents and humans.
+## Versions
 
-They exist to solve two problems:
+- Current: `context_pack/v2`
+- Compatibility: `context_pack/v1` remains supported for callers that request it explicitly.
 
-1. Give an agent enough context to do useful work (issue + surrounding graph + key docs)
-2. Do it in a **deterministic, budgeted, auditable** way (no “grab random context”)
+Breaking shape changes require a new schema version.
 
-Context packs are especially important because pm-bot’s safety model is:
+## v2 goals (normative)
 
-- agents propose changes (changesets / PRs)
-- humans approve before publication
+`context_pack/v2` MUST be:
 
-A good context pack makes agent outputs higher quality and easier to review.
+- deterministic for identical inputs,
+- budgeted by explicit `max_chars`,
+- hash-stable using canonical JSON serialization,
+- auditable via inclusion/exclusion/redaction manifests,
+- safe against accidental secret leakage through deterministic redaction.
 
-## Design goals
+## Canonical serialization and hash contract
 
-ContextPack v1 MUST:
+For v2 hash computation:
 
-- be deterministic to build given the same inputs
-- be bounded by an explicit budget (token/char/byte)
-- be hashable and cacheable (content hash)
-- include provenance (“why is this included?”)
-- avoid secrets (redaction rules)
+1. Build the payload object **without** the `hash` field.
+2. Serialize with JSON keys sorted lexicographically and compact separators (`,`, `:`), UTF-8.
+3. Compute `sha256` hex digest over that exact byte stream.
+4. Set `hash` to the resulting 64-char lowercase hex string.
 
-ContextPack v1 SHOULD:
+## v2 top-level shape
 
-- support multiple profiles (drafting vs coding vs review)
-- include parent/child context and dependencies
-- include referenced ADR excerpts when available
+Required top-level fields:
 
-## Where context packs are built
+- `schema_version`: literal `context_pack/v2`
+- `profile`: context profile
+- `root.issue_ref`: root work-item reference
+- `budget`: `{max_chars, used_chars, strategy}`
+- `sections[]`: included segments in deterministic rank order
+- `manifest`: inclusion/exclusion/redaction/provenance ledger
+- `hash`: canonical hash of payload-without-hash
 
-Current repo layout indicates context packing exists at:
+Optional:
 
-- `pm_bot/server/context_pack.py`
+- `content`: compatibility convenience copy of root segment payload when available
 
-(See `STATUS.md` for the current module list.)
+## Deterministic budget behavior
 
-## Schema (recommended)
+Builder MUST:
 
-Top-level fields:
+- rank segment candidates deterministically,
+- include in rank order until budget would be exceeded,
+- exclude overflow segments with reason code `budget_exceeded`,
+- never emit `used_chars > max_chars`.
 
-- `schema_version` (required): `context_pack/v1`
-- `pack_id` (required): unique identifier
-- `generated_at` (required): ISO datetime
-- `profile` (required): `drafting | coding | review | other`
-- `root` (required):
-  - `work_item_id` (stable_id) OR `issue_url`
-- `inputs` (required): what was used to build the pack
-  - list of issue URLs, stable IDs, and file paths
-- `budget` (required):
-  - `max_chars` (int) OR `max_tokens` (int) OR both
-  - `strategy` (string): `truncate_tail | drop_low_priority | both`
-- `hash` (required): e.g. `sha256:<hex>`
-- `sections` (required): ordered list of content blocks
-- `redactions` (optional): what was removed and why
+## Redaction and provenance manifest
 
-### Sections
+Builder MUST:
 
-Each section is an object like:
+- redact values matching configured secret-like patterns,
+- emit only category/count metadata (never original secret values),
+- include provenance entries that map included segment IDs to source issue refs.
 
-- `kind` (string): `issue`, `comment`, `work_item_json`, `edge_list`, `adr_excerpt`, `file_excerpt`, `instructions`
-- `title` (string)
-- `source` (object): where it came from (URL/path/id)
-- `provenance` (string): why included (root, parent, child, dependency, adr_ref, etc.)
-- `content` (string): actual content
-- `metadata` (object): optional structured fields for downstream parsing
+Manifest fields:
 
-Sections MUST be ordered deterministically.
+- `included_segments[]`
+- `excluded_segments[]` with machine-readable reason codes
+- `exclusion_reasons` aggregated counts
+- `redaction_counts` (`total` + per-category counts)
+- `provenance[]`
 
-## Inclusion rules (recommended baseline)
+## v1 compatibility mapper
 
-Given a root work item:
+When callers request `context_pack/v1`, the server may return the legacy payload shape.
 
-1. Always include:
-   - root issue body (rendered markdown)
-   - canonical WorkItem JSON (if available)
-2. Include one hop of graph context:
-   - parent (if exists)
-   - children (direct)
-   - dependencies (blocked-by / depends-on)
-3. Include referenced ADRs:
-   - if the issue body references ADR files (or has an “ADR link” heading),
-     include the first N lines or a targeted excerpt.
-4. Include repo-local docs/excerpts ONLY if explicitly referenced or configured.
-   - do not “crawl the whole repo” by default
+For compatibility workflows that ingest historic v1 payloads, a mapper to v2 semantics is available (`map_v1_to_v2`) and produces:
 
-## Determinism requirements
+- `schema_version: context_pack/v2`
+- a single `root.v1-content` section
+- deterministic budget and manifest metadata
+- hash continuity using either provided v1 hash or canonical v2 hash fallback
 
-Given the same root + graph + files:
+## Schema artifact
 
-- sections MUST appear in a stable order
-- truncation MUST be deterministic
-- hashes MUST match across runs
+JSON Schema for v2 is tracked at:
 
-Recommended ordering:
-
-1. Instructions section (profile-specific)
-2. Root item (markdown + json)
-3. Parent (if any)
-4. Children (sorted by stable_id or issue number)
-5. Dependencies (sorted)
-6. ADR excerpts (sorted by path)
-7. Other file excerpts
-
-## Redaction rules (minimum)
-
-Context pack builder MUST:
-
-- avoid including secrets from environment variables
-- avoid including `.env` files or credential files
-- optionally scrub lines matching common secret patterns
-
-If redactions happen, record:
-
-- what was removed (path/section)
-- why (policy)
-- what the user can do to include it safely (e.g., paste manually)
-
-## Example ContextPack (abbreviated)
-
-```json
-{
-  "schema_version": "context_pack/v1",
-  "pack_id": "cp_2026-02-22_0001",
-  "generated_at": "2026-02-22T01:20:00Z",
-  "profile": "coding",
-  "root": {"work_item_id": "feat:contracts-docs"},
-  "budget": {"max_chars": 20000, "strategy": "drop_low_priority"},
-  "hash": "sha256:example",
-  "sections": [
-    {
-      "kind": "instructions",
-      "title": "Agent instructions (coding)",
-      "source": {"kind": "builtin"},
-      "provenance": "profile",
-      "content": "Make a PR that adds docs/contracts/*.md ..."
-    },
-    {
-      "kind": "issue",
-      "title": "Root issue body",
-      "source": {"url": "https://github.com/org/repo/issues/123"},
-      "provenance": "root",
-      "content": "### Goal\n..."
-    }
-  ]
-}
-```
-
-## Versioning
-
-- breaking changes require a new `schema_version`
-- optional fields can be added in-place
-
+- `pm_bot/schema/context_pack_v2.schema.json`

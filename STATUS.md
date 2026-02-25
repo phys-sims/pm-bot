@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:17:27 UTC
+- Time (UTC): 06:26:22 UTC
 - By: @openai-codex
-- Scope: Reduced Task A graph implementation bloat by removing legacy relationship compatibility wiring/view and using graph identity+typed edge tables directly for graph reads, with docs/tests aligned.
+- Scope: Implemented roadmap Task B (B1-B4): context_pack/v2 schema+hash contract, deterministic budget/exclusion ledger, redaction+provenance manifesting, and context_pack_built audit chain with run-id filters/report linkage.
 
 
 ---

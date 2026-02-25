@@ -82,6 +82,7 @@ def test_weekly_report_metrics_from_seeded_data(tmp_path, monkeypatch):
     assert "- Missing `Actual (hrs)` for closed items: 33.33% (count=1, sample=3)." in content
     assert "- Snapshot IDs: estimator=[1, 2], audit=[1, 5]" in content
     assert "- Run IDs: ['run-1', 'run-2']" in content
+    assert "- Context packs built: count=0 hashes=[]" in content
 
 
 def test_weekly_report_matches_golden_fixture(tmp_path, monkeypatch):

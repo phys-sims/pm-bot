@@ -474,11 +474,25 @@ class OrchestratorDB:
         )
         return [self.get_changeset(int(row[0])) for row in rows if row is not None]
 
-    def list_audit_events(self, event_type: str | None = None) -> list[dict[str, Any]]:
-        if event_type:
+    def list_audit_events(
+        self,
+        event_type: str | None = None,
+        run_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        if event_type and run_id:
+            rows = self.conn.execute(
+                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE event_type = ? AND json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
+                (event_type, run_id),
+            )
+        elif event_type:
             rows = self.conn.execute(
                 "SELECT id, event_type, event_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
                 (event_type,),
+            )
+        elif run_id:
+            rows = self.conn.execute(
+                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
+                (run_id,),
             )
         else:
             rows = self.conn.execute(

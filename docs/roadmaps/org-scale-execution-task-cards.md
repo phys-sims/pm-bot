@@ -125,14 +125,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Add `context_pack/v2` schema with canonical serialization and stable hash computation rules.
 
 **Pre-flight checks**
-- [ ] Link repo inventory section 4 for context pack/AgentRunSpec surfaces.
-- [ ] Confirm existing hash behavior in `pm_bot/server/context_pack.py`.
+- [x] Link repo inventory section 4 for context pack/AgentRunSpec surfaces.
+- [x] Confirm existing hash behavior in `pm_bot/server/context_pack.py`.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Define v2 schema artifact and versioned payload envelope.
@@ -162,14 +162,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Deterministic segment ranking/inclusion with explicit exclusion reasons under strict token/character budget.
 
 **Pre-flight checks**
-- [ ] Confirm model budget assumptions in product/spec docs.
-- [ ] Validate current context inputs needed for ranking.
+- [x] Confirm model budget assumptions in product/spec docs.
+- [x] Validate current context inputs needed for ranking.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Define deterministic ranking tuple for segments.
@@ -198,14 +198,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Add structured redaction markers with provenance to prevent secrets leakage while preserving auditability.
 
 **Pre-flight checks**
-- [ ] Confirm sensitive-field patterns from existing contracts/spec docs.
-- [ ] Validate no plaintext secret persistence in DB audit trail.
+- [x] Confirm sensitive-field patterns from existing contracts/spec docs.
+- [x] Validate no plaintext secret persistence in DB audit trail.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add redaction detector/normalizer for known secret classes.
@@ -234,14 +234,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Link context pack budget/hash artifacts into audit events and run-level traceability.
 
 **Pre-flight checks**
-- [ ] Verify existing audit append surfaces in app/reporting paths.
-- [ ] Confirm run-id correlation conventions.
+- [x] Verify existing audit append surfaces in app/reporting paths.
+- [x] Confirm run-id correlation conventions.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add context_pack_built audit event shape with hash/budget summary.

@@ -1,0 +1,139 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/pm_bot/schema/context_pack_v2.schema.json",
+    "title": "ContextPack v2",
+    "type": "object",
+    "required": ["schema_version", "profile", "root", "budget", "sections", "manifest", "hash"],
+    "properties": {
+        "schema_version": {"const": "context_pack/v2"},
+        "profile": {"type": "string", "minLength": 1},
+        "root": {
+            "type": "object",
+            "required": ["issue_ref"],
+            "properties": {"issue_ref": {"type": "string", "minLength": 1}},
+            "additionalProperties": false,
+        },
+        "budget": {
+            "type": "object",
+            "required": ["max_chars", "used_chars", "strategy"],
+            "properties": {
+                "max_chars": {"type": "integer", "minimum": 1},
+                "used_chars": {"type": "integer", "minimum": 0},
+                "strategy": {"type": "string", "enum": ["drop_low_priority", "truncate_tail"]},
+            },
+            "additionalProperties": false,
+        },
+        "sections": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "segment_id",
+                    "kind",
+                    "provenance",
+                    "title",
+                    "source",
+                    "content",
+                    "char_count",
+                    "rank",
+                    "redactions",
+                ],
+                "properties": {
+                    "segment_id": {"type": "string", "minLength": 1},
+                    "kind": {"type": "string", "minLength": 1},
+                    "provenance": {"type": "string", "minLength": 1},
+                    "title": {"type": "string"},
+                    "source": {"type": "object"},
+                    "content": {"type": "string"},
+                    "char_count": {"type": "integer", "minimum": 0},
+                    "rank": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "prefixItems": [{"type": "integer"}, {"type": "string"}],
+                        "items": false,
+                    },
+                    "redactions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["category", "reason_code", "count"],
+                            "properties": {
+                                "category": {"type": "string"},
+                                "reason_code": {"type": "string"},
+                                "count": {"type": "integer", "minimum": 1},
+                            },
+                            "additionalProperties": false,
+                        },
+                    },
+                },
+                "additionalProperties": false,
+            },
+        },
+        "manifest": {
+            "type": "object",
+            "required": [
+                "included_segments",
+                "excluded_segments",
+                "exclusion_reasons",
+                "redaction_counts",
+                "provenance",
+            ],
+            "properties": {
+                "included_segments": {"type": "array", "items": {"type": "string"}},
+                "excluded_segments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["segment_id", "reason_code", "char_count", "rank"],
+                        "properties": {
+                            "segment_id": {"type": "string"},
+                            "reason_code": {"type": "string"},
+                            "char_count": {"type": "integer", "minimum": 0},
+                            "rank": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "prefixItems": [{"type": "integer"}, {"type": "string"}],
+                                "items": false,
+                            },
+                        },
+                        "additionalProperties": false,
+                    },
+                },
+                "exclusion_reasons": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer", "minimum": 0},
+                },
+                "redaction_counts": {
+                    "type": "object",
+                    "required": ["total", "categories"],
+                    "properties": {
+                        "total": {"type": "integer", "minimum": 0},
+                        "categories": {
+                            "type": "object",
+                            "additionalProperties": {"type": "integer", "minimum": 0},
+                        },
+                    },
+                    "additionalProperties": false,
+                },
+                "provenance": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["segment_id", "source_issue_ref"],
+                        "properties": {
+                            "segment_id": {"type": "string"},
+                            "source_issue_ref": {"type": "string"},
+                        },
+                        "additionalProperties": false,
+                    },
+                },
+            },
+            "additionalProperties": false,
+        },
+        "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "content": {"type": "object"},
+    },
+    "additionalProperties": false,
+}
