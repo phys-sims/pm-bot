@@ -20,6 +20,11 @@ from pm_bot.server.github_auth import (
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
+from pm_bot.server.report_ir_intake import (
+    build_changeset_preview,
+    draft_report_ir_from_natural_text,
+    validate_report_ir,
+)
 from pm_bot.server.runner import RunnerService
 from pm_bot.server.runner_adapters import (
     build_runner_adapters_from_env,
@@ -290,6 +295,144 @@ class ServerApp:
 
     def cancel_agent_run(self, run_id: str, actor: str = "") -> dict[str, Any]:
         return self.runner.cancel(run_id=run_id, actor=actor)
+
+    def intake_natural_text(
+        self,
+        natural_text: str,
+        org: str,
+        repos: list[str],
+        run_id: str = "",
+        requested_by: str = "",
+        generated_at: str = "",
+    ) -> dict[str, Any]:
+        draft = draft_report_ir_from_natural_text(
+            natural_text=natural_text,
+            org=org,
+            repos=repos,
+            generated_at=generated_at,
+        )
+        validation = validate_report_ir(draft)
+        draft_id = draft.get("report", {}).get("source", {}).get("prompt_hash", "")
+        self.db.append_audit_event(
+            "report_ir_draft_generated",
+            {
+                "run_id": run_id,
+                "requested_by": requested_by,
+                "draft_id": draft_id,
+                "input": {"natural_text": natural_text},
+                "validation": validation,
+            },
+            tenant_context=self._request_tenant_context(repo=repos[0] if repos else "", org=org),
+        )
+        return {
+            "draft_id": draft_id,
+            "schema_version": "report_ir_draft/v1",
+            "draft": draft,
+            "validation": validation,
+        }
+
+    def confirm_report_ir(
+        self,
+        report_ir: dict[str, Any],
+        confirmed_by: str,
+        run_id: str = "",
+        draft: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        validation = validate_report_ir(report_ir)
+        if validation["errors"]:
+            raise ValueError("report_ir_validation_failed")
+        report = report_ir.get("report") or {}
+        scope = report.get("scope") or {}
+        repos = [str(repo).strip() for repo in (scope.get("repos") or []) if str(repo).strip()]
+        confirmation_id = (
+            f"confirm-{str(report.get('generated_at', '')).strip()}-"
+            f"{str(report.get('title', '')).strip().lower().replace(' ', '-')[:24]}"
+        ).strip("-")
+        self.db.append_audit_event(
+            "report_ir_confirmed",
+            {
+                "run_id": run_id,
+                "confirmed_by": confirmed_by,
+                "confirmation_id": confirmation_id,
+                "draft": draft or {},
+                "confirmed": report_ir,
+            },
+            tenant_context=self._request_tenant_context(
+                repo=repos[0] if repos else "",
+                org=str(scope.get("org", "")),
+            ),
+        )
+        return {
+            "status": "confirmed",
+            "confirmation_id": confirmation_id,
+            "validation": validation,
+            "report_ir": report_ir,
+        }
+
+    def preview_report_ir_changesets(
+        self, report_ir: dict[str, Any], run_id: str = ""
+    ) -> dict[str, Any]:
+        validation = validate_report_ir(report_ir)
+        if validation["errors"]:
+            raise ValueError("report_ir_validation_failed")
+        preview = build_changeset_preview(report_ir)
+        report = report_ir.get("report") or {}
+        scope = report.get("scope") or {}
+        repos = [str(repo).strip() for repo in (scope.get("repos") or []) if str(repo).strip()]
+        self.db.append_audit_event(
+            "report_ir_preview_generated",
+            {
+                "run_id": run_id,
+                "summary": preview["summary"],
+            },
+            tenant_context=self._request_tenant_context(
+                repo=repos[0] if repos else "",
+                org=str(scope.get("org", "")),
+            ),
+        )
+        return preview
+
+    def propose_report_ir_changesets(
+        self,
+        report_ir: dict[str, Any],
+        run_id: str,
+        requested_by: str,
+    ) -> dict[str, Any]:
+        preview = self.preview_report_ir_changesets(report_ir=report_ir, run_id=run_id)
+        items: list[dict[str, Any]] = []
+        for item in preview["items"]:
+            proposed = self.propose_changeset(
+                operation=item["operation"],
+                repo=item["repo"],
+                payload=item["payload"],
+                target_ref=item.get("target_ref", ""),
+                idempotency_key=item["idempotency_key"],
+                run_id=run_id,
+                tenant_context=self._request_tenant_context(repo=item["repo"]),
+            )
+            items.append(
+                {
+                    "stable_id": item["stable_id"],
+                    "repo": item["repo"],
+                    "idempotency_key": item["idempotency_key"],
+                    "changeset": proposed,
+                }
+            )
+        self.db.append_audit_event(
+            "report_ir_changesets_proposed",
+            {
+                "run_id": run_id,
+                "requested_by": requested_by,
+                "count": len(items),
+                "changeset_ids": [row["changeset"]["id"] for row in items],
+            },
+            tenant_context=self._request_tenant_context(repo=items[0]["repo"] if items else ""),
+        )
+        return {
+            "schema_version": "report_ir_proposal/v1",
+            "items": items,
+            "summary": {"count": len(items)},
+        }
 
     def observability_metrics(self) -> list[dict[str, Any]]:
         return self.db.list_operation_metrics()
@@ -640,6 +783,98 @@ class ASGIServer:
                     200,
                     self.service.cancel_agent_run(
                         run_id=run_id, actor=str(payload.get("actor", ""))
+                    ),
+                )
+                return
+
+            if method == "POST" and path == "/report-ir/intake":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                natural_text = str(payload.get("natural_text", "")).strip()
+                org = str(payload.get("org", "")).strip()
+                repos = [
+                    str(repo).strip() for repo in payload.get("repos", []) if str(repo).strip()
+                ]
+                if not natural_text or not org:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.intake_natural_text(
+                        natural_text=natural_text,
+                        org=org,
+                        repos=repos,
+                        run_id=str(payload.get("run_id", "")).strip(),
+                        requested_by=str(payload.get("requested_by", "")).strip(),
+                        generated_at=str(payload.get("generated_at", "")).strip(),
+                    ),
+                )
+                return
+
+            if method == "POST" and path == "/report-ir/confirm":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                report_ir = payload.get("report_ir")
+                confirmed_by = str(payload.get("confirmed_by", "")).strip()
+                if not isinstance(report_ir, dict) or not confirmed_by:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.confirm_report_ir(
+                        report_ir=report_ir,
+                        confirmed_by=confirmed_by,
+                        run_id=str(payload.get("run_id", "")).strip(),
+                        draft=payload.get("draft")
+                        if isinstance(payload.get("draft"), dict)
+                        else None,
+                    ),
+                )
+                return
+
+            if method == "POST" and path == "/report-ir/preview":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                report_ir = payload.get("report_ir")
+                if not isinstance(report_ir, dict):
+                    await self._send_json(send, 400, {"error": "missing_report_ir"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.preview_report_ir_changesets(
+                        report_ir=report_ir,
+                        run_id=str(payload.get("run_id", "")).strip(),
+                    ),
+                )
+                return
+
+            if method == "POST" and path == "/report-ir/propose":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                report_ir = payload.get("report_ir")
+                run_id = str(payload.get("run_id", "")).strip()
+                requested_by = str(payload.get("requested_by", "")).strip()
+                if not isinstance(report_ir, dict) or not run_id or not requested_by:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.propose_report_ir_changesets(
+                        report_ir=report_ir,
+                        run_id=run_id,
+                        requested_by=requested_by,
                     ),
                 )
                 return

@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 09:24:47 UTC
+- Time (UTC): 09:31:10 UTC
 - By: @openai-codex
-- Scope: Fixed CI-breaking AgentRunsPage UI tests by replacing non-portable jest-dom matcher usage with DOM-property assertions, adding explicit per-test cleanup to prevent duplicate rendered trees across tests, and using label-targeted selection to remove ambiguous combobox queries.
+- Scope: Implemented v6 Track B end-to-end server flow: natural-text intake with audit envelope, deterministic `report_ir/v1` draft+validation pipeline, human confirmation checkpoint capture, deterministic ReportIR-to-multi-repo changeset preview, and proposal handoff using existing approval/idempotency changeset engine; added HTTP contract coverage and marked B1–B5 complete in the v6 checklist.
 
 
 ---

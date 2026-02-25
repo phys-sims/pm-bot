@@ -296,3 +296,89 @@ def test_onboarding_readiness_and_dry_run_routes() -> None:
         "single_tenant_mode",
         "org_installation_ready",
     }
+
+
+def test_report_ir_intake_confirm_preview_and_propose_routes() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    intake_status, intake_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/intake",
+        body=json.dumps(
+            {
+                "natural_text": "- Build v6 intake flow\n- Add approval handoff",
+                "org": "phys-sims",
+                "repos": ["phys-sims/phys-pipeline", "phys-sims/pm-bot"],
+                "run_id": "v6-b-flow",
+                "requested_by": "operator",
+                "generated_at": "2026-02-25",
+            }
+        ).encode("utf-8"),
+    )
+    assert intake_status == 200
+    assert intake_payload["schema_version"] == "report_ir_draft/v1"
+    report_ir = intake_payload["draft"]
+    assert report_ir["schema_version"] == "report_ir/v1"
+    assert intake_payload["validation"]["errors"] == []
+
+    confirm_status, confirm_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/confirm",
+        body=json.dumps(
+            {
+                "run_id": "v6-b-flow",
+                "confirmed_by": "human-reviewer",
+                "draft": report_ir,
+                "report_ir": report_ir,
+            }
+        ).encode("utf-8"),
+    )
+    assert confirm_status == 200
+    assert confirm_payload["status"] == "confirmed"
+
+    preview_status, preview_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/preview",
+        body=json.dumps({"run_id": "v6-b-flow", "report_ir": report_ir}).encode("utf-8"),
+    )
+    assert preview_status == 200
+    assert preview_payload["schema_version"] == "changeset_preview/v1"
+    assert preview_payload["summary"]["count"] >= 1
+
+    propose_status, propose_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/propose",
+        body=json.dumps(
+            {
+                "run_id": "v6-b-flow",
+                "requested_by": "operator",
+                "report_ir": report_ir,
+            }
+        ).encode("utf-8"),
+    )
+    assert propose_status == 200
+    assert propose_payload["schema_version"] == "report_ir_proposal/v1"
+    assert propose_payload["summary"]["count"] == preview_payload["summary"]["count"]
+
+    repeat_status, repeat_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/propose",
+        body=json.dumps(
+            {
+                "run_id": "v6-b-flow-repeat",
+                "requested_by": "operator",
+                "report_ir": report_ir,
+            }
+        ).encode("utf-8"),
+    )
+    assert repeat_status == 200
+    assert repeat_payload["summary"]["count"] == propose_payload["summary"]["count"]
+    assert [row["changeset"]["id"] for row in repeat_payload["items"]] == [
+        row["changeset"]["id"] for row in propose_payload["items"]
+    ]
