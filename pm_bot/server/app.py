@@ -73,11 +73,34 @@ class ServerApp:
         return self.db.get_work_item(issue_ref)
 
     def context_pack(
-        self, issue_ref: str, profile: str = "pm-drafting", budget: int = 4000
+        self,
+        issue_ref: str,
+        profile: str = "pm-drafting",
+        budget: int = 4000,
+        run_id: str = "",
+        requested_by: str = "",
+        schema_version: str = "context_pack/v2",
     ) -> dict[str, Any]:
-        return build_context_pack(
-            db=self.db, issue_ref=issue_ref, profile=profile, char_budget=budget
+        pack = build_context_pack(
+            db=self.db,
+            issue_ref=issue_ref,
+            profile=profile,
+            char_budget=budget,
+            schema_version=schema_version,
         )
+        self.db.append_audit_event(
+            "context_pack_built",
+            {
+                "issue_ref": issue_ref,
+                "profile": profile,
+                "schema_version": pack.get("schema_version", schema_version),
+                "hash": pack.get("hash", ""),
+                "budget": pack.get("budget", {"max_chars": budget, "used_chars": None}),
+                "run_id": run_id,
+                "requested_by": requested_by,
+            },
+        )
+        return pack
 
     def fetch_issue(self, repo: str, issue_ref: str) -> dict[str, Any] | None:
         return self.connector.fetch_issue(repo=repo, issue_ref=issue_ref)
@@ -281,6 +304,23 @@ class ASGIServer:
                     await self._send_json(send, 404, {"error": "report_not_found"})
                     return
                 await self._send_json(send, 200, latest)
+                return
+
+            if method == "GET" and path == "/context-pack":
+                issue_ref = query_params.get("issue_ref", "")
+                if not issue_ref:
+                    await self._send_json(send, 400, {"error": "missing_issue_ref"})
+                    return
+                budget = int(query_params.get("budget", "4000"))
+                result = self.service.context_pack(
+                    issue_ref=issue_ref,
+                    profile=query_params.get("profile", "pm-drafting"),
+                    budget=budget,
+                    schema_version=query_params.get("schema_version", "context_pack/v2"),
+                    run_id=query_params.get("run_id", ""),
+                    requested_by=query_params.get("requested_by", ""),
+                )
+                await self._send_json(send, 200, result)
                 return
 
             await self._send_json(send, 404, {"error": "not_found"})

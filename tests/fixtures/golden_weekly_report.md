@@ -41,4 +41,5 @@
 - Snapshot IDs: estimator=[1, 2], audit=[1, 5]
 - Report generation timestamp: 2026-02-23T12:00:00+00:00
 - Run IDs: ['run-1', 'run-2']
+- Context packs built: count=0 hashes=[]
 - Snapshot sample sizes: audit_events=5, work_items=3, estimator_buckets=2

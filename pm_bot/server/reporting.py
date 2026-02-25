@@ -179,6 +179,15 @@ class ReportingService:
 
     def _traceability_metadata(self) -> dict[str, object]:
         audit_events = self.db.list_audit_events()
+        context_events = [
+            event for event in audit_events if event["event_type"] == "context_pack_built"
+        ]
+        recent_context_hashes = [
+            str(event["payload"].get("hash") or "")
+            for event in context_events
+            if str(event["payload"].get("hash") or "")
+        ]
+        recent_context_hashes = sorted(dict.fromkeys(recent_context_hashes))[:5]
         run_ids = sorted(
             {
                 str(event["payload"].get("run_id"))
@@ -192,6 +201,10 @@ class ReportingService:
                 "event_count": len(audit_events),
                 "first_event_id": int(audit_events[0]["id"]) if audit_events else None,
                 "last_event_id": int(audit_events[-1]["id"]) if audit_events else None,
+            },
+            "context_packs": {
+                "count": len(context_events),
+                "recent_hashes": recent_context_hashes,
             },
             "run_ids": run_ids,
         }
@@ -301,6 +314,11 @@ class ReportingService:
                 ),
                 f"- Report generation timestamp: {traceability['generated_at']}",
                 f"- Run IDs: {traceability['run_ids']}",
+                (
+                    "- Context packs built: "
+                    f"count={traceability['context_packs']['count']} "
+                    f"hashes={traceability['context_packs']['recent_hashes']}"
+                ),
                 (
                     "- Snapshot sample sizes: "
                     f"audit_events={traceability['audit_snapshot']['event_count']}, "

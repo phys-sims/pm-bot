@@ -52,6 +52,18 @@ AgentRunSpec SHOULD:
   - `version` (string): context pack format version
   - `inputs` (array): list of work item IDs / issue URLs included
 
+
+### Audit linkage (v4+)
+
+When runs request context building, audit events SHOULD include:
+
+- `event_type`: `context_pack_built`
+- `run_id`: copied from AgentRunSpec
+- context hash + budget summary
+- requesting actor (`requested_by`)
+
+This enables run-level traceability from agent run proposal through context build and downstream changeset/report artifacts.
+
 ### Model and budget
 
 - `model` (string, required): e.g. `gpt-5`, `gpt-4.1`, etc (your choice)
