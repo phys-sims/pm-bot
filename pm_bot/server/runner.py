@@ -198,6 +198,7 @@ class RunnerService:
 
         if poll.state == "completed":
             artifacts = adapter.fetch_artifacts(run)
+            self.db.set_agent_run_artifacts(run_id, artifacts)
             completed = self.transition(
                 run_id,
                 "completed",

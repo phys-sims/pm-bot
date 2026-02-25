@@ -240,6 +240,16 @@ def test_agent_run_routes_cover_propose_transition_claim_execute():
     )
     assert execute_status == 200
     assert execute_payload["status"] == "completed"
+    assert execute_payload["artifact_paths"] == ["artifacts/http-run-1.txt"]
+
+    transitions_status, transitions_payload = _asgi_request(
+        app,
+        "GET",
+        "/agent-runs/transitions",
+        query_string=b"run_id=http-run-1",
+    )
+    assert transitions_status == 200
+    assert transitions_payload["summary"]["count"] >= 2
 
 
 def test_unified_inbox_route_merges_pm_bot_and_github_items() -> None:

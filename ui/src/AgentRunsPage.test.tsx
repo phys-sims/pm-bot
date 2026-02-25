@@ -31,13 +31,16 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
           max_retries: 2,
           last_error: "",
           job_id: "",
+          artifact_paths: [],
         }),
         { status: 200 },
       ),
     )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
     .mockResolvedValueOnce(
       new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }),
     )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
     .mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -53,10 +56,12 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
           max_retries: 2,
           last_error: "",
           job_id: "",
+          artifact_paths: [],
         }),
         { status: 200 },
       ),
     )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
     .mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -74,6 +79,7 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
               max_retries: 2,
               last_error: "",
               job_id: "job-1",
+              artifact_paths: [],
             },
           ],
           summary: { count: 1 },
@@ -81,6 +87,7 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
         { status: 200 },
       ),
     )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
     .mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -96,6 +103,25 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
           max_retries: 2,
           last_error: "",
           job_id: "job-1",
+          artifact_paths: ["artifacts/run-ui-001.txt"],
+        }),
+        { status: 200 },
+      ),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              run_id: "run-ui-001",
+              from_status: "approved",
+              to_status: "running",
+              reason_code: "adapter_submitted",
+              metadata: { actor: "worker-ui-1" },
+              created_at: "2026-02-25T00:00:00Z",
+            },
+          ],
+          summary: { count: 1 },
         }),
         { status: 200 },
       ),
@@ -113,7 +139,8 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
   expect(await screen.findByText(/No claimable run found/)).toBeTruthy();
   expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
-  await userEvent.click(screen.getByRole("button", { name: "Approve run" }));
+  await userEvent.type(screen.getByLabelText("Transition reason code:"), "{selectall}human_approved");
+  await userEvent.click(screen.getByRole("button", { name: "Apply transition" }));
   expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Claim run" }));
@@ -122,6 +149,7 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
 
   await userEvent.click(executeButton);
   expect(await screen.findByText(/execution status: completed/)).toBeTruthy();
+  expect(await screen.findByText(/Artifacts: artifacts\/run-ui-001.txt/)).toBeTruthy();
 });
 
 test("renders normalized reason code on API errors", async () => {
