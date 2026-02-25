@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 08:03:26 UTC
+- Time (UTC): 09:24:47 UTC
 - By: @openai-codex
-- Scope: Added runner adapter registration modules and env-driven default selection with manual-safe fallback, added provider-stub adapter conformance/failure-normalization coverage, enforced runner context guardrails against write-scoped GitHub credentials, and updated product/task-card docs for adapter enablement/rollback.
+- Scope: Fixed CI-breaking AgentRunsPage UI tests by replacing non-portable jest-dom matcher usage with DOM-property assertions, adding explicit per-test cleanup to prevent duplicate rendered trees across tests, and using label-targeted selection to remove ambiguous combobox queries.
 
 
 ---

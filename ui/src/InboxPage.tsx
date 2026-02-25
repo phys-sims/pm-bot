@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type InboxItem } from "./api";
+import { api, formatApiError, type InboxItem } from "./api";
 
 type SourceTab = "all" | "pm_bot" | "github";
 
@@ -21,7 +21,7 @@ export function InboxPage() {
       setDiagnostics(response.diagnostics);
       setMessage("");
     } catch (error) {
-      setMessage(`Error: ${(error as Error).message}`);
+      setMessage(`Error: ${formatApiError(error)}`);
     }
   };
 
@@ -39,7 +39,7 @@ export function InboxPage() {
       setMessage(`Approved changeset #${id}`);
       await load();
     } catch (error) {
-      setMessage(`Error: ${(error as Error).message}`);
+      setMessage(`Error: ${formatApiError(error)}`);
     }
   };
 
