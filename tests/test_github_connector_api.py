@@ -7,6 +7,7 @@ import pytest
 
 from pm_bot.server.github_auth import load_github_auth_from_env
 from pm_bot.server.github_connector import (
+    DEFAULT_ALLOWED_REPOS,
     RetryableGitHubError,
     WriteRequest,
     build_connector_from_env,
@@ -50,6 +51,7 @@ class FakeSession:
 def test_build_connector_from_env_defaults_to_inmemory() -> None:
     connector = build_connector_from_env(env={})
     assert isinstance(connector, InMemoryGitHubConnector)
+    assert connector.allowed_repos == DEFAULT_ALLOWED_REPOS
 
 
 def test_build_connector_from_env_explicit_empty_env_ignores_process(
@@ -63,6 +65,13 @@ def test_build_connector_from_env_explicit_empty_env_ignores_process(
 def test_build_connector_from_env_preserves_explicit_empty_allowed_repos() -> None:
     connector = build_connector_from_env(env={}, allowed_repos=set())
     assert connector.allowed_repos == set()
+
+
+def test_build_connector_from_env_uses_env_allowed_repos_when_not_explicit() -> None:
+    connector = build_connector_from_env(
+        env={"PM_BOT_ALLOWED_REPOS": "phys-sims/cpa-sim, phys-sims/fiber-link-sim"}
+    )
+    assert connector.allowed_repos == {"phys-sims/cpa-sim", "phys-sims/fiber-link-sim"}
 
 
 def test_auth_loads_read_write_tokens_with_shared_fallback() -> None:

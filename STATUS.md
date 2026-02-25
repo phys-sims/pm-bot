@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:53:08 UTC
+- Time (UTC): 07:09:14 UTC
 - By: @openai-codex
-- Scope: Implemented roadmap Task D (D1-D3): unified inbox `inbox/v1` API aggregation across pm-bot approvals + GitHub items, bounded query chunking with TTL cache diagnostics/rate-limit telemetry, and UI inbox tabs/filters with external-link gating for non-pm-bot items.
+- Scope: Implemented v5 org-readiness repo onboarding defaults: expanded org-ready write allowlist (including cpa-sim/fiber-link-sim/abcdef-sim/fiber-link-testbench/phys-sims-utils), added PM_BOT_ALLOWED_REPOS override path for non-phys-sims orgs, and updated user docs for org-vs-custom usage.
 
 
 ---

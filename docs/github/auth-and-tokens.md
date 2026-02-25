@@ -130,10 +130,26 @@ Even if you use one token today, pm-bot’s connector SHOULD still model them se
 
 pm-bot SHOULD enforce an explicit allowlist of repos it can write to.
 
+Current runtime behavior:
+
+- Default allowlist is org-ready for phys-sims:
+  - `phys-sims/.github`
+  - `phys-sims/phys-pipeline`
+  - `phys-sims/cpa-sim`
+  - `phys-sims/fiber-link-sim`
+  - `phys-sims/abcdef-sim`
+  - `phys-sims/fiber-link-testbench`
+  - `phys-sims/phys-sims-utils`
+- Override allowlist for any org by setting `PM_BOT_ALLOWED_REPOS` as a comma-separated list.
+  - Example: `PM_BOT_ALLOWED_REPOS="my-org/repo-a,my-org/repo-b"`
+- When `PM_BOT_ALLOWED_REPOS` is set, it fully replaces the default list.
+- Writes outside the active allowlist are denied with `repo_not_allowlisted`.
+
 Why:
 
 - prevents accidental writes to the wrong repo
 - makes human approval review easier (“this bundle writes to repos A/B only”)
+- gives a single deterministic switch for phys-sims org users vs other org users
 
 ## Inbox search and cache guidance
 

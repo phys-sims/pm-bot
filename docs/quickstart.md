@@ -118,6 +118,15 @@ python -m pm_bot.server.app --print-startup
 curl -s http://127.0.0.1:8000/health
 ```
 
+Allowlist configuration:
+
+- Default v5 org-ready allowlist includes `phys-sims/.github`, `phys-sims/phys-pipeline`, `phys-sims/cpa-sim`, `phys-sims/fiber-link-sim`, `phys-sims/abcdef-sim`, `phys-sims/fiber-link-testbench`, and `phys-sims/phys-sims-utils`.
+- For non-phys-sims usage (or custom subsets), set `PM_BOT_ALLOWED_REPOS`:
+
+```bash
+export PM_BOT_ALLOWED_REPOS="my-org/repo-a,my-org/repo-b"
+```
+
 Example proposal flow over HTTP:
 
 ```bash
