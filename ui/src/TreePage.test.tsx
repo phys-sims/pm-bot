@@ -29,6 +29,6 @@ test("renders tree and warnings", async () => {
   render(<TreePage />);
   await userEvent.click(screen.getByRole("button", { name: "Load graph" }));
 
-  expect(await screen.findByText(/Dependency summary: 1 nodes/)).toBeInTheDocument();
-  expect(await screen.findByText(/conflicting_parent_edge/)).toBeInTheDocument();
+  expect(await screen.findByText(/Dependency summary: 1 nodes/)).toBeTruthy();
+  expect(await screen.findByText(/conflicting_parent_edge/)).toBeTruthy();
 });
