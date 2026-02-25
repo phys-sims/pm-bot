@@ -98,3 +98,13 @@ Reports should propose concrete actions like:
 - `docs/contracts/changesets.md` (audit events)
 - `docs/spec/estimator.md` (estimation metrics)
 
+
+
+## Org-sensitive safety reporting (v5)
+
+Weekly reporting now includes org-sensitive operational taxonomy counters:
+
+- `auth_context_denials`: requests denied by org/install context validation.
+- `org_sensitive_operations`: aggregate of proposed/applied changesets and context denials.
+
+These counters complement existing `changeset_denied` and `changeset_dead_lettered` safety metrics.

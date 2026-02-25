@@ -11,6 +11,7 @@ This matrix maps user-critical flows to automated checks and manual runbook chec
 | Reliability drills (retry/dead-letter) | Transient failures wedge execution or silently drop writes. | `pytest -q tests/test_runbook_scenarios.py` | `docs/runbooks/first-human-test.md` Step 7 | `reliability-tests` | Required |
 | Regression fixtures (issue-body parse/render + reports) | Known-good outputs drift without detection. | `pytest -q tests/test_golden_issue_fixtures.py tests/test_reporting.py` | `docs/runbooks/first-human-test.md` Step 6 | `regression-fixtures` | Required |
 | Docs/commands alignment | Runbooks and CI commands diverge; operators run stale checks. | `pytest -q tests/test_docs_commands.py` | Spot-check `docs/qa-matrix.md` and `.github/workflows/ci.yml` | `docs-command-validation` | Required |
+| Docs hygiene gates (links/contradictions/status-operability) | Docs become non-authoritative and operators miss required gates. | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates`; `pytest -q tests/test_docs_hygiene.py` | `docs/maintenance.md` contradiction-check workflow section | `docs-hygiene` | Required |
 
 ## Release gating policy
 
@@ -21,5 +22,6 @@ A release is blocked unless the `release-gate` CI job is green. The `release-gat
 3. `reliability-tests`
 4. `regression-fixtures`
 5. `docs-command-validation`
+6. `docs-hygiene`
 
 The release gate enforces this matrix as the minimum quality bar for user-critical flows.

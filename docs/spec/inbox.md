@@ -105,3 +105,13 @@ Merged ordering is deterministic by source-group then stable tie-breakers (`item
 
 - External GitHub items are always read-only inbox entries.
 - Approval actions remain available only for `source=pm_bot` entries and continue through the existing approval/audit pipeline.
+
+
+## Onboarding readiness API hooks (v5)
+
+The server exposes deterministic onboarding readiness state surfaces:
+
+- `GET /onboarding/readiness`: persisted readiness state (`pending_context`, `single_tenant_ready`, `org_ready`).
+- `POST /onboarding/dry-run`: computed readiness + reason code without mutating external state.
+
+Dry-run is designed for CLI parity (`pm-bot onboarding-dry-run`) and non-regression checks in single-tenant mode.

@@ -217,3 +217,23 @@ GitHub API connector retry behavior is bounded and deterministic at orchestratio
 - `Retry-After` headers are respected as a lower-bound when present.
 - Every attempt emits audit data with reason code and scheduled backoff (`changeset_attempt`).
 - Exhausted retries produce dead-letter status with deterministic reason code (`retry_budget_exhausted`).
+
+
+## Org/install request context validation (v5)
+
+Server request paths that target repo-scoped operations validate org/install context before execution.
+
+Inputs:
+
+- `repo` (required for write/ingest routes)
+- optional `org`
+- optional `installation_id`
+
+Deterministic denial reason codes:
+
+- `invalid_repo`
+- `repo_org_mismatch`
+- `org_mismatch`
+- `installation_mismatch`
+
+Denied requests emit `auth_context_denied` audit events and return HTTP 403 with the same `reason_code`.

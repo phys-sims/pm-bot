@@ -69,6 +69,7 @@ class OrchestratorDB:
                 target_ref TEXT,
                 payload_json TEXT NOT NULL,
                 idempotency_key TEXT NOT NULL,
+                tenant_context_json TEXT NOT NULL DEFAULT '{}',
                 retry_count INTEGER NOT NULL DEFAULT 0,
                 last_error TEXT,
                 status TEXT NOT NULL DEFAULT 'pending',
@@ -79,6 +80,7 @@ class OrchestratorDB:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 changeset_id INTEGER NOT NULL,
                 approved_by TEXT NOT NULL,
+                tenant_context_json TEXT NOT NULL DEFAULT '{}',
                 approved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(changeset_id) REFERENCES changesets(id)
             );
@@ -87,7 +89,14 @@ class OrchestratorDB:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_type TEXT NOT NULL,
                 event_json TEXT NOT NULL,
+                tenant_context_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS onboarding_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                readiness_state TEXT NOT NULL DEFAULT 'pending_context',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS agent_runs (
@@ -140,12 +149,24 @@ class OrchestratorDB:
         )
         if not self._has_column("changesets", "idempotency_key"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN idempotency_key TEXT")
+        if not self._has_column("changesets", "tenant_context_json"):
+            self.conn.execute(
+                "ALTER TABLE changesets ADD COLUMN tenant_context_json TEXT NOT NULL DEFAULT '{}'"
+            )
         if not self._has_column("changesets", "retry_count"):
             self.conn.execute(
                 "ALTER TABLE changesets ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0"
             )
         if not self._has_column("changesets", "last_error"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
+        if not self._has_column("approvals", "tenant_context_json"):
+            self.conn.execute(
+                "ALTER TABLE approvals ADD COLUMN tenant_context_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        if not self._has_column("audit_events", "tenant_context_json"):
+            self.conn.execute(
+                "ALTER TABLE audit_events ADD COLUMN tenant_context_json TEXT NOT NULL DEFAULT '{}'"
+            )
         if not self._has_column("agent_runs", "run_id"):
             self.conn.execute("ALTER TABLE agent_runs ADD COLUMN run_id TEXT")
         if not self._has_column("agent_runs", "created_by"):
@@ -227,11 +248,14 @@ class OrchestratorDB:
         payload: dict[str, Any],
         target_ref: str = "",
         idempotency_key: str = "",
+        tenant_context: dict[str, Any] | None = None,
     ) -> int:
         cur = self.conn.execute(
             """
-            INSERT INTO changesets (operation, repo, target_ref, payload_json, idempotency_key)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO changesets (
+              operation, repo, target_ref, payload_json, idempotency_key, tenant_context_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 operation,
@@ -239,6 +263,7 @@ class OrchestratorDB:
                 target_ref or None,
                 json.dumps(payload),
                 idempotency_key,
+                json.dumps(self._normalize_tenant_context(tenant_context), sort_keys=True),
             ),
         )
         self.conn.commit()
@@ -255,6 +280,7 @@ class OrchestratorDB:
             "target_ref": row["target_ref"],
             "payload": json.loads(row["payload_json"]),
             "idempotency_key": row["idempotency_key"],
+            "tenant_context": json.loads(row["tenant_context_json"] or "{}"),
             "retry_count": row["retry_count"],
             "last_error": row["last_error"],
             "status": row["status"],
@@ -280,17 +306,35 @@ class OrchestratorDB:
         )
         self.conn.commit()
 
-    def record_approval(self, changeset_id: int, approved_by: str) -> None:
+    def record_approval(
+        self,
+        changeset_id: int,
+        approved_by: str,
+        tenant_context: dict[str, Any] | None = None,
+    ) -> None:
         self.conn.execute(
-            "INSERT INTO approvals (changeset_id, approved_by) VALUES (?, ?)",
-            (changeset_id, approved_by),
+            "INSERT INTO approvals (changeset_id, approved_by, tenant_context_json) VALUES (?, ?, ?)",
+            (
+                changeset_id,
+                approved_by,
+                json.dumps(self._normalize_tenant_context(tenant_context), sort_keys=True),
+            ),
         )
         self.conn.commit()
 
-    def append_audit_event(self, event_type: str, payload: dict[str, Any]) -> None:
+    def append_audit_event(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        tenant_context: dict[str, Any] | None = None,
+    ) -> None:
         self.conn.execute(
-            "INSERT INTO audit_events (event_type, event_json) VALUES (?, ?)",
-            (event_type, json.dumps(payload)),
+            "INSERT INTO audit_events (event_type, event_json, tenant_context_json) VALUES (?, ?, ?)",
+            (
+                event_type,
+                json.dumps(payload),
+                json.dumps(self._normalize_tenant_context(tenant_context), sort_keys=True),
+            ),
         )
         self.conn.commit()
 
@@ -518,6 +562,39 @@ class OrchestratorDB:
         ).fetchall()
         return [{"id": int(row["id"]), "payload": json.loads(row["payload_json"])} for row in rows]
 
+    def _normalize_tenant_context(self, tenant_context: dict[str, Any] | None) -> dict[str, Any]:
+        context = dict(tenant_context or {})
+        tenant_mode = str(context.get("tenant_mode", "single_tenant")).strip() or "single_tenant"
+        context["tenant_mode"] = tenant_mode
+        context["org"] = str(context.get("org", "")).strip()
+        context["installation_id"] = str(context.get("installation_id", "")).strip()
+        return context
+
+    def get_onboarding_state(self) -> dict[str, Any]:
+        row = self.conn.execute(
+            "SELECT readiness_state, updated_at FROM onboarding_state WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return {"readiness_state": "pending_context", "updated_at": ""}
+        return {
+            "readiness_state": str(row["readiness_state"]),
+            "updated_at": str(row["updated_at"]),
+        }
+
+    def set_onboarding_state(self, readiness_state: str) -> dict[str, Any]:
+        self.conn.execute(
+            """
+            INSERT INTO onboarding_state (id, readiness_state, updated_at)
+            VALUES (1, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              readiness_state=excluded.readiness_state,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (readiness_state,),
+        )
+        self.conn.commit()
+        return self.get_onboarding_state()
+
     def list_pending_changesets(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT id FROM changesets WHERE status = 'pending' ORDER BY id ASC"
@@ -531,28 +608,29 @@ class OrchestratorDB:
     ) -> list[dict[str, Any]]:
         if event_type and run_id:
             rows = self.conn.execute(
-                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE event_type = ? AND json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
+                "SELECT id, event_type, event_json, tenant_context_json, created_at FROM audit_events WHERE event_type = ? AND json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
                 (event_type, run_id),
             )
         elif event_type:
             rows = self.conn.execute(
-                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
+                "SELECT id, event_type, event_json, tenant_context_json, created_at FROM audit_events WHERE event_type = ? ORDER BY id ASC",
                 (event_type,),
             )
         elif run_id:
             rows = self.conn.execute(
-                "SELECT id, event_type, event_json, created_at FROM audit_events WHERE json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
+                "SELECT id, event_type, event_json, tenant_context_json, created_at FROM audit_events WHERE json_extract(event_json, '$.run_id') = ? ORDER BY id ASC",
                 (run_id,),
             )
         else:
             rows = self.conn.execute(
-                "SELECT id, event_type, event_json, created_at FROM audit_events ORDER BY id ASC"
+                "SELECT id, event_type, event_json, tenant_context_json, created_at FROM audit_events ORDER BY id ASC"
             )
         return [
             {
                 "id": int(row["id"]),
                 "event_type": row["event_type"],
                 "payload": json.loads(row["event_json"]),
+                "tenant_context": json.loads(row["tenant_context_json"] or "{}"),
                 "created_at": row["created_at"],
             }
             for row in rows

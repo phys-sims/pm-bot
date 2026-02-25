@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from urllib.parse import parse_qs
 from typing import Any
@@ -12,6 +13,10 @@ from pm_bot.server.changesets import ChangesetService
 from pm_bot.server.context_pack import build_context_pack
 from pm_bot.server.db import OrchestratorDB
 from pm_bot.server.estimator import EstimatorService
+from pm_bot.server.github_auth import (
+    load_tenant_context_from_env,
+    validate_org_and_installation_context,
+)
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
@@ -23,12 +28,55 @@ class ServerApp:
 
     def __init__(self, db_path: str | Path = ":memory:") -> None:
         self.db = OrchestratorDB(db_path)
+        self.tenant = load_tenant_context_from_env(os.environ)
         self.connector = build_connector_from_env()
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
         self.estimator = EstimatorService(db=self.db)
         self.graph = GraphService(db=self.db)
         self.reporting = ReportingService(db=self.db)
+        self._sync_onboarding_readiness()
         self.runner = RunnerService(db=self.db)
+
+    def _request_tenant_context(
+        self,
+        repo: str,
+        org: str = "",
+        installation_id: str = "",
+    ) -> dict[str, str]:
+        return {
+            "tenant_mode": self.tenant.tenant_mode or "single_tenant",
+            "org": org.strip() or (repo.split("/", 1)[0].strip() if "/" in repo else ""),
+            "installation_id": installation_id.strip(),
+        }
+
+    def _sync_onboarding_readiness(self) -> dict[str, Any]:
+        readiness = self.onboarding_dry_run()
+        return self.db.set_onboarding_state(readiness["readiness_state"])
+
+    def onboarding_readiness(self) -> dict[str, Any]:
+        return self.db.get_onboarding_state()
+
+    def onboarding_dry_run(self) -> dict[str, Any]:
+        if not self.tenant.org.strip():
+            return {
+                "readiness_state": "pending_context",
+                "reason_code": "missing_org_context",
+                "checks": {
+                    "org": False,
+                    "installation": not bool(self.tenant.installation_id.strip()),
+                },
+            }
+        if not self.tenant.installation_id.strip():
+            return {
+                "readiness_state": "single_tenant_ready",
+                "reason_code": "single_tenant_mode",
+                "checks": {"org": True, "installation": False},
+            }
+        return {
+            "readiness_state": "org_ready",
+            "reason_code": "org_installation_ready",
+            "checks": {"org": True, "installation": True},
+        }
 
     def draft(
         self, item_type: str, title: str, body_fields: dict[str, Any] | None = None
@@ -54,7 +102,9 @@ class ServerApp:
         target_ref: str = "",
         idempotency_key: str = "",
         run_id: str = "",
+        tenant_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        resolved_tenant_context = tenant_context or self._request_tenant_context(repo=repo)
         return self.changesets.propose(
             operation=operation,
             repo=repo,
@@ -62,12 +112,22 @@ class ServerApp:
             target_ref=target_ref,
             idempotency_key=idempotency_key,
             run_id=run_id,
+            tenant_context=resolved_tenant_context,
         )
 
     def approve_changeset(
-        self, changeset_id: int, approved_by: str, run_id: str = ""
+        self,
+        changeset_id: int,
+        approved_by: str,
+        run_id: str = "",
+        tenant_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return self.changesets.approve(changeset_id, approved_by, run_id=run_id)
+        return self.changesets.approve(
+            changeset_id,
+            approved_by,
+            run_id=run_id,
+            tenant_context=tenant_context,
+        )
 
     def get_work_item(self, issue_ref: str) -> dict[str, Any] | None:
         return self.db.get_work_item(issue_ref)
@@ -88,6 +148,9 @@ class ServerApp:
             char_budget=budget,
             schema_version=schema_version,
         )
+        tenant_context = self._request_tenant_context(
+            repo=issue_ref.split("#", 1)[0] if "#" in issue_ref else ""
+        )
         self.db.append_audit_event(
             "context_pack_built",
             {
@@ -99,6 +162,7 @@ class ServerApp:
                 "run_id": run_id,
                 "requested_by": requested_by,
             },
+            tenant_context=tenant_context,
         )
         return pack
 
@@ -111,15 +175,22 @@ class ServerApp:
     def ingest_webhook(
         self, event_type: str, payload: dict[str, Any], run_id: str = ""
     ) -> dict[str, Any]:
+        repo = str((payload.get("repository") or {}).get("full_name", "")).strip()
+        tenant_context = self._request_tenant_context(
+            repo=repo,
+            org=str(payload.get("org", "")),
+            installation_id=str(payload.get("installation_id", "")),
+        )
         self.db.append_audit_event(
             "webhook_received",
             {"event_type": event_type, "payload": payload, "run_id": run_id},
+            tenant_context=tenant_context,
         )
         if event_type != "issues":
             return {"status": "ignored"}
 
         issue = payload.get("issue") or {}
-        repo = (payload.get("repository") or {}).get("full_name", "")
+        repo = repo or (payload.get("repository") or {}).get("full_name", "")
         number = issue.get("number")
         issue_ref = f"#{number}" if number else ""
         if not repo or not issue_ref:
@@ -177,6 +248,7 @@ class ServerApp:
         self.db.append_audit_event(
             "report_generated",
             {"report_name": report_name, "report_path": str(path), "run_id": run_id},
+            tenant_context=self._request_tenant_context(repo=""),
         )
         return {"status": "generated", "report_path": str(path)}
 
@@ -332,6 +404,14 @@ class ASGIServer:
                 if not required.issubset(payload):
                     await self._send_json(send, 400, {"error": "missing_required_fields"})
                     return
+                ok, tenant_context = await self._validate_request_context(
+                    send,
+                    repo=str(payload.get("repo", "")),
+                    payload=payload,
+                    query_params=query_params,
+                )
+                if not ok:
+                    return
                 result = self.service.propose_changeset(
                     operation=payload["operation"],
                     repo=payload["repo"],
@@ -339,6 +419,7 @@ class ASGIServer:
                     target_ref=payload.get("target_ref", ""),
                     idempotency_key=payload.get("idempotency_key", ""),
                     run_id=payload.get("run_id", ""),
+                    tenant_context=tenant_context,
                 )
                 await self._send_json(send, 200, result)
                 return
@@ -356,10 +437,23 @@ class ASGIServer:
                 if not approved_by:
                     await self._send_json(send, 400, {"error": "missing_approved_by"})
                     return
+                changeset = self.service.db.get_changeset(changeset_id)
+                if changeset is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                ok, tenant_context = await self._validate_request_context(
+                    send,
+                    repo=str(changeset.get("repo", "")),
+                    payload=payload,
+                    query_params=query_params,
+                )
+                if not ok:
+                    return
                 result = self.service.approve_changeset(
                     changeset_id,
                     approved_by=approved_by,
                     run_id=str(payload.get("run_id", "")),
+                    tenant_context=tenant_context,
                 )
                 await self._send_json(send, 200, result)
                 return
@@ -385,6 +479,11 @@ class ASGIServer:
                 repo = str(payload.get("repo", "")).strip()
                 if not repo:
                     await self._send_json(send, 400, {"error": "missing_repo"})
+                    return
+                ok, _tenant_context = await self._validate_request_context(
+                    send, repo=repo, payload=payload, query_params=query_params
+                )
+                if not ok:
                     return
                 await self._send_json(send, 200, self.service.ingest_graph(repo=repo))
                 return
@@ -503,6 +602,18 @@ class ASGIServer:
                 )
                 return
 
+            if method == "GET" and path == "/onboarding/readiness":
+                await self._send_json(send, 200, self.service.onboarding_readiness())
+                return
+
+            if method == "POST" and path == "/onboarding/dry-run":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                await self._send_json(send, 200, self.service.onboarding_dry_run())
+                return
+
             if method == "POST" and path == "/agent-runs/cancel":
                 payload = self._parse_json(body)
                 if payload is None:
@@ -535,6 +646,47 @@ class ASGIServer:
             await self._send_json(send, 409, {"error": str(exc)})
         except Exception as exc:  # pragma: no cover - defensive response mapping
             await self._send_json(send, 500, {"error": str(exc)})
+
+    def _extract_request_context(
+        self, payload: dict[str, Any], query_params: dict[str, str]
+    ) -> tuple[str, str]:
+        org = str(payload.get("org", "") or query_params.get("org", "")).strip()
+        installation_id = str(
+            payload.get("installation_id", "") or query_params.get("installation_id", "")
+        ).strip()
+        return org, installation_id
+
+    async def _validate_request_context(
+        self,
+        send: Any,
+        *,
+        repo: str,
+        payload: dict[str, Any],
+        query_params: dict[str, str],
+    ) -> tuple[bool, dict[str, str]]:
+        org, installation_id = self._extract_request_context(payload, query_params)
+        tenant_context = self.service._request_tenant_context(
+            repo=repo, org=org, installation_id=installation_id
+        )
+        allowed, reason_code = validate_org_and_installation_context(
+            tenant=self.service.tenant,
+            repo=repo,
+            request_org=org,
+            request_installation_id=installation_id,
+        )
+        if allowed:
+            return True, tenant_context
+        self.service.db.append_audit_event(
+            "auth_context_denied",
+            {"repo": repo, "reason_code": reason_code},
+            tenant_context=tenant_context,
+        )
+        await self._send_json(
+            send,
+            403,
+            {"error": "request_context_denied", "reason_code": reason_code},
+        )
+        return False, tenant_context
 
     async def _read_body(self, receive: Any) -> bytes:
         chunks: list[bytes] = []

@@ -278,3 +278,25 @@ Audit entries MUST include:
 }
 ```
 
+
+
+## Tenant/org context requirements (v5)
+
+For org-sensitive operations, changeset, approval, and audit persistence now carries explicit tenant context:
+
+- `tenant_mode`: `single_tenant` or `org_ready` marker.
+- `org`: expected org namespace for repo ownership checks.
+- `installation_id`: GitHub App installation marker when configured.
+
+Write/audit records MUST include a normalized tenant context object (for single-tenant deployments this can be an explicit `single_tenant` marker with empty org/install fields).
+
+### Deterministic auth/context denial reason codes
+
+Request-path context validation emits deterministic reason codes:
+
+- `invalid_repo`
+- `repo_org_mismatch`
+- `org_mismatch`
+- `installation_mismatch`
+
+Denied requests SHOULD be surfaced as `auth_context_denied` audit events with the same reason code and persisted tenant context.
