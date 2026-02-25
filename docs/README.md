@@ -61,7 +61,7 @@ Roadmaps MUST NOT override canonical inputs, contracts/schemas, or specs.
 
 Roadmap defaults:
 - Active near-term execution starts at [`docs/roadmaps/agent-roadmap-v3-near-term.md`](roadmaps/agent-roadmap-v3-near-term.md).
-- Then progress to [`docs/roadmaps/agent-roadmap-v4-platform.md`](roadmaps/agent-roadmap-v4-platform.md) and [`docs/roadmaps/agent-roadmap-v5-org-readiness.md`](roadmaps/agent-roadmap-v5-org-readiness.md).
+- Then progress to [`docs/roadmaps/agent-roadmap-v4-platform.md`](roadmaps/agent-roadmap-v4-platform.md), [`docs/roadmaps/agent-roadmap-v5-org-readiness.md`](roadmaps/agent-roadmap-v5-org-readiness.md), and [`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`](roadmaps/agent-roadmap-v6-multi-repo-orchestration.md).
 - Long-horizon ideas are separated in [`docs/roadmaps/future-roadmap.md`](roadmaps/future-roadmap.md) and are not default implementation sequencing.
 
 ## Quick links

@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 07:09:14 UTC
+- Time (UTC): 07:46:23 UTC
 - By: @openai-codex
-- Scope: Implemented v5 org-readiness repo onboarding defaults: expanded org-ready write allowlist (including cpa-sim/fiber-link-sim/abcdef-sim/fiber-link-testbench/phys-sims-utils), added PM_BOT_ALLOWED_REPOS override path for non-phys-sims orgs, and updated user docs for org-vs-custom usage.
+- Scope: Added v6 execution planning docs for natural-text multi-repo orchestration (M0-M3 tracks), including a detailed v6 roadmap and execution checklist, and linked v6 in docs navigation defaults.
 
 
 ---
@@ -99,6 +99,7 @@
 - [x] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
 - [x] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
+- [x] v6 roadmap decomposition published (`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`, `docs/ROADMAP_V6_CHECKLIST.md`)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
