@@ -25,5 +25,7 @@ test("loads pending changesets and approves one", async () => {
   expect(await screen.findByText(/Pending: 1/)).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "Approve" }));
 
-  expect(await screen.findByText("Approved changeset #1")).toBeTruthy();
+  expect(await screen.findByText(/Pending: 0/)).toBeTruthy();
+  expect(await screen.findByText("No pending changesets.")).toBeTruthy();
+  expect(mockedFetch).toHaveBeenCalledTimes(3);
 });
