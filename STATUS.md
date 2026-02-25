@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 05:49:35 UTC
+- Time (UTC): 05:58:03 UTC
 - By: @openai-codex
-- Scope: Completed Docker onboarding path with `docker-compose.yml`, root/ui `.dockerignore` optimization, README Docker quick start + troubleshooting, and CI docker-compose validation scoped to Docker-related PR diffs with optional smoke build gate.
+- Scope: Adjusted Docker onboarding UI API base to host-reachable `http://localhost:8000` (instead of Docker-internal hostname), and aligned README troubleshooting guidance for browser-based fetch behavior.
 
 
 ---

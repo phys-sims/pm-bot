@@ -113,7 +113,7 @@ Troubleshooting:
 
 - **Port conflict**: if `8000` or `4173` is already in use, stop the conflicting process or adjust host port mappings in `docker-compose.yml`.
 - **Clean rebuild**: rebuild all images from scratch with `docker compose build --no-cache`.
-- **API base URL override**: change `VITE_PM_BOT_API_BASE` under the `ui` service in `docker-compose.yml` if your backend is reachable at a different URL.
+- **API base URL override**: default is `http://localhost:8000` so browser requests resolve from the host; change `VITE_PM_BOT_API_BASE` under the `ui` service in `docker-compose.yml` if your backend is reachable at a different URL.
 
 ---
 
