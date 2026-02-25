@@ -5,16 +5,11 @@
 > **Date integrity rule:** Populate dates/times with runtime commands (for example `date -u`); never guess dates.
 
 ## Last updated
-- Date: 2026-02-23
-- Time (UTC): 06:07:21 UTC
+- Date: 2026-02-25
+- Time (UTC): 03:49:05 UTC
 - By: @openai-codex
-- Scope: Executed the web UI action plan end-to-end: added UI-ready HTTP routes/contracts, a React+Vite inbox/tree MVP, frontend unit+e2e suites, and CI frontend gates.
-- Scope: Fixed CI workflow checkout action pin from unsupported `actions/checkout@v5` to `actions/checkout@v4` to restore GitHub Actions compatibility.
-- Scope: Added `docs/qa-matrix.md` mapping user-critical flows to automated/manual checks and release gating requirements.
-- Scope: Added scripted runbook scenario tests for draft/parse/render, approval gating, idempotency reuse, and retry/dead-letter reliability drills.
-- Scope: Introduced golden issue-body parse/render fixtures and fixture-driven regression tests.
-- Scope: Split CI into grouped jobs (contract, reliability, regression fixtures, docs-command validation) plus a dependent `release-gate` job.
-- Scope: Updated release/runbook documentation to align matrix-driven quality gates and scripted scenario coverage.
+- Scope: Added a repo inventory baseline documenting current ASGI entrypoint, storage model, contracts, approval surfaces, GitHub integration, and UI routes for roadmap planning.
+- Scope: Added an org-scale roadmap reconciliation doc that maps the provided M0–M5 plan onto repo-native execution tracks (graph, context packs, runner portability, unified inbox) and links it into v5 stage planning.
 
 
 ---

@@ -62,3 +62,8 @@ Prepare the product for safe organization onboarding by introducing tenant-aware
 - Org-readiness prerequisites are implemented and measurable.
 - No regression in existing single-tenant workflows.
 - Docs/spec/contracts/status capture tenant-prep boundaries clearly.
+
+## Execution companion
+- Use `docs/implementation/repo-inventory.md` as the current-state source before opening N3/v5 PR slices.
+- Use `docs/roadmaps/org-scale-roadmap-reconciliation.md` to decompose the larger org-scale M0–M5 plan into repo-native Tracks A–D (graph, context packs, runner portability, unified inbox).
+- Keep this v5 document as the stage boundary and acceptance gate; track-level sequencing lives in the reconciliation roadmap.
