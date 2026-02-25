@@ -265,20 +265,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Stop emitting new context events while preserving existing audit paths.
 
-### Task: C1 — Runner state machine lifecycle
+### Task: C1 — Runner state machine lifecycle ✅
 
 **Objective**
 - Extend runner state transitions with strict transition validation and terminal-state invariants.
 
 **Pre-flight checks**
-- [ ] Review changeset approval lifecycle and current statuses.
-- [ ] Confirm ADR expectations for approval-gated execution.
+- [x] Review changeset approval lifecycle and current statuses.
+- [x] Confirm ADR expectations for approval-gated execution.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Define normalized run statuses and allowed transitions.
@@ -302,20 +302,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Keep status fields but bypass strict transition validation.
 
-### Task: C2 — Local queue/worker semantics
+### Task: C2 — Local queue/worker semantics ✅
 
 **Objective**
 - Implement bounded-concurrency queue claiming with retry/dead-letter semantics and idempotent claim behavior.
 
 **Pre-flight checks**
-- [ ] Confirm existing retry/idempotency logic and dead-letter handling.
-- [ ] Validate local-only worker assumptions in ops docs.
+- [x] Confirm existing retry/idempotency logic and dead-letter handling.
+- [x] Validate local-only worker assumptions in ops docs.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add claim lease fields and bounded worker selection query.
@@ -339,20 +339,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Disable worker claiming mode and return to synchronous/manual execution path.
 
-### Task: C3 — Runner adapter contract (manual first)
+### Task: C3 — Runner adapter contract (manual first) ✅
 
 **Objective**
 - Introduce portable runner adapter interface (`submit/poll/fetch_artifacts/cancel`) with manual adapter baseline.
 
 **Pre-flight checks**
-- [ ] Confirm no adapter path can bypass approval checks.
-- [ ] Verify artifact storage/read constraints in local mode.
+- [x] Confirm no adapter path can bypass approval checks.
+- [x] Verify artifact storage/read constraints in local mode.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Define adapter protocol/ABC and response contracts.

@@ -94,6 +94,51 @@ This enables run-level traceability from agent run proposal through context buil
   - `artifact_paths` (array[string], optional)
   - `summary` (string, optional)
 
+
+## Runner lifecycle + queue semantics (v5 / Task C)
+
+### Normalized statuses
+
+- `proposed`
+- `approved`
+- `running`
+- `completed` (terminal)
+- `failed` (terminal unless explicitly re-approved)
+- `cancelled` (terminal)
+- `rejected` (terminal)
+
+### Allowed transitions
+
+- `proposed -> approved | rejected | cancelled`
+- `approved -> running | cancelled`
+- `running -> completed | failed | cancelled | approved` (approved is retry scheduling)
+- `failed -> approved | cancelled`
+
+Invalid transitions MUST be rejected with deterministic reason codes.
+
+### Queue/claim metadata
+
+AgentRunSpec-backed execution records SHOULD include bounded local worker queue fields:
+
+- `claimed_by` (worker identifier)
+- `claim_expires_at` (lease expiry timestamp)
+- `retry_count`
+- `max_retries`
+- `next_attempt_at`
+- `last_error`
+- `job_id` (adapter-specific submission handle)
+
+### Adapter contract
+
+Runners MUST support an adapter interface with the following operations:
+
+- `submit(run) -> {job_id, state}`
+- `poll(run) -> {state, reason_code?}`
+- `fetch_artifacts(run) -> [path, ...]`
+- `cancel(run) -> {state, reason_code?}`
+
+The default adapter is `manual` for local deterministic execution. Any additional provider adapters MUST map failures to deterministic shared reason codes.
+
 ## Execution policy (normative)
 
 - AgentRunSpecs MUST be approved before execution.

@@ -84,6 +84,8 @@ Given the same input plan, repeated runs MUST converge:
 - they MUST NOT create duplicate edges or duplicate project-item mutations
 - they MUST be safe to “retry” after a partial failure
 - bounded retries with dead-letter outcomes must be deterministic and auditable
+- local worker queue claims MUST use bounded leases and idempotent claiming semantics
+- runner execution MUST use the adapter contract (`submit/poll/fetch_artifacts/cancel`) with a manual baseline adapter
 
 ### P3 — Safety gates are non-bypassable
 

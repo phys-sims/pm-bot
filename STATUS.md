@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:26:22 UTC
+- Time (UTC): 06:42:13 UTC
 - By: @openai-codex
-- Scope: Implemented roadmap Task B (B1-B4): context_pack/v2 schema+hash contract, deterministic budget/exclusion ledger, redaction+provenance manifesting, and context_pack_built audit chain with run-id filters/report linkage.
+- Scope: Implemented roadmap Task C (C1-C3): strict agent-run state transitions with audited reason codes, bounded local queue claiming/retry/dead-letter semantics, and manual runner adapter contract (`submit/poll/fetch_artifacts/cancel`) with API wiring and tests.
 
 
 ---
@@ -17,7 +17,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus runbook scripted flows, golden parse/render fixtures, reliability drills, docs-command validation, and UI HTTP contract behavior. |
+| Tests | `pytest -q` | ✅ | 2026-02-25 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, runbook scripted flows, and HTTP contract behavior. |
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
@@ -98,7 +98,7 @@
 ### Active sequencing — N1/N2/N3
 - [x] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
 - [x] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
-- [ ] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
+- [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
