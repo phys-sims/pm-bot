@@ -6,8 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-23
-- Time (UTC): 03:02:13 UTC
+- Time (UTC): 06:07:21 UTC
 - By: @openai-codex
+- Scope: Executed the web UI action plan end-to-end: added UI-ready HTTP routes/contracts, a React+Vite inbox/tree MVP, frontend unit+e2e suites, and CI frontend gates.
 - Scope: Fixed CI workflow checkout action pin from unsupported `actions/checkout@v5` to `actions/checkout@v4` to restore GitHub Actions compatibility.
 - Scope: Added `docs/qa-matrix.md` mapping user-critical flows to automated/manual checks and release gating requirements.
 - Scope: Added scripted runbook scenario tests for draft/parse/render, approval gating, idempotency reuse, and retry/dead-letter reliability drills.
@@ -22,7 +23,7 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus runbook scripted flows, golden parse/render fixtures, reliability drills, and docs-command validation. |
+| Tests | `pytest -q` | ✅ | 2026-02-23 | Covers v0-v4 behavior plus runbook scripted flows, golden parse/render fixtures, reliability drills, docs-command validation, and UI HTTP contract behavior. |
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
