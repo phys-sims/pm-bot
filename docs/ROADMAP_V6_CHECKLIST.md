@@ -18,10 +18,10 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`, `⛔ blocked`.
 | 10 | C | C2 context-pack binding UX (hash/version + budget summary) | agent | ☑ done | — | depends on C1 |
 | 11 | C | C3 lifecycle operations panel (transition controls + actor/reason) | agent | ☑ done | — | depends on C1 |
 | 12 | C | C4 artifact/result visibility (job IDs, paths, retries, reason codes) | agent | ☑ done | — | depends on C3 |
-| 13 | D | D1 audit-chain query API (`run_id`, event_type, repo, actor, window) | agent | ☐ pending | — | depends on B5/C3 |
-| 14 | D | D2 correlated timeline UI for run/context/changeset/report events | agent | ☐ pending | — | depends on D1 |
-| 15 | D | D3 multi-agent rollups (success/retry/dead-letter/denial distributions) | agent | ☐ pending | — | depends on D1 |
-| 16 | D | D4 runbook hooks + exportable incident bundles | agent | ☐ pending | — | depends on D2/D3 |
+| 13 | D | D1 audit-chain query API (`run_id`, event_type, repo, actor, window) | agent | ☑ done | — | depends on B5/C3 |
+| 14 | D | D2 correlated timeline UI for run/context/changeset/report events | agent | ☑ done | — | depends on D1 |
+| 15 | D | D3 multi-agent rollups (success/retry/dead-letter/denial distributions) | agent | ☑ done | — | depends on D1 |
+| 16 | D | D4 runbook hooks + exportable incident bundles | agent | ☑ done | — | depends on D2/D3 |
 
 ## Gate checks required on every v6 slice
 

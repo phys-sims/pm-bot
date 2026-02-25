@@ -108,3 +108,22 @@ Weekly reporting now includes org-sensitive operational taxonomy counters:
 - `org_sensitive_operations`: aggregate of proposed/applied changesets and context denials.
 
 These counters complement existing `changeset_denied` and `changeset_dead_lettered` safety metrics.
+
+## Multi-agent audit operations surface (v6 / Track D)
+
+The server exposes audit-first operations endpoints for deterministic chain triage:
+
+- `GET /audit/chain`
+  - filters: `run_id`, `event_type`, `repo`, `actor`, `start_at`, `end_at`
+  - pagination: `limit` (bounded to 1..500), `offset`
+  - response: `audit_chain/v1` with stable ordering by event ID ascending.
+- `GET /audit/rollups`
+  - optional filter: `run_id`
+  - response: `audit_rollups/v1` summary with sample size, completion rate,
+    retry/dead-letter/denial counts, queue age mean, and top reason/repo concentration slices.
+- `GET /audit/incident-bundle`
+  - optional filters: `run_id`, `actor`
+  - response: `incident_bundle/v1` containing run metadata, runbook hooks,
+    a bounded audit chain snapshot, and rollup metrics.
+
+These routes are read-only and preserve existing approval semantics for any writes.

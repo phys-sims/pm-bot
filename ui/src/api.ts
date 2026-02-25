@@ -116,6 +116,54 @@ export type AgentRunClaimResponse = {
   summary: { count: number };
 };
 
+export type AuditChainEvent = {
+  id: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  tenant_context: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AuditChainResponse = {
+  schema_version: "audit_chain/v1";
+  items: AuditChainEvent[];
+  summary: {
+    count: number;
+    total: number;
+    next_offset: number | null;
+    filters: {
+      run_id: string;
+      event_type: string;
+      repo: string;
+      actor: string;
+      start_at: string;
+      end_at: string;
+    };
+  };
+};
+
+export type AuditRollupsResponse = {
+  schema_version: "audit_rollups/v1";
+  summary: {
+    sample_size: number;
+    completion_rate: number;
+    retry_count: number;
+    dead_letter_count: number;
+    denial_count: number;
+    average_queue_age_seconds: number;
+  };
+  top_reason_codes: Array<{ reason_code: string; count: number }>;
+  repo_concentration: Array<{ repo: string; count: number }>;
+};
+
+export type AuditIncidentBundleResponse = {
+  schema_version: "incident_bundle/v1";
+  export: { run_id: string; actor: string; generated_at: string };
+  runbook_hooks: Record<string, string>;
+  chain: AuditChainResponse;
+  rollups: AuditRollupsResponse;
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly reasonCode: string;
@@ -220,4 +268,36 @@ export const api = {
     }),
   agentRunTransitions: (run_id: string) =>
     httpJson<AgentRunTransitionsResponse>(`/agent-runs/transitions?run_id=${encodeURIComponent(run_id)}`),
+  auditChain: (params: {
+    run_id?: string;
+    event_type?: string;
+    repo?: string;
+    actor?: string;
+    start_at?: string;
+    end_at?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.run_id) q.set("run_id", params.run_id);
+    if (params.event_type) q.set("event_type", params.event_type);
+    if (params.repo) q.set("repo", params.repo);
+    if (params.actor) q.set("actor", params.actor);
+    if (params.start_at) q.set("start_at", params.start_at);
+    if (params.end_at) q.set("end_at", params.end_at);
+    if (params.limit !== undefined) q.set("limit", String(params.limit));
+    if (params.offset !== undefined) q.set("offset", String(params.offset));
+    return httpJson<AuditChainResponse>(`/audit/chain${q.toString() ? `?${q.toString()}` : ""}`);
+  },
+  auditRollups: (params: { run_id?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.run_id) q.set("run_id", params.run_id);
+    return httpJson<AuditRollupsResponse>(`/audit/rollups${q.toString() ? `?${q.toString()}` : ""}`);
+  },
+  auditIncidentBundle: (params: { run_id?: string; actor?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.run_id) q.set("run_id", params.run_id);
+    if (params.actor) q.set("actor", params.actor);
+    return httpJson<AuditIncidentBundleResponse>(`/audit/incident-bundle${q.toString() ? `?${q.toString()}` : ""}`);
+  },
 };

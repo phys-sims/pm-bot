@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 21:50:06 UTC
+- Time (UTC): 23:36:16 UTC
 - By: @openai-codex
-- Scope: Fixed v6 Track C Agent Runs UI robustness and test determinism: claim response handling now safely tolerates malformed payloads without crashing status messaging, and the AgentRunsPage unit test fetch mock sequence now matches the page's transition-refresh call order in CI.
+- Scope: Completed v6 Track D multi-agent audit operations: added deterministic audit-chain query/filters/pagination and rollup + incident-bundle APIs, shipped correlated Audit Ops UI (timeline, rollups, runbook hooks, export), and expanded HTTP/UI/spec coverage for the new routes.
 
 
 ---
@@ -101,6 +101,7 @@
 - [x] N2 / v4 platform reliability complete (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 - [x] v6 roadmap decomposition published (`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`, `docs/ROADMAP_V6_CHECKLIST.md`)
+- [x] v6 multi-repo orchestration stage complete (Tracks A–D complete in checklist and API/UI surfaces)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
