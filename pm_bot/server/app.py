@@ -144,6 +144,9 @@ class ServerApp:
     def graph_deps(self, area: str = "") -> dict[str, list[dict[str, Any]]]:
         return self.graph.dependencies(area=area)
 
+    def ingest_graph(self, repo: str) -> dict[str, Any]:
+        return self.graph.ingest_repo_graph(repo=repo, connector=self.connector)
+
     def generate_weekly_report(
         self, report_name: str = "weekly.md", run_id: str = ""
     ) -> dict[str, str]:
@@ -244,6 +247,18 @@ class ASGIServer:
             if method == "GET" and path == "/graph/deps":
                 area = query_params.get("area", "")
                 await self._send_json(send, 200, self.service.graph_deps(area=area))
+                return
+
+            if method == "POST" and path == "/graph/ingest":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                repo = str(payload.get("repo", "")).strip()
+                if not repo:
+                    await self._send_json(send, 400, {"error": "missing_repo"})
+                    return
+                await self._send_json(send, 200, self.service.ingest_graph(repo=repo))
                 return
 
             if method == "GET" and path == "/estimator/snapshot":

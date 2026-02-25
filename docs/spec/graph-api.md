@@ -57,6 +57,22 @@ Response:
 
 - filtered edges and nodes
 - summary counts
+- warnings list that can include `partial_ingestion` diagnostics when connector ingestion had recoverable failures
+
+### `POST /graph/ingest`
+
+Request body:
+
+- `repo` (required): `org/repo`
+
+Response:
+
+- ingestion diagnostics snapshot:
+  - `calls`
+  - `failures`
+  - `partial`
+  - `edge_count`
+  - structured diagnostics payload for replay/debugging
 
 ## Cycle behavior (normative)
 
@@ -74,6 +90,8 @@ When multiple edges conflict, the endpoint MUST:
 - prefer sub-issue edges for hierarchy
 - preserve conflicting info in warnings/diagnostics
 
+Graph ingestion SHOULD collect sub-issue and dependency edges with provenance and timestamps, while preserving partial-ingestion diagnostics instead of failing the full sync when possible.
+
 ## Performance constraints (recommended)
 
 - endpoints SHOULD support pagination or lazy loading
@@ -83,4 +101,3 @@ When multiple edges conflict, the endpoint MUST:
 
 - `docs/github/tree-and-dependencies.md` (source priority + provenance)
 - `docs/contracts/workgraph.md` (edge types and constraints)
-

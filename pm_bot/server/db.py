@@ -28,12 +28,38 @@ class OrchestratorDB:
                 payload_json TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS relationships (
+            CREATE TABLE IF NOT EXISTS graph_nodes (
+                node_key TEXT PRIMARY KEY,
+                org TEXT NOT NULL,
+                repo TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                issue_ref TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(org, repo, node_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_edges (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                parent_ref TEXT NOT NULL,
-                child_ref TEXT NOT NULL,
-                source TEXT NOT NULL DEFAULT 'checklist',
-                UNIQUE(parent_ref, child_ref, source)
+                from_node_key TEXT NOT NULL,
+                to_node_key TEXT NOT NULL,
+                edge_type TEXT NOT NULL,
+                source TEXT NOT NULL,
+                observed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                partial INTEGER NOT NULL DEFAULT 0,
+                diagnostic_json TEXT NOT NULL DEFAULT '{}',
+                UNIQUE(from_node_key, to_node_key, edge_type, source),
+                FOREIGN KEY(from_node_key) REFERENCES graph_nodes(node_key),
+                FOREIGN KEY(to_node_key) REFERENCES graph_nodes(node_key)
+            );
+
+            CREATE TABLE IF NOT EXISTS graph_ingestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo TEXT NOT NULL,
+                calls INTEGER NOT NULL DEFAULT 0,
+                failures INTEGER NOT NULL DEFAULT 0,
+                partial INTEGER NOT NULL DEFAULT 0,
+                diagnostics_json TEXT NOT NULL DEFAULT '{}',
+                observed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS changesets (
@@ -110,10 +136,12 @@ class OrchestratorDB:
             )
         if not self._has_column("changesets", "last_error"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
-        if not self._has_column("relationships", "source"):
-            self.conn.execute(
-                "ALTER TABLE relationships ADD COLUMN source TEXT NOT NULL DEFAULT 'checklist'"
-            )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_graph_edges_from_to ON graph_edges(from_node_key, to_node_key)"
+        )
         self.conn.commit()
 
     def _has_column(self, table: str, column: str) -> bool:
@@ -217,23 +245,189 @@ class OrchestratorDB:
         self.conn.commit()
 
     def add_relationship(self, parent_ref: str, child_ref: str, source: str = "checklist") -> None:
-        self.conn.execute(
-            """
-            INSERT INTO relationships (parent_ref, child_ref, source)
-            VALUES (?, ?, ?)
-            ON CONFLICT(parent_ref, child_ref, source) DO NOTHING
-            """,
-            (parent_ref, child_ref, source),
+        self.add_graph_edge(
+            from_issue_ref=parent_ref,
+            to_issue_ref=child_ref,
+            edge_type="parent_child",
+            source=source,
         )
         self.conn.commit()
 
+    def _parse_graph_identity(self, issue_ref: str) -> tuple[str, str, str]:
+        if "#" in issue_ref and not issue_ref.startswith("draft:"):
+            repo_path, number = issue_ref.split("#", 1)
+            if "/" in repo_path:
+                org, repo = repo_path.split("/", 1)
+                node_id = number.strip() or issue_ref
+                return org.strip(), repo.strip(), node_id
+        return "", "", issue_ref
+
+    def upsert_graph_node(self, issue_ref: str) -> str:
+        org, repo, node_id = self._parse_graph_identity(issue_ref)
+        node_key = f"{org}/{repo}#{node_id}" if org and repo else issue_ref
+        self.conn.execute(
+            """
+            INSERT INTO graph_nodes (node_key, org, repo, node_id, issue_ref)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(issue_ref) DO UPDATE SET
+              org=excluded.org,
+              repo=excluded.repo,
+              node_id=excluded.node_id
+            """,
+            (node_key, org, repo, node_id, issue_ref),
+        )
+        return node_key
+
+    def add_graph_edge(
+        self,
+        from_issue_ref: str,
+        to_issue_ref: str,
+        edge_type: str,
+        source: str,
+        observed_at: str = "",
+        partial: bool = False,
+        diagnostic: dict[str, Any] | None = None,
+    ) -> None:
+        from_key = self.upsert_graph_node(from_issue_ref)
+        to_key = self.upsert_graph_node(to_issue_ref)
+        self.conn.execute(
+            """
+            INSERT INTO graph_edges (
+              from_node_key,
+              to_node_key,
+              edge_type,
+              source,
+              observed_at,
+              partial,
+              diagnostic_json
+            )
+            VALUES (?, ?, ?, ?, COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP), ?, ?)
+            ON CONFLICT(from_node_key, to_node_key, edge_type, source) DO UPDATE SET
+              observed_at=excluded.observed_at,
+              partial=excluded.partial,
+              diagnostic_json=excluded.diagnostic_json
+            """,
+            (
+                from_key,
+                to_key,
+                edge_type,
+                source,
+                observed_at,
+                1 if partial else 0,
+                json.dumps(diagnostic or {}, sort_keys=True),
+            ),
+        )
+
+    def list_graph_edges(self, edge_type: str = "") -> list[dict[str, Any]]:
+        params: tuple[Any, ...] = ()
+        where_clause = ""
+        if edge_type:
+            where_clause = "WHERE ge.edge_type = ?"
+            params = (edge_type,)
+        rows = self.conn.execute(
+            f"""
+            SELECT
+              pn.issue_ref AS from_issue_ref,
+              cn.issue_ref AS to_issue_ref,
+              ge.edge_type,
+              ge.source,
+              ge.observed_at,
+              ge.partial,
+              ge.diagnostic_json
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            {where_clause}
+            ORDER BY
+              pn.issue_ref ASC,
+              cn.issue_ref ASC,
+              ge.edge_type ASC,
+              ge.source ASC
+            """,
+            params,
+        ).fetchall()
+        return [
+            {
+                "from_issue_ref": str(row["from_issue_ref"]),
+                "to_issue_ref": str(row["to_issue_ref"]),
+                "edge_type": str(row["edge_type"]),
+                "source": str(row["source"]),
+                "observed_at": str(row["observed_at"]),
+                "partial": bool(row["partial"]),
+                "diagnostic": json.loads(row["diagnostic_json"]),
+            }
+            for row in rows
+        ]
+
+    def record_graph_ingestion(
+        self,
+        repo: str,
+        calls: int,
+        failures: int,
+        partial: bool,
+        diagnostics: dict[str, Any] | None = None,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO graph_ingestions (repo, calls, failures, partial, diagnostics_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                repo,
+                calls,
+                failures,
+                1 if partial else 0,
+                json.dumps(diagnostics or {}, sort_keys=True),
+            ),
+        )
+        self.conn.commit()
+
+    def latest_graph_ingestions(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT gi.repo, gi.calls, gi.failures, gi.partial, gi.diagnostics_json, gi.observed_at
+            FROM graph_ingestions gi
+            INNER JOIN (
+                SELECT repo, MAX(id) AS max_id
+                FROM graph_ingestions
+                GROUP BY repo
+            ) latest ON latest.max_id = gi.id
+            ORDER BY gi.repo ASC
+            """
+        ).fetchall()
+        return [
+            {
+                "repo": str(row["repo"]),
+                "calls": int(row["calls"]),
+                "failures": int(row["failures"]),
+                "partial": bool(row["partial"]),
+                "diagnostics": json.loads(row["diagnostics_json"]),
+                "observed_at": str(row["observed_at"]),
+            }
+            for row in rows
+        ]
+
     def get_related(self, issue_ref: str) -> dict[str, list[str]]:
         parent_rows = self.conn.execute(
-            "SELECT parent_ref FROM relationships WHERE child_ref = ? ORDER BY parent_ref ASC",
+            """
+            SELECT pn.issue_ref AS parent_ref
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child' AND cn.issue_ref = ?
+            ORDER BY pn.issue_ref ASC
+            """,
             (issue_ref,),
         ).fetchall()
         child_rows = self.conn.execute(
-            "SELECT child_ref FROM relationships WHERE parent_ref = ? ORDER BY child_ref ASC",
+            """
+            SELECT cn.issue_ref AS child_ref
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child' AND pn.issue_ref = ?
+            ORDER BY cn.issue_ref ASC
+            """,
             (issue_ref,),
         ).fetchall()
         return {
@@ -244,9 +438,15 @@ class OrchestratorDB:
     def list_relationships(self) -> list[dict[str, str]]:
         rows = self.conn.execute(
             """
-            SELECT parent_ref, child_ref, source
-            FROM relationships
-            ORDER BY parent_ref ASC, child_ref ASC, source ASC
+            SELECT
+              pn.issue_ref AS parent_ref,
+              cn.issue_ref AS child_ref,
+              ge.source AS source
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child'
+            ORDER BY pn.issue_ref ASC, cn.issue_ref ASC, ge.source ASC
             """
         ).fetchall()
         return [

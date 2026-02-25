@@ -20,6 +20,8 @@ class InMemoryGitHubConnector:
         self.executed_writes: list[WriteRequest] = []
         self.issues: dict[tuple[str, str], dict[str, Any]] = {}
         self._transient_failures_seen: dict[tuple[str, str, str], int] = {}
+        self.sub_issues: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        self.dependencies: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     def evaluate_write(self, repo: str, operation: str) -> PolicyDecision:
         if self.allowed_repos and repo not in self.allowed_repos:
@@ -85,3 +87,11 @@ class InMemoryGitHubConnector:
             if all(str(issue.get(key, "")) == value for key, value in filters.items()):
                 matched.append(issue)
         return matched
+
+    def list_sub_issues(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
+        rows = self.sub_issues.get((repo, issue_ref), [])
+        return [dict(row) for row in rows]
+
+    def list_issue_dependencies(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
+        rows = self.dependencies.get((repo, issue_ref), [])
+        return [dict(row) for row in rows]

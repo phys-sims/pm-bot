@@ -302,9 +302,109 @@ def test_graph_dependencies_include_mixed_provenance_and_summary():
     app.link_work_items("r#0", "r#2", source="dependency_api")
 
     deps = app.graph_deps(area="platform")
-    assert deps["summary"]["edge_count"] == 2
+    assert deps["summary"]["edge_count"] == 1
     assert all(edge["provenance"] == "dependency_api" for edge in deps["edges"])
     assert deps["warnings"] == []
+
+
+def test_graph_identity_edges_are_used_for_tree_relationships():
+    app = create_app()
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#10",
+        {
+            "title": "Parent",
+            "type": "epic",
+            "fields": {"issue_ref": "#10"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#11",
+        {
+            "title": "Child",
+            "type": "task",
+            "fields": {"issue_ref": "#11"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.add_graph_edge(
+        from_issue_ref="phys-sims/phys-pipeline#10",
+        to_issue_ref="phys-sims/phys-pipeline#11",
+        edge_type="parent_child",
+        source="sub_issue",
+    )
+
+    tree = app.graph_tree("phys-sims/phys-pipeline#10")
+    assert tree["root"]["children"][0]["issue_ref"] == "phys-sims/phys-pipeline#11"
+
+
+def test_graph_ingestion_records_partial_warning_and_reason_codes():
+    app = create_app()
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#20",
+        {
+            "title": "Issue 20",
+            "type": "task",
+            "area": "platform",
+            "fields": {"issue_ref": "#20"},
+            "relationships": {"children_refs": []},
+        },
+    )
+
+    connector = app.connector
+    connector.sub_issues[("phys-sims/phys-pipeline", "#20")] = [
+        {"issue_ref": "#21", "observed_at": "2026-02-25T00:00:00Z"}
+    ]
+
+    def _fail_dependencies(_repo: str, _issue_ref: str) -> list[dict[str, str]]:
+        raise RuntimeError("dependency endpoint unavailable")
+
+    connector.list_issue_dependencies = _fail_dependencies  # type: ignore[method-assign]
+
+    result = app.ingest_graph("phys-sims/phys-pipeline")
+    assert result["partial"] is True
+    assert result["failures"] == 1
+    assert result["diagnostics"]["failures"][0]["issue_ref"] == "phys-sims/phys-pipeline#20"
+
+    deps = app.graph_deps(area="platform")
+    warning_codes = [warning["code"] for warning in deps["warnings"]]
+    assert "partial_ingestion" in warning_codes
+
+
+def test_graph_dependencies_include_graph_table_edges():
+    app = create_app()
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#31",
+        {
+            "title": "Issue 31",
+            "type": "task",
+            "area": "platform",
+            "fields": {"issue_ref": "#31"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.upsert_work_item(
+        "phys-sims/phys-pipeline#32",
+        {
+            "title": "Issue 32",
+            "type": "task",
+            "area": "platform",
+            "fields": {"issue_ref": "#32"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    app.db.add_graph_edge(
+        from_issue_ref="phys-sims/phys-pipeline#31",
+        to_issue_ref="phys-sims/phys-pipeline#32",
+        edge_type="blocked_by",
+        source="dependency_api",
+    )
+
+    deps = app.graph_deps(area="platform")
+    assert any(
+        edge["from"] == "phys-sims/phys-pipeline#31" and edge["to"] == "phys-sims/phys-pipeline#32"
+        for edge in deps["edges"]
+    )
 
 
 def test_v2_weekly_report_generation(tmp_path):

@@ -165,6 +165,18 @@ Guarantees:
 - If multiple parent candidates exist for one child, the selected edge MUST be the highest-priority source and a `conflicting_parent_edge` warning MUST be returned.
 - If a cycle is detected in selected parent-child edges, responses MUST include a `cycle_detected` warning with diagnostic cycle path data.
 
+### Storage + identity model
+
+WorkGraph storage now uses additive identity and edge tables:
+
+- `graph_nodes`: stable identity tuple (`org`, `repo`, `node_id`) plus canonical `issue_ref` binding.
+- `graph_edges`: typed edges with provenance (`source`) and ingestion diagnostics metadata.
+
+Storage guarantees:
+
+- graph/tree APIs read from graph identity + typed edge tables directly
+- edge records remain deterministic via unique `(from, to, edge_type, source)` constraints and canonical ordering at read time
+
 ### `graph.dependencies(area="")` output
 
 ```json
@@ -266,4 +278,3 @@ Consumers should treat validator `code` values as stable automation contracts.
 
 - `schema_version` MUST be versioned.
 - Breaking changes require a new WorkGraph version.
-

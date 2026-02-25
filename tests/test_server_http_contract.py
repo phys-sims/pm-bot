@@ -144,3 +144,40 @@ def test_graph_estimator_and_report_routes_for_ui():
     latest_status, latest_payload = _asgi_request(app, "GET", "/reports/weekly/latest")
     assert latest_status == 200
     assert latest_payload["report_type"] == "weekly"
+
+
+def test_graph_ingest_route_requires_repo_and_returns_diagnostics():
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    missing_status, missing_payload = _asgi_request(
+        app,
+        "POST",
+        "/graph/ingest",
+        body=json.dumps({}).encode("utf-8"),
+    )
+    assert missing_status == 400
+    assert missing_payload["error"] == "missing_repo"
+
+    service.db.upsert_work_item(
+        "phys-sims/phys-pipeline#77",
+        {
+            "title": "Edge source",
+            "type": "task",
+            "area": "platform",
+            "fields": {"issue_ref": "#77"},
+            "relationships": {"children_refs": []},
+        },
+    )
+    service.connector.sub_issues[("phys-sims/phys-pipeline", "#77")] = [{"issue_ref": "#78"}]
+    service.connector.dependencies[("phys-sims/phys-pipeline", "#77")] = [{"issue_ref": "#76"}]
+
+    ok_status, ok_payload = _asgi_request(
+        app,
+        "POST",
+        "/graph/ingest",
+        body=json.dumps({"repo": "phys-sims/phys-pipeline"}).encode("utf-8"),
+    )
+    assert ok_status == 200
+    assert ok_payload["partial"] is False
+    assert ok_payload["calls"] >= 1
