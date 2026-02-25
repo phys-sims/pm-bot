@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 05:43:46 UTC
+- Time (UTC): 05:58:03 UTC
 - By: @openai-codex
-- Scope: Added `ui/Dockerfile` for local Vite development using pinned Node 20 Alpine, dependency install with lockfile-aware `npm ci` fallback, exposed port `4173`, and runtime-configurable `VITE_PM_BOT_API_BASE`.
+- Scope: Adjusted Docker onboarding UI API base to host-reachable `http://localhost:8000` (instead of Docker-internal hostname), and aligned README troubleshooting guidance for browser-based fetch behavior.
 
 
 ---
@@ -21,6 +21,7 @@
 | Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
+| Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | Added CI validation job; local shell in this environment does not include Docker CLI. |
 
 ---
 

@@ -106,6 +106,32 @@ jobs:
       - name: Frontend e2e tests
         working-directory: ui
         run: npm run test:e2e
+
+  docker-validation:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_SMOKE_BUILD: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - id: paths
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docker:
+              - 'docker-compose.yml'
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'ui/Dockerfile'
+              - 'ui/.dockerignore'
+              - 'README.md'
+              - '.github/workflows/ci.yml'
+      - name: Validate Docker Compose config
+        if: github.event_name != 'pull_request' || steps.paths.outputs.docker == 'true'
+        run: docker compose config
+      - name: Docker Compose smoke build (optional)
+        if: (github.event_name != 'pull_request' || steps.paths.outputs.docker == 'true') && env.DOCKER_SMOKE_BUILD == '1'
+        run: docker compose build
+
   release-gate:
     runs-on: ubuntu-latest
     needs:
@@ -116,6 +142,7 @@ jobs:
       - docs-command-validation
       - frontend-unit-tests
       - frontend-e2e
+      - docker-validation
     steps:
       - name: QA matrix release gate
         run: |
