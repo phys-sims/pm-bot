@@ -149,6 +149,27 @@ If these change, pm-bot must be updated and revalidated.
    - a draft PR
 5. You approve the resulting changes before publishing to GitHub.
 
+## Runner adapter enablement and rollback
+
+Runner execution is adapter-driven and defaults to the manual adapter for safe local operation.
+
+- Default adapter behavior:
+  - manual adapter is always registered
+  - unknown/missing adapter config falls back to `manual`
+- Optional provider adapters:
+  - adapter modules live under `pm_bot/server/runner_adapters/`
+  - provider adapters MUST be opt-in and disabled by default
+  - enable provider stub adapter with `PM_BOT_RUNNER_ENABLE_PROVIDER_STUB=1`
+  - optional default adapter override via `PM_BOT_RUNNER_DEFAULT_ADAPTER`
+- Rollback:
+  - unset provider feature flag(s)
+  - clear adapter override env var
+  - rerun with manual adapter baseline only
+
+Safety invariant:
+
+- Runner specs/context MUST NOT include write-scoped GitHub credentials; runs violating this are denied before proposal with a deterministic reason code.
+
 ## Definition of done (release checkpoints)
 
 Use these as “stop/go” gates for shipping.
@@ -237,4 +258,3 @@ The product spec is complemented by more focused specs:
 - Runbooks (procedural): `docs/runbooks/*`
 - ADRs (design decisions): `docs/adr/*`
 - Maintenance rules: `docs/maintenance.md`
-

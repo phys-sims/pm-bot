@@ -21,6 +21,10 @@ from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
 from pm_bot.server.runner import RunnerService
+from pm_bot.server.runner_adapters import (
+    build_runner_adapters_from_env,
+    default_runner_adapter_name,
+)
 
 
 class ServerApp:
@@ -35,7 +39,15 @@ class ServerApp:
         self.graph = GraphService(db=self.db)
         self.reporting = ReportingService(db=self.db)
         self._sync_onboarding_readiness()
-        self.runner = RunnerService(db=self.db)
+        runner_adapters = build_runner_adapters_from_env(os.environ)
+        self.runner = RunnerService(
+            db=self.db,
+            adapters=runner_adapters,
+            default_adapter_name=default_runner_adapter_name(
+                os.environ,
+                adapters=runner_adapters,
+            ),
+        )
 
     def _request_tenant_context(
         self,

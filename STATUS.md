@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 07:46:23 UTC
+- Time (UTC): 08:03:26 UTC
 - By: @openai-codex
-- Scope: Added v6 execution planning docs for natural-text multi-repo orchestration (M0-M3 tracks), including a detailed v6 roadmap and execution checklist, and linked v6 in docs navigation defaults.
+- Scope: Added runner adapter registration modules and env-driven default selection with manual-safe fallback, added provider-stub adapter conformance/failure-normalization coverage, enforced runner context guardrails against write-scoped GitHub credentials, and updated product/task-card docs for adapter enablement/rollback.
 
 
 ---
