@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 09:00:22 UTC
+- Time (UTC): 09:24:47 UTC
 - By: @openai-codex
-- Scope: Completed roadmap v6 Track A (A1-A3) by adding context-pack and agent-run API client bindings, implementing operator UI flows for context-pack build plus agent-run propose/approve/claim/execute/cancel, enforcing execute-until-approved-and-claimed UI guards, adding reason-code centered error rendering, and extending UI tests for route coverage and Track A interactions.
+- Scope: Fixed CI-breaking AgentRunsPage UI tests by replacing non-portable jest-dom matcher usage with DOM-property assertions, adding explicit per-test cleanup to prevent duplicate rendered trees across tests, and using label-targeted selection to remove ambiguous combobox queries.
 
 
 ---

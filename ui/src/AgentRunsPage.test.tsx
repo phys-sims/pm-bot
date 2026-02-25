@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AgentRunsPage } from "./AgentRunsPage";
 
 vi.stubGlobal("fetch", vi.fn());
@@ -8,6 +8,10 @@ const mockedFetch = vi.mocked(fetch);
 
 beforeEach(() => {
   mockedFetch.mockReset();
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 test("keeps execute disabled until approved and claimed by worker", async () => {
@@ -100,21 +104,21 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
   render(<AgentRunsPage />);
 
   const executeButton = screen.getByRole("button", { name: "Execute claimed run" });
-  expect(executeButton).toBeDisabled();
+  expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Propose run" }));
-  expect(executeButton).toBeDisabled();
+  expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Claim run" }));
   expect(await screen.findByText(/No claimable run found/)).toBeTruthy();
-  expect(executeButton).toBeDisabled();
+  expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Approve run" }));
-  expect(executeButton).toBeDisabled();
+  expect((executeButton as HTMLButtonElement).disabled).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Claim run" }));
   expect(await screen.findByText(/Claimed run run-ui-001/)).toBeTruthy();
-  expect(executeButton).toBeEnabled();
+  expect((executeButton as HTMLButtonElement).disabled).toBe(false);
 
   await userEvent.click(executeButton);
   expect(await screen.findByText(/execution status: completed/)).toBeTruthy();
@@ -128,7 +132,7 @@ test("renders normalized reason code on API errors", async () => {
   );
 
   render(<AgentRunsPage />);
-  await userEvent.selectOptions(screen.getByRole("combobox"), "provider_stub");
+  await userEvent.selectOptions(screen.getByLabelText("Adapter:"), "provider_stub");
   await userEvent.click(screen.getByRole("button", { name: "Propose run" }));
 
   expect(await screen.findByText(/Error: unknown_adapter/)).toBeTruthy();
