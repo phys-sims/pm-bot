@@ -11,6 +11,16 @@ from pm_bot.server.github_auth import GitHubAuth, load_github_auth_from_env
 
 DENIED_OPERATIONS = {"delete_issue", "edit_workflow"}
 
+DEFAULT_ALLOWED_REPOS = {
+    "phys-sims/.github",
+    "phys-sims/phys-pipeline",
+    "phys-sims/cpa-sim",
+    "phys-sims/fiber-link-sim",
+    "phys-sims/abcdef-sim",
+    "phys-sims/fiber-link-testbench",
+    "phys-sims/phys-sims-utils",
+}
+
 
 @dataclass(frozen=True)
 class WriteRequest:
@@ -60,14 +70,24 @@ class GitHubConnector(Protocol):
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]: ...
 
 
+def _parse_allowed_repos_from_env(env: dict[str, str]) -> set[str] | None:
+    configured = (env.get("PM_BOT_ALLOWED_REPOS") or "").strip()
+    if not configured:
+        return None
+    return {repo.strip() for repo in configured.split(",") if repo.strip()}
+
+
 def build_connector_from_env(
     env: dict[str, str] | None = None,
     allowed_repos: set[str] | None = None,
 ) -> GitHubConnector:
     env_map = os.environ if env is None else env
     connector_type = (env_map.get("PM_BOT_GITHUB_CONNECTOR") or "in_memory").strip().lower()
+    env_allowed_repos = _parse_allowed_repos_from_env(env_map)
     repos = (
-        {"phys-sims/.github", "phys-sims/phys-pipeline"} if allowed_repos is None else allowed_repos
+        DEFAULT_ALLOWED_REPOS
+        if allowed_repos is None and env_allowed_repos is None
+        else (env_allowed_repos if allowed_repos is None else allowed_repos)
     )
 
     if connector_type == "api":
@@ -82,6 +102,7 @@ def build_connector_from_env(
 
 
 __all__ = [
+    "DEFAULT_ALLOWED_REPOS",
     "DENIED_OPERATIONS",
     "GitHubAuth",
     "GitHubConnector",

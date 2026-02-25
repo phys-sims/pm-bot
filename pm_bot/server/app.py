@@ -23,9 +23,7 @@ class ServerApp:
 
     def __init__(self, db_path: str | Path = ":memory:") -> None:
         self.db = OrchestratorDB(db_path)
-        self.connector = build_connector_from_env(
-            allowed_repos={"phys-sims/.github", "phys-sims/phys-pipeline"}
-        )
+        self.connector = build_connector_from_env()
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
         self.estimator = EstimatorService(db=self.db)
         self.graph = GraphService(db=self.db)

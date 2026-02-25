@@ -179,6 +179,26 @@ Exposed HTTP endpoints for the MVP UI:
 
 ## How to use the server APIs
 
+### Repository allowlist behavior (v5 org readiness)
+
+By default, server write operations are constrained to an org-ready allowlist:
+
+- `phys-sims/.github`
+- `phys-sims/phys-pipeline`
+- `phys-sims/cpa-sim`
+- `phys-sims/fiber-link-sim`
+- `phys-sims/abcdef-sim`
+- `phys-sims/fiber-link-testbench`
+- `phys-sims/phys-sims-utils`
+
+Override this for any deployment (phys-sims or non-phys-sims) with:
+
+```bash
+export PM_BOT_ALLOWED_REPOS="org/repo-a,org/repo-b"
+```
+
+If `PM_BOT_ALLOWED_REPOS` is set, it becomes the active allowlist. Writes outside the active allowlist are denied with `repo_not_allowlisted`.
+
 You can instantiate the local app and call service methods directly:
 
 ```bash
