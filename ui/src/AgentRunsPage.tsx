@@ -65,7 +65,8 @@ export function AgentRunsPage() {
   const claim = async () => {
     try {
       const response = await api.claimAgentRuns({ worker_id: workerId, limit: 1, lease_seconds: 30 });
-      const matched = response.items.find((item) => item.run_id === runId);
+      const items = Array.isArray(response.items) ? response.items : [];
+      const matched = items.find((item) => item.run_id === runId);
       if (matched) {
         setRun(matched);
         setMessage(`Claimed run ${matched.run_id}.`);

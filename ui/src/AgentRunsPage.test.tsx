@@ -38,6 +38,10 @@ test("keeps execute disabled until approved and claimed by worker", async () => 
     )
     .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
     .mockResolvedValueOnce(
+      new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }),
+    )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 }))
+    .mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           run_id: "run-ui-001",

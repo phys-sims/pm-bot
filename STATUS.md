@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 21:42:52 UTC
+- Time (UTC): 21:50:06 UTC
 - By: @openai-codex
-- Scope: Completed v6 Track C (C1–C4) via UI/operator lifecycle flow: Agent Runs run-spec inputs with contract-aligned fields/retries, transition controls (to-status + actor + reason-code) and transition timeline API, artifact path persistence/visibility in run details, and HTTP/UI coverage for transition history + artifact outputs.
+- Scope: Fixed v6 Track C Agent Runs UI robustness and test determinism: claim response handling now safely tolerates malformed payloads without crashing status messaging, and the AgentRunsPage unit test fetch mock sequence now matches the page's transition-refresh call order in CI.
 
 
 ---
