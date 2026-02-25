@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    command: uvicorn pm_bot.server.app:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # Optional for local iteration: remove this mount to run from the immutable image.
+      - .:/app
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "4173:4173"
+    environment:
+      VITE_PM_BOT_API_BASE: http://api:8000
+    depends_on:
+      - api
+    command: npm run dev -- --host 0.0.0.0 --port 4173
+    volumes:
+      # Optional for local iteration: remove these mounts to run from the immutable image.
+      - ./ui:/ui
+      - ui_node_modules:/ui/node_modules
+
+volumes:
+  ui_node_modules:

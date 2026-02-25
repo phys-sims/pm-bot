@@ -90,6 +90,33 @@ pm status
 
 ---
 
+## Quick start (Docker)
+
+Start both API + UI together:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- UI: `http://localhost:4173`
+- API health: `http://localhost:8000/health`
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Troubleshooting:
+
+- **Port conflict**: if `8000` or `4173` is already in use, stop the conflicting process or adjust host port mappings in `docker-compose.yml`.
+- **Clean rebuild**: rebuild all images from scratch with `docker compose build --no-cache`.
+- **API base URL override**: change `VITE_PM_BOT_API_BASE` under the `ui` service in `docker-compose.yml` if your backend is reachable at a different URL.
+
+---
+
 ## How to use the CLI
 
 ### Draft a new work item body
@@ -190,7 +217,7 @@ A lightweight React + Vite UI now ships under `ui/` with two routes:
 - **Inbox**: review and approve pending changesets.
 - **Tree**: inspect hierarchy provenance and dependency warnings.
 
-Start backend + UI in separate terminals:
+Start backend + UI in separate terminals (native path):
 
 ```bash
 # terminal 1
