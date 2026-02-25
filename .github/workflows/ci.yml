@@ -76,7 +76,6 @@ jobs:
       - name: Docs command validation
         run: pytest -q tests/test_docs_commands.py
 
-
   frontend-unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -119,4 +118,5 @@ jobs:
       - frontend-e2e
     steps:
       - name: QA matrix release gate
-        run: echo "Release gate passed: QA matrix checks are green."
+        run: |
+          echo "Release gate passed: QA matrix checks are green."
