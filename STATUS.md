@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:42:13 UTC
+- Time (UTC): 06:53:08 UTC
 - By: @openai-codex
-- Scope: Implemented roadmap Task C (C1-C3): strict agent-run state transitions with audited reason codes, bounded local queue claiming/retry/dead-letter semantics, and manual runner adapter contract (`submit/poll/fetch_artifacts/cancel`) with API wiring and tests.
+- Scope: Implemented roadmap Task D (D1-D3): unified inbox `inbox/v1` API aggregation across pm-bot approvals + GitHub items, bounded query chunking with TTL cache diagnostics/rate-limit telemetry, and UI inbox tabs/filters with external-link gating for non-pm-bot items.
 
 
 ---
@@ -17,9 +17,9 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-25 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, runbook scripted flows, and HTTP contract behavior. |
-| Lint | `ruff check .` | ✅ | 2026-02-23 | No lint violations. |
-| Format | `ruff format .` | ✅ | 2026-02-23 | Formatting is stable. |
+| Tests | `pytest -q` | ✅ | 2026-02-25 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, unified inbox contract/aggregation semantics, and HTTP contract behavior. |
+| Lint | `ruff check .` | ✅ | 2026-02-25 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-25 | Formatting is stable. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 | Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | Added CI validation job; local shell in this environment does not include Docker CLI. |
 

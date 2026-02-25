@@ -1,13 +1,52 @@
 import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
-  await page.route("**/changesets/pending", async (route) => {
+  await page.route("**/inbox**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        items: [{ id: 7, operation: "create_issue", repo: "phys-sims/phys-pipeline", status: "pending" }],
-        summary: { count: 1 },
+        schema_version: "inbox/v1",
+        items: [
+          {
+            source: "pm_bot",
+            item_type: "approval",
+            id: "changeset:7",
+            title: "Approve create_issue for phys-sims/phys-pipeline",
+            repo: "phys-sims/phys-pipeline",
+            url: "",
+            state: "pending",
+            priority: "",
+            age_hours: 0,
+            action: "approve",
+            requires_internal_approval: true,
+            stale: false,
+            stale_reason: "",
+            metadata: { changeset_id: 7, operation: "create_issue" },
+          },
+          {
+            source: "github",
+            item_type: "triage",
+            id: "github:phys-sims/phys-pipeline#12",
+            title: "Needs-human triage",
+            repo: "phys-sims/phys-pipeline",
+            url: "https://github.com/phys-sims/phys-pipeline/issues/12",
+            state: "open",
+            priority: "",
+            age_hours: 0,
+            action: "triage",
+            requires_internal_approval: false,
+            stale: false,
+            stale_reason: "",
+            metadata: { labels: ["needs-human"] },
+          },
+        ],
+        diagnostics: {
+          cache: { hit: false, ttl_seconds: 30, key: "k" },
+          rate_limit: { remaining: 4999, reset_at: "", source: "github" },
+          queries: { calls: 1, chunk_size: 5, chunks: [] },
+        },
+        summary: { count: 2, pm_bot_count: 1, github_count: 1 },
       }),
     });
   });
@@ -62,7 +101,7 @@ test.beforeEach(async ({ page }) => {
 test("approve from inbox", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());
   await page.goto("/");
-  await expect(page.getByText("Pending: 1")).toBeVisible();
+  await expect(page.getByText("Total: 2")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByRole("status")).toContainText("Approved changeset #7");
 });

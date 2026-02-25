@@ -8,6 +8,42 @@ export type PendingChangesetsResponse = {
   summary: { count: number };
 };
 
+export type InboxItem = {
+  source: "pm_bot" | "github";
+  item_type: string;
+  id: string;
+  title: string;
+  repo: string;
+  url: string;
+  state: string;
+  priority: string;
+  age_hours: number;
+  action: "approve" | "review" | "triage";
+  requires_internal_approval: boolean;
+  stale: boolean;
+  stale_reason: string;
+  metadata: Record<string, unknown>;
+};
+
+export type UnifiedInboxResponse = {
+  schema_version: "inbox/v1";
+  items: InboxItem[];
+  diagnostics: {
+    cache: { hit: boolean; ttl_seconds: number; key: string };
+    rate_limit: { remaining: number; reset_at: string; source: string };
+    queries: {
+      calls: number;
+      chunk_size: number;
+      chunks: Array<{ repo: string; labels: string[]; q: string }>;
+    };
+  };
+  summary: {
+    count: number;
+    pm_bot_count: number;
+    github_count: number;
+  };
+};
+
 export type GraphTreeNode = {
   issue_ref: string;
   title: string;
@@ -44,6 +80,14 @@ async function httpJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   pendingChangesets: () => httpJson<PendingChangesetsResponse>("/changesets/pending"),
+  unifiedInbox: (params: { actor?: string; labels?: string[]; repos?: string[] } = {}) => {
+    const q = new URLSearchParams();
+    if (params.actor) q.set("actor", params.actor);
+    if (params.labels && params.labels.length > 0) q.set("labels", params.labels.join(","));
+    if (params.repos && params.repos.length > 0) q.set("repos", params.repos.join(","));
+    const suffix = q.toString();
+    return httpJson<UnifiedInboxResponse>(`/inbox${suffix ? `?${suffix}` : ""}`);
+  },
   approveChangeset: (id: number, approvedBy: string) =>
     httpJson<{ status: string }>(`/changesets/${id}/approve`, {
       method: "POST",

@@ -52,6 +52,13 @@ class GitHubConnector(Protocol):
 
     def list_issue_dependencies(self, repo: str, issue_ref: str) -> list[dict[str, Any]]: ...
 
+    def list_inbox_items(
+        self,
+        actor: str,
+        labels: list[str] | None = None,
+        repos: list[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]: ...
+
 
 def build_connector_from_env(
     env: dict[str, str] | None = None,

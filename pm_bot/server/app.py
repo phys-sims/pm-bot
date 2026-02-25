@@ -212,6 +212,62 @@ class ServerApp:
     def observability_metrics(self) -> list[dict[str, Any]]:
         return self.db.list_operation_metrics()
 
+    def unified_inbox(
+        self, actor: str, labels: list[str] | None = None, repos: list[str] | None = None
+    ) -> dict[str, Any]:
+        pending = self.db.list_pending_changesets()
+        internal_items: list[dict[str, Any]] = []
+        for row in pending:
+            internal_items.append(
+                {
+                    "source": "pm_bot",
+                    "item_type": "approval",
+                    "id": f"changeset:{row['id']}",
+                    "title": f"Approve {row['operation']} for {row['repo']}",
+                    "repo": row["repo"],
+                    "url": "",
+                    "state": row.get("status", "pending"),
+                    "priority": "",
+                    "age_hours": 0.0,
+                    "action": "approve",
+                    "requires_internal_approval": True,
+                    "stale": False,
+                    "stale_reason": "",
+                    "metadata": {
+                        "changeset_id": row["id"],
+                        "operation": row["operation"],
+                        "target_ref": row.get("target_ref", ""),
+                    },
+                }
+            )
+
+        github_items, diagnostics = self.connector.list_inbox_items(
+            actor=actor, labels=labels or [], repos=repos or []
+        )
+
+        items = sorted(
+            [*internal_items, *github_items],
+            key=lambda item: (
+                0 if item["source"] == "pm_bot" else 1,
+                item.get("item_type", ""),
+                item.get("priority", ""),
+                float(item.get("age_hours", 0.0)),
+                item.get("repo", ""),
+                item.get("id", ""),
+            ),
+        )
+
+        return {
+            "schema_version": "inbox/v1",
+            "items": items,
+            "diagnostics": diagnostics,
+            "summary": {
+                "count": len(items),
+                "pm_bot_count": len(internal_items),
+                "github_count": len(github_items),
+            },
+        }
+
 
 class ASGIServer:
     """Minimal ASGI adapter exposing a safe subset of ServerApp methods."""
@@ -244,6 +300,28 @@ class ASGIServer:
                             "count": len(self.service.db.list_pending_changesets()),
                         },
                     },
+                )
+                return
+
+            if method == "GET" and path == "/inbox":
+                labels = [
+                    value.strip()
+                    for value in query_params.get("labels", "").split(",")
+                    if value.strip()
+                ]
+                repos = [
+                    value.strip()
+                    for value in query_params.get("repos", "").split(",")
+                    if value.strip()
+                ]
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.unified_inbox(
+                        actor=query_params.get("actor", ""),
+                        labels=labels,
+                        repos=repos,
+                    ),
                 )
                 return
 

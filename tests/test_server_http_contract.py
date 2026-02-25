@@ -240,3 +240,37 @@ def test_agent_run_routes_cover_propose_transition_claim_execute():
     )
     assert execute_status == 200
     assert execute_payload["status"] == "completed"
+
+
+def test_unified_inbox_route_merges_pm_bot_and_github_items() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    proposed = service.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"title": "Needs approval"},
+    )
+    assert proposed["status"] == "pending"
+
+    service.connector.issues[("phys-sims/phys-pipeline", "#21")] = {
+        "issue_ref": "#21",
+        "title": "Review me",
+        "url": "https://github.com/phys-sims/phys-pipeline/issues/21",
+        "state": "open",
+        "labels": ["needs-human"],
+    }
+
+    status, payload = _asgi_request(
+        app,
+        "GET",
+        "/inbox",
+        query_string=b"labels=needs-human&repos=phys-sims/phys-pipeline",
+    )
+
+    assert status == 200
+    assert payload["schema_version"] == "inbox/v1"
+    assert payload["summary"]["pm_bot_count"] == 1
+    assert payload["summary"]["github_count"] == 1
+    assert payload["items"][0]["source"] == "pm_bot"
+    assert payload["diagnostics"]["cache"]["hit"] is False

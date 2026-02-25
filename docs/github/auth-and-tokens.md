@@ -135,6 +135,16 @@ Why:
 - prevents accidental writes to the wrong repo
 - makes human approval review easier (“this bundle writes to repos A/B only”)
 
+## Inbox search and cache guidance
+
+For unified inbox aggregation against GitHub:
+
+- Decompose external queries into bounded chunks (labels/repo slices) to avoid large or brittle requests.
+- Use short-lived TTL caching on normalized query signatures to reduce repeated API calls during operator refresh loops.
+- Surface diagnostics (`cache.hit`, call counts, and rate-limit headers) to make throttling behavior observable.
+
+This keeps inbox reads responsive while preserving rate-limit budget for higher-priority operations.
+
 ## Troubleshooting
 
 ### “pm parse --url …” fails
