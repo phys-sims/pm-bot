@@ -296,6 +296,9 @@ class ServerApp:
     def cancel_agent_run(self, run_id: str, actor: str = "") -> dict[str, Any]:
         return self.runner.cancel(run_id=run_id, actor=actor)
 
+    def list_agent_run_transitions(self, run_id: str) -> list[dict[str, Any]]:
+        return self.db.list_agent_run_transitions(run_id=run_id)
+
     def intake_natural_text(
         self,
         natural_text: str,
@@ -767,6 +770,19 @@ class ASGIServer:
                     await self._send_json(send, 400, {"error": "invalid_json"})
                     return
                 await self._send_json(send, 200, self.service.onboarding_dry_run())
+                return
+
+            if method == "GET" and path == "/agent-runs/transitions":
+                run_id = query_params.get("run_id", "").strip()
+                if not run_id:
+                    await self._send_json(send, 400, {"error": "missing_run_id"})
+                    return
+                items = self.service.list_agent_run_transitions(run_id=run_id)
+                await self._send_json(
+                    send,
+                    200,
+                    {"items": items, "summary": {"count": len(items)}},
+                )
                 return
 
             if method == "POST" and path == "/agent-runs/cancel":

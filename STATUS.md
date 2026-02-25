@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 09:31:10 UTC
+- Time (UTC): 21:42:52 UTC
 - By: @openai-codex
-- Scope: Implemented v6 Track B end-to-end server flow: natural-text intake with audit envelope, deterministic `report_ir/v1` draft+validation pipeline, human confirmation checkpoint capture, deterministic ReportIR-to-multi-repo changeset preview, and proposal handoff using existing approval/idempotency changeset engine; added HTTP contract coverage and marked B1–B5 complete in the v6 checklist.
+- Scope: Completed v6 Track C (C1–C4) via UI/operator lifecycle flow: Agent Runs run-spec inputs with contract-aligned fields/retries, transition controls (to-status + actor + reason-code) and transition timeline API, artifact path persistence/visibility in run details, and HTTP/UI coverage for transition history + artifact outputs.
 
 
 ---

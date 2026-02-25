@@ -104,7 +104,8 @@ class OrchestratorDB:
                 prompt_profile TEXT NOT NULL,
                 model TEXT NOT NULL,
                 started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at TEXT
+                completed_at TEXT,
+                artifact_paths_json TEXT NOT NULL DEFAULT "[]"
             );
 
             CREATE TABLE IF NOT EXISTS agent_run_transitions (
@@ -201,6 +202,10 @@ class OrchestratorDB:
             self.conn.execute("ALTER TABLE agent_runs ADD COLUMN last_error TEXT")
         if not self._has_column("agent_runs", "job_id"):
             self.conn.execute("ALTER TABLE agent_runs ADD COLUMN job_id TEXT")
+        if not self._has_column("agent_runs", "artifact_paths_json"):
+            self.conn.execute(
+                "ALTER TABLE agent_runs ADD COLUMN artifact_paths_json TEXT DEFAULT '[]'"
+            )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"
         )
@@ -770,6 +775,7 @@ class OrchestratorDB:
             "next_attempt_at": str(row["next_attempt_at"] or ""),
             "last_error": str(row["last_error"] or ""),
             "job_id": str(row["job_id"] or ""),
+            "artifact_paths": json.loads(row["artifact_paths_json"] or "[]"),
             "started_at": str(row["started_at"]),
             "completed_at": str(row["completed_at"] or ""),
         }
@@ -907,4 +913,11 @@ class OrchestratorDB:
                 "UPDATE agent_runs SET last_error = ? WHERE run_id = ?",
                 (last_error, run_id),
             )
+        self.conn.commit()
+
+    def set_agent_run_artifacts(self, run_id: str, artifact_paths: list[str]) -> None:
+        self.conn.execute(
+            "UPDATE agent_runs SET artifact_paths_json = ? WHERE run_id = ?",
+            (json.dumps([str(path) for path in artifact_paths], sort_keys=True), run_id),
+        )
         self.conn.commit()

@@ -94,6 +94,21 @@ export type AgentRunRecord = {
   max_retries: number;
   last_error: string;
   job_id: string;
+  artifact_paths: string[];
+};
+
+export type AgentRunTransition = {
+  run_id: string;
+  from_status: string;
+  to_status: string;
+  reason_code: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AgentRunTransitionsResponse = {
+  items: AgentRunTransition[];
+  summary: { count: number };
 };
 
 export type AgentRunClaimResponse = {
@@ -203,4 +218,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(params),
     }),
+  agentRunTransitions: (run_id: string) =>
+    httpJson<AgentRunTransitionsResponse>(`/agent-runs/transitions?run_id=${encodeURIComponent(run_id)}`),
 };

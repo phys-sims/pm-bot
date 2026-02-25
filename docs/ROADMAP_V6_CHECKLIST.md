@@ -14,10 +14,10 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`, `⛔ blocked`.
 | 6 | B | B3 human edit/confirm checkpoint for generated ReportIR | agent | ☑ done | — | depends on B2 |
 | 7 | B | B4 deterministic ReportIR → multi-repo changeset preview | agent | ☑ done | — | depends on B3 |
 | 8 | B | B5 approval handoff/idempotency integration with existing changeset engine | agent | ☑ done | — | depends on B4 |
-| 9 | C | C1 GUI run-spec form + contract-aligned validation | agent | ☐ pending | — | depends on A2 |
-| 10 | C | C2 context-pack binding UX (hash/version + budget summary) | agent | ☐ pending | — | depends on C1 |
-| 11 | C | C3 lifecycle operations panel (transition controls + actor/reason) | agent | ☐ pending | — | depends on C1 |
-| 12 | C | C4 artifact/result visibility (job IDs, paths, retries, reason codes) | agent | ☐ pending | — | depends on C3 |
+| 9 | C | C1 GUI run-spec form + contract-aligned validation | agent | ☑ done | — | depends on A2 |
+| 10 | C | C2 context-pack binding UX (hash/version + budget summary) | agent | ☑ done | — | depends on C1 |
+| 11 | C | C3 lifecycle operations panel (transition controls + actor/reason) | agent | ☑ done | — | depends on C1 |
+| 12 | C | C4 artifact/result visibility (job IDs, paths, retries, reason codes) | agent | ☑ done | — | depends on C3 |
 | 13 | D | D1 audit-chain query API (`run_id`, event_type, repo, actor, window) | agent | ☐ pending | — | depends on B5/C3 |
 | 14 | D | D2 correlated timeline UI for run/context/changeset/report events | agent | ☐ pending | — | depends on D1 |
 | 15 | D | D3 multi-agent rollups (success/retry/dead-letter/denial distributions) | agent | ☐ pending | — | depends on D1 |
