@@ -376,14 +376,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Keep interface docs but route execution through pre-adapter path.
 
-### Task: C4 — Additional runner adapters (optional)
+### Task: C4 — Additional runner adapters (optional) ✅
 
 **Objective**
 - Add provider-specific adapters only after C1–C3 stability criteria hold.
 
 **Pre-flight checks**
-- [ ] Confirm C1–C3 acceptance metrics are green.
-- [ ] Confirm provider credentials and network boundaries are policy-approved.
+- [x] Confirm C1–C3 acceptance metrics are green.
+- [x] Confirm provider credentials and network boundaries are policy-approved for local stub adapter rollout.
 
 **Safety constraints**
 - [x] Approval gate preserved.
@@ -392,9 +392,9 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
-1. Implement provider adapter behind feature flag.
-2. Reuse adapter conformance suite from C3.
-3. Add provider-specific failure mapping to common reason codes.
+1. [x] Implement provider adapter behind feature flag.
+2. [x] Reuse adapter conformance suite from C3.
+3. [x] Add provider-specific failure mapping to common reason codes.
 
 **Likely files touched**
 - `pm_bot/server/runner_adapters/*.py`

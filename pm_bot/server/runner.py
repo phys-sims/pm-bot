@@ -18,6 +18,7 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "cancelled": set(),
     "rejected": set(),
 }
+DEFAULT_ADAPTER_NAME = "manual"
 
 
 @dataclass(frozen=True)
@@ -44,28 +45,15 @@ class RunnerAdapter(Protocol):
     def cancel(self, run: dict[str, Any]) -> RunnerPollResult: ...
 
 
-class ManualRunnerAdapter:
-    """Local deterministic adapter used as the baseline runner implementation."""
-
-    name = "manual"
-
-    def submit(self, run: dict[str, Any]) -> RunnerSubmitResult:
-        return RunnerSubmitResult(job_id=f"manual:{run['run_id']}", state="running")
-
-    def poll(self, run: dict[str, Any]) -> RunnerPollResult:
-        state = str((run.get("spec") or {}).get("manual_poll_state", "completed"))
-        if state == "failed":
-            return RunnerPollResult(state="failed", reason_code="manual_failed")
-        return RunnerPollResult(state=state)
-
-    def fetch_artifacts(self, run: dict[str, Any]) -> list[str]:
-        explicit = (run.get("spec") or {}).get("artifact_paths")
-        if isinstance(explicit, list):
-            return [str(path) for path in explicit]
-        return [f"artifacts/{run['run_id']}.txt"]
-
-    def cancel(self, run: dict[str, Any]) -> RunnerPollResult:
-        return RunnerPollResult(state="cancelled", reason_code="cancelled_by_user")
+_FORBIDDEN_CONTEXT_KEYS = {
+    "github_token",
+    "github_write_token",
+    "pm_bot_github_token",
+    "pm_bot_github_write_token",
+    "token",
+    "write_token",
+}
+_FORBIDDEN_PREFIXES = ("ghp_", "github_pat_", "gho_", "ghu_", "ghs_", "ghr_")
 
 
 class RunnerService:
@@ -73,10 +61,47 @@ class RunnerService:
         self,
         db: OrchestratorDB,
         adapters: dict[str, RunnerAdapter] | None = None,
+        default_adapter_name: str = DEFAULT_ADAPTER_NAME,
     ) -> None:
         self.db = db
-        registered = adapters or {ManualRunnerAdapter.name: ManualRunnerAdapter()}
+        if adapters is None:
+            from pm_bot.server.runner_adapters import registered_runner_adapters
+
+            registered = registered_runner_adapters(enable_provider_stub=False)
+        else:
+            registered = dict(adapters)
         self.adapters = dict(sorted(registered.items(), key=lambda kv: kv[0]))
+        self.default_adapter_name = (
+            default_adapter_name if default_adapter_name in self.adapters else DEFAULT_ADAPTER_NAME
+        )
+
+    def _assert_safe_runner_context(self, spec: dict[str, Any]) -> None:
+        """Fail closed when runner input includes write-scoped GitHub credentials."""
+
+        def _contains_forbidden_credentials(value: Any) -> bool:
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    normalized_key = str(key).strip().lower()
+                    if normalized_key in _FORBIDDEN_CONTEXT_KEYS and isinstance(child, str):
+                        return bool(child.strip())
+                    if _contains_forbidden_credentials(child):
+                        return True
+                return False
+            if isinstance(value, list):
+                return any(_contains_forbidden_credentials(child) for child in value)
+            if isinstance(value, str):
+                lowered = value.strip().lower()
+                return lowered.startswith(_FORBIDDEN_PREFIXES)
+            return False
+
+        context_fields = [
+            spec.get("context"),
+            spec.get("context_pack"),
+            spec.get("runtime_context"),
+            spec.get("env"),
+        ]
+        if any(_contains_forbidden_credentials(field) for field in context_fields):
+            raise ValueError("runner_context_includes_write_credentials")
 
     def _assert_transition(self, run: dict[str, Any], to_status: str) -> None:
         from_status = run["status"]
@@ -90,7 +115,10 @@ class RunnerService:
         run_id = str(spec.get("run_id", "")).strip()
         if not run_id:
             raise ValueError("missing_run_id")
-        adapter_name = str(spec.get("adapter", ManualRunnerAdapter.name))
+        self._assert_safe_runner_context(spec)
+        adapter_name = str(
+            spec.get("adapter", self.default_adapter_name) or self.default_adapter_name
+        )
         if adapter_name not in self.adapters:
             raise ValueError("unknown_adapter")
         run = self.db.create_agent_run(
@@ -151,7 +179,7 @@ class RunnerService:
         if run.get("claimed_by") != worker_id:
             raise ValueError("run_not_claimed_by_worker")
 
-        adapter_name = run.get("adapter_name") or ManualRunnerAdapter.name
+        adapter_name = run.get("adapter_name") or self.default_adapter_name
         adapter = self.adapters.get(adapter_name)
         if adapter is None:
             raise ValueError("unknown_adapter")
@@ -225,7 +253,7 @@ class RunnerService:
             raise ValueError("unknown_run")
         if run["status"] in TERMINAL_STATUSES:
             raise ValueError("invalid_transition:terminal_state")
-        adapter_name = run.get("adapter_name") or ManualRunnerAdapter.name
+        adapter_name = run.get("adapter_name") or self.default_adapter_name
         adapter = self.adapters.get(adapter_name)
         if adapter is None:
             raise ValueError("unknown_adapter")
