@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 07:41:22 UTC
+- Time (UTC): 07:46:23 UTC
 - By: @openai-codex
-- Scope: Advanced v5 org-readiness foundations: tenant/org/install context persistence and validation reason codes, onboarding readiness state + dry-run surfaces (HTTP + CLI), expanded org-sensitive safety reporting, and focused non-regression tests/docs updates.
+- Scope: Added v6 execution planning docs for natural-text multi-repo orchestration (M0-M3 tracks), including a detailed v6 roadmap and execution checklist, and linked v6 in docs navigation defaults.
 
 
 ---
@@ -100,6 +100,7 @@
 - [x] N1 / v3 near-term complete (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
 - [x] N2 / v4 platform reliability complete (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
+- [x] v6 roadmap decomposition published (`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`, `docs/ROADMAP_V6_CHECKLIST.md`)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
