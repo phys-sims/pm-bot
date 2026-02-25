@@ -22,8 +22,8 @@ test("loads pending changesets and approves one", async () => {
 
   render(<InboxPage />);
 
-  expect(await screen.findByText(/Pending: 1/)).toBeInTheDocument();
+  expect(await screen.findByText(/Pending: 1/)).toBeTruthy();
   await userEvent.click(screen.getByRole("button", { name: "Approve" }));
 
-  expect(await screen.findByText("Approved changeset #1")).toBeInTheDocument();
+  expect(await screen.findByText("Approved changeset #1")).toBeTruthy();
 });

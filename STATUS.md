@@ -6,12 +6,10 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 04:41:11 UTC
+- Time (UTC): 05:33:29 UTC
 - By: @openai-codex
 - Scope: Added a root Dockerfile for non-interactive backend container startup on port 8000 using uvicorn and editable package installation.
-- Time (UTC): 04:43:36 UTC
-- By: @openai-codex
-- Scope: Fixed frontend Vitest suites by importing explicit test globals (`beforeEach`, `test`, and `expect`) so UI unit tests run in CI without global-injection assumptions.
+- Scope: Fixed frontend Vitest assertions to use built-in Chai matchers (`toBeTruthy`) so CI passes without requiring jest-dom matcher extensions.
 
 
 ---
