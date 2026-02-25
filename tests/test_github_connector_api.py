@@ -177,3 +177,50 @@ def test_api_connector_raises_retryable_for_rate_limit_and_5xx() -> None:
             )
         )
     assert exc_5xx.value.reason_code == "github_503"
+
+
+def test_api_connector_normalizes_sub_issues_and_dependencies() -> None:
+    session = FakeSession(
+        [
+            FakeResponse(
+                200,
+                [
+                    {"number": 3, "observed_at": "2026-02-24T00:00:00Z"},
+                    {"issue_ref": "#2", "observed_at": "2026-02-24T00:00:01Z"},
+                    "ignore-me",
+                ],
+            ),
+            FakeResponse(
+                200,
+                [
+                    {"number": 7, "observed_at": "2026-02-24T00:00:02Z"},
+                    {"issue_ref": "#6", "observed_at": "2026-02-24T00:00:03Z"},
+                ],
+            ),
+        ]
+    )
+    connector = GitHubAPIConnector(
+        allowed_repos={"phys-sims/phys-pipeline"},
+        auth=load_github_auth_from_env({"PM_BOT_GITHUB_READ_TOKEN": "read-token"}),
+        session=session,
+    )
+
+    sub_issues = connector.list_sub_issues("phys-sims/phys-pipeline", "#1")
+    deps = connector.list_issue_dependencies("phys-sims/phys-pipeline", "#1")
+
+    assert sub_issues == [
+        {"issue_ref": "#2", "source": "sub_issue", "observed_at": "2026-02-24T00:00:01Z"},
+        {"issue_ref": "#3", "source": "sub_issue", "observed_at": "2026-02-24T00:00:00Z"},
+    ]
+    assert deps == [
+        {
+            "issue_ref": "#6",
+            "source": "dependency_api",
+            "observed_at": "2026-02-24T00:00:03Z",
+        },
+        {
+            "issue_ref": "#7",
+            "source": "dependency_api",
+            "observed_at": "2026-02-24T00:00:02Z",
+        },
+    ]

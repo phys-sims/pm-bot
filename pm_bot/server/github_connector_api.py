@@ -107,6 +107,24 @@ class GitHubAPIConnector:
             return response
         return []
 
+    def list_sub_issues(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
+        number = _issue_number_from_ref(issue_ref)
+        response = self._request(
+            "GET",
+            f"/repos/{repo}/issues/{number}/sub_issues",
+            token=self.auth.read_token,
+        )
+        return _normalize_graph_edge_rows(response, edge_kind="sub_issue")
+
+    def list_issue_dependencies(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
+        number = _issue_number_from_ref(issue_ref)
+        response = self._request(
+            "GET",
+            f"/repos/{repo}/issues/{number}/dependencies",
+            token=self.auth.read_token,
+        )
+        return _normalize_graph_edge_rows(response, edge_kind="dependency_api")
+
     def _request(
         self,
         method: str,
@@ -188,3 +206,26 @@ def _reason_code_for_status(status: int) -> str:
     if status in {429, 403}:
         return "github_rate_limited"
     return f"github_{status}"
+
+
+def _normalize_graph_edge_rows(response: Any, edge_kind: str) -> list[dict[str, Any]]:
+    if not isinstance(response, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for row in response:
+        if not isinstance(row, dict):
+            continue
+        issue_ref = row.get("issue_ref") or row.get("number")
+        if isinstance(issue_ref, int):
+            issue_ref = f"#{issue_ref}"
+        if not issue_ref:
+            continue
+        normalized.append(
+            {
+                "issue_ref": str(issue_ref),
+                "source": edge_kind,
+                "observed_at": str(row.get("observed_at", "")),
+            }
+        )
+    normalized.sort(key=lambda item: item["issue_ref"])
+    return normalized

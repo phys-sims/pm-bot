@@ -14,14 +14,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Additive graph storage for org/repo/node identity and typed-edge metadata without breaking existing `graph_tree` and `graph_deps` callers.
 
 **Pre-flight checks**
-- [ ] Link repo inventory section 3 + 4 for DB and graph baselines.
-- [ ] Confirm migration pattern in `pm_bot/server/db.py` remains additive and boot-safe.
+- [x] Link repo inventory section 3 + 4 for DB and graph baselines.
+- [x] Confirm migration pattern in `pm_bot/server/db.py` remains additive and boot-safe.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Introduce additive tables/views for stable node identity (`org`, `repo`, `node_id`) and typed edges.
@@ -51,14 +51,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Expand connector ingestion to collect GitHub sub-issue/dependency edges with provenance and diagnostics counters.
 
 **Pre-flight checks**
-- [ ] Link repo inventory section 6 for connector surfaces.
-- [ ] Confirm budget/rate-limit guardrails from auth/token docs.
+- [x] Link repo inventory section 6 for connector surfaces.
+- [x] Confirm budget/rate-limit guardrails from auth/token docs.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add read-only connector methods for sub-issues/dependencies.
@@ -88,14 +88,14 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - Deterministic ordering, cycle warnings, and partial-ingestion reason codes at the graph API boundary.
 
 **Pre-flight checks**
-- [ ] Confirm existing ordering behavior in graph tests.
-- [ ] Confirm reason-code conventions in changeset denial paths for consistency.
+- [x] Confirm existing ordering behavior in graph tests.
+- [x] Confirm reason-code conventions in changeset denial paths for consistency.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add canonical node/edge sort keys.

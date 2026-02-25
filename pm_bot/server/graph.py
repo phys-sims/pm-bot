@@ -18,6 +18,62 @@ class GraphService:
     def __init__(self, db: OrchestratorDB) -> None:
         self.db = db
 
+    def ingest_repo_graph(self, repo: str, connector: Any) -> dict[str, Any]:
+        calls = 0
+        failures = 0
+        edge_count = 0
+        partial = False
+        diagnostics: dict[str, Any] = {"failures": [], "repo": repo}
+
+        for item in self.db.list_work_items():
+            issue_ref = item.get("fields", {}).get("issue_ref") or item.get("issue_ref", "")
+            if not issue_ref or not issue_ref.startswith("#"):
+                continue
+            calls += 1
+            full_ref = f"{repo}{issue_ref}"
+            try:
+                for sub_issue in connector.list_sub_issues(repo, issue_ref):
+                    child_ref = f"{repo}{sub_issue['issue_ref']}"
+                    self.db.add_graph_edge(
+                        from_issue_ref=full_ref,
+                        to_issue_ref=child_ref,
+                        edge_type="parent_child",
+                        source="sub_issue",
+                        observed_at=sub_issue.get("observed_at", ""),
+                    )
+                    edge_count += 1
+
+                for dep in connector.list_issue_dependencies(repo, issue_ref):
+                    blocked_by_ref = f"{repo}{dep['issue_ref']}"
+                    self.db.add_graph_edge(
+                        from_issue_ref=full_ref,
+                        to_issue_ref=blocked_by_ref,
+                        edge_type="blocked_by",
+                        source="dependency_api",
+                        observed_at=dep.get("observed_at", ""),
+                    )
+                    edge_count += 1
+            except Exception as exc:  # pragma: no cover - defensive connector boundary
+                failures += 1
+                partial = True
+                diagnostics["failures"].append({"issue_ref": full_ref, "error": str(exc)})
+
+        self.db.record_graph_ingestion(
+            repo=repo,
+            calls=calls,
+            failures=failures,
+            partial=partial,
+            diagnostics=diagnostics,
+        )
+        return {
+            "repo": repo,
+            "calls": calls,
+            "failures": failures,
+            "partial": partial,
+            "edge_count": edge_count,
+            "diagnostics": diagnostics,
+        }
+
     def tree(self, root_ref: str) -> dict[str, Any]:
         root = self.db.get_work_item(root_ref)
         if root is None:
@@ -176,6 +232,36 @@ class GraphService:
                     "provenance": "dependency_api",
                 }
             )
+
+        for rel in self.db.list_graph_edges(edge_type="blocked_by"):
+            edge_key = (rel["from_issue_ref"], rel["to_issue_ref"], rel["source"])
+            if edge_key in seen:
+                continue
+            seen.add(edge_key)
+            edges.append(
+                {
+                    "from": rel["from_issue_ref"],
+                    "to": rel["to_issue_ref"],
+                    "edge_type": "blocked_by",
+                    "provenance": rel["source"],
+                }
+            )
+
+        ingestion_rows = self.db.latest_graph_ingestions()
+        for row in ingestion_rows:
+            if row["partial"]:
+                warnings.append(
+                    {
+                        "code": "partial_ingestion",
+                        "message": f"Graph ingestion for {row['repo']} completed with partial data.",
+                        "diagnostic": row,
+                    }
+                )
+
+        nodes.sort(key=lambda node: (str(node.get("area", "")), str(node.get("id", ""))))
+        edges.sort(
+            key=lambda edge: (edge["from"], edge["to"], edge["edge_type"], edge["provenance"])
+        )
 
         if not edges:
             warnings.append(

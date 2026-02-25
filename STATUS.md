@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:05:52 UTC
+- Time (UTC): 06:12:17 UTC
 - By: @openai-codex
-- Scope: Added explicit workflow token permissions (`contents: read`, `pull-requests: read`) in CI so `dorny/paths-filter` can list PR-changed files in `docker-validation` without `Resource not accessible by integration`.
+- Scope: Completed roadmap Task A (A1/A2/A3): added additive graph identity/edge tables + compatibility view, connector graph ingestion endpoints with diagnostics, deterministic graph warnings/order behavior, and matching docs/tests updates.
 
 
 ---

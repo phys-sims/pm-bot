@@ -48,6 +48,10 @@ class GitHubConnector(Protocol):
 
     def list_issues(self, repo: str, **filters: str) -> list[dict[str, Any]]: ...
 
+    def list_sub_issues(self, repo: str, issue_ref: str) -> list[dict[str, Any]]: ...
+
+    def list_issue_dependencies(self, repo: str, issue_ref: str) -> list[dict[str, Any]]: ...
+
 
 def build_connector_from_env(
     env: dict[str, str] | None = None,
