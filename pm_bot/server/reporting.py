@@ -105,6 +105,12 @@ class ReportingService:
             "denied_changesets": counts.get("changeset_denied", 0),
             "dead_lettered_changesets": counts.get("changeset_dead_lettered", 0),
             "denied_agent_runs": counts.get("agent_run_denied", 0),
+            "auth_context_denials": counts.get("auth_context_denied", 0),
+            "org_sensitive_operations": (
+                counts.get("changeset_proposed", 0)
+                + counts.get("changeset_applied", 0)
+                + counts.get("auth_context_denied", 0)
+            ),
             "anomaly_count": counts.get("safety_anomaly", 0),
             "sample_size": sum(counts.values()),
         }
@@ -273,6 +279,8 @@ class ReportingService:
                 ),
                 f"- Denied agent runs: {safety['denied_agent_runs']} (sample={safety['sample_size']}).",
                 f"- Dead-lettered changesets: {safety['dead_lettered_changesets']} (sample={safety['sample_size']}).",
+                f"- Auth context denials: {safety['auth_context_denials']} (sample={safety['sample_size']}).",
+                f"- Org-sensitive operation events: {safety['org_sensitive_operations']} (sample={safety['sample_size']}).",
                 f"- Anomaly counts: {safety['anomaly_count']} (sample={safety['sample_size']}).",
                 "",
                 "## Data quality",

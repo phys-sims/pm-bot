@@ -274,3 +274,25 @@ def test_unified_inbox_route_merges_pm_bot_and_github_items() -> None:
     assert payload["summary"]["github_count"] == 1
     assert payload["items"][0]["source"] == "pm_bot"
     assert payload["diagnostics"]["cache"]["hit"] is False
+
+
+def test_onboarding_readiness_and_dry_run_routes() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    readiness_status, readiness_payload = _asgi_request(app, "GET", "/onboarding/readiness")
+    assert readiness_status == 200
+    assert "readiness_state" in readiness_payload
+
+    dry_run_status, dry_run_payload = _asgi_request(
+        app,
+        "POST",
+        "/onboarding/dry-run",
+        body=json.dumps({}).encode("utf-8"),
+    )
+    assert dry_run_status == 200
+    assert dry_run_payload["reason_code"] in {
+        "missing_org_context",
+        "single_tenant_mode",
+        "org_installation_ready",
+    }

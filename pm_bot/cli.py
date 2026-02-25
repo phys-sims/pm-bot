@@ -13,6 +13,7 @@ import typer
 from pm_bot.github.body_parser import parse_child_refs
 from pm_bot.github.parse_issue_body import parse_issue_body
 from pm_bot.github.render_issue_body import FIELD_TO_HEADING, load_template_map, render_issue_body
+from pm_bot.server.app import create_app
 from pm_bot.validation import validate_work_item
 
 CHILD_REF_HEADINGS = {
@@ -180,6 +181,13 @@ def tree(file: Path = typer.Option(..., "--file")) -> None:
     typer.echo(file.name)
     for ref in refs:
         typer.echo(f"└── {ref}")
+
+
+@app.command("onboarding-dry-run")
+def onboarding_dry_run() -> None:
+    """Print onboarding readiness dry-run state for local/server parity."""
+    service = create_app()
+    typer.echo(json.dumps(service.onboarding_dry_run(), indent=2))
 
 
 if __name__ == "__main__":

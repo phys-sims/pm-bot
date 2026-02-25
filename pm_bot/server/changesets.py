@@ -50,6 +50,7 @@ class ChangesetService:
         target_ref: str = "",
         idempotency_key: str = "",
         run_id: str = "",
+        tenant_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         decision = self.connector.evaluate_write(repo=repo, operation=operation)
         if not decision.allowed:
@@ -61,6 +62,7 @@ class ChangesetService:
                     "reason_code": decision.reason_code,
                     "run_id": run_id,
                 },
+                tenant_context=tenant_context,
             )
             raise PermissionError(f"Changeset rejected by guardrails: {decision.reason_code}")
 
@@ -79,6 +81,7 @@ class ChangesetService:
                     "idempotency_key": resolved_key,
                     "run_id": run_id,
                 },
+                tenant_context=tenant_context,
             )
             return existing
 
@@ -88,6 +91,7 @@ class ChangesetService:
             payload=payload,
             target_ref=target_ref,
             idempotency_key=resolved_key,
+            tenant_context=tenant_context,
         )
         self.db.append_audit_event(
             "changeset_proposed",
@@ -98,10 +102,17 @@ class ChangesetService:
                 "idempotency_key": resolved_key,
                 "run_id": run_id,
             },
+            tenant_context=tenant_context,
         )
         return self.db.get_changeset(changeset_id) or {}
 
-    def approve(self, changeset_id: int, approved_by: str, run_id: str = "") -> dict[str, Any]:
+    def approve(
+        self,
+        changeset_id: int,
+        approved_by: str,
+        run_id: str = "",
+        tenant_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         changeset = self.db.get_changeset(changeset_id)
         if changeset is None:
             raise ValueError("Unknown changeset")
@@ -109,7 +120,8 @@ class ChangesetService:
         if changeset["status"] != "pending":
             raise ValueError("Changeset is not pending")
 
-        self.db.record_approval(changeset_id, approved_by)
+        resolved_tenant_context = tenant_context or changeset.get("tenant_context", {})
+        self.db.record_approval(changeset_id, approved_by, tenant_context=resolved_tenant_context)
 
         attempts = 0
         while attempts <= self.max_retries:
@@ -135,6 +147,7 @@ class ChangesetService:
                         "latency_ms": round(latency_ms, 3),
                         "run_id": run_id,
                     },
+                    tenant_context=resolved_tenant_context,
                 )
                 self.db.set_changeset_status(changeset_id, "applied")
                 self.db.append_audit_event(
@@ -146,6 +159,7 @@ class ChangesetService:
                         "attempts": attempts,
                         "run_id": run_id,
                     },
+                    tenant_context=resolved_tenant_context,
                 )
                 return result
             except RetryableGitHubError as exc:
@@ -165,6 +179,7 @@ class ChangesetService:
                         "latency_ms": round(latency_ms, 3),
                         "run_id": run_id,
                     },
+                    tenant_context=resolved_tenant_context,
                 )
                 if attempts > self.max_retries:
                     self.db.set_changeset_status(changeset_id, "failed")
@@ -177,6 +192,7 @@ class ChangesetService:
                             "reason_code": "retry_budget_exhausted",
                             "run_id": run_id,
                         },
+                        tenant_context=resolved_tenant_context,
                     )
                     raise RuntimeError("Changeset failed: retry_budget_exhausted") from exc
                 time.sleep(backoff_ms / 1000)
@@ -195,6 +211,7 @@ class ChangesetService:
                         "latency_ms": round(latency_ms, 3),
                         "run_id": run_id,
                     },
+                    tenant_context=resolved_tenant_context,
                 )
                 self.db.set_changeset_status(changeset_id, "failed")
                 self.db.append_audit_event(
@@ -206,6 +223,7 @@ class ChangesetService:
                         "reason_code": "non_retryable_failure",
                         "run_id": run_id,
                     },
+                    tenant_context=resolved_tenant_context,
                 )
                 raise RuntimeError("Changeset failed: non_retryable_failure") from exc
 

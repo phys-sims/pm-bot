@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 07:31:32 UTC
+- Time (UTC): 07:41:22 UTC
 - By: @openai-codex
-- Scope: Completed v3 docs/operability hardening: docs link validation coverage, contradiction-check workflow documentation + checks, and STATUS/CI hygiene gates with automated docs hygiene script/tests.
+- Scope: Advanced v5 org-readiness foundations: tenant/org/install context persistence and validation reason codes, onboarding readiness state + dry-run surfaces (HTTP + CLI), expanded org-sensitive safety reporting, and focused non-regression tests/docs updates.
 
 
 ---
