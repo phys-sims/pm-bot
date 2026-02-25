@@ -217,21 +217,6 @@ class GraphService:
                 )
 
         seen = set()
-        for rel in self.db.list_relationships():
-            if rel["source"] != "dependency_api":
-                continue
-            edge_key = (rel["child_ref"], rel["parent_ref"])
-            if edge_key in seen:
-                continue
-            seen.add(edge_key)
-            edges.append(
-                {
-                    "from": rel["child_ref"],
-                    "to": rel["parent_ref"],
-                    "edge_type": "blocked_by",
-                    "provenance": "dependency_api",
-                }
-            )
 
         for rel in self.db.list_graph_edges(edge_type="blocked_by"):
             edge_key = (rel["from_issue_ref"], rel["to_issue_ref"], rel["source"])

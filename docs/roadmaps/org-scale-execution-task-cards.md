@@ -25,7 +25,7 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 
 **Implementation steps**
 1. Introduce additive tables/views for stable node identity (`org`, `repo`, `node_id`) and typed edges.
-2. Backfill compatibility view for existing relationship reads.
+2. Wire tree/dependency reads directly to typed graph edges.
 3. Add deterministic unique constraints/indexes for edge provenance records.
 
 **Likely files touched**
@@ -35,7 +35,7 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - `tests/test_v2_graph.py`
 
 **Tests**
-- Unit: DB upsert/read compatibility for legacy + new graph rows.
+- Unit: DB upsert/read for graph identity + typed graph rows.
 - Integration: graph service returns unchanged trees for legacy fixtures.
 - HTTP/UI: `/graph/tree` contract snapshot remains stable.
 

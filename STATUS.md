@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 06:12:17 UTC
+- Time (UTC): 06:17:27 UTC
 - By: @openai-codex
-- Scope: Completed roadmap Task A (A1/A2/A3): added additive graph identity/edge tables + compatibility view, connector graph ingestion endpoints with diagnostics, deterministic graph warnings/order behavior, and matching docs/tests updates.
+- Scope: Reduced Task A graph implementation bloat by removing legacy relationship compatibility wiring/view and using graph identity+typed edge tables directly for graph reads, with docs/tests aligned.
 
 
 ---

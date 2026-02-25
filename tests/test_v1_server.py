@@ -302,12 +302,12 @@ def test_graph_dependencies_include_mixed_provenance_and_summary():
     app.link_work_items("r#0", "r#2", source="dependency_api")
 
     deps = app.graph_deps(area="platform")
-    assert deps["summary"]["edge_count"] == 2
+    assert deps["summary"]["edge_count"] == 1
     assert all(edge["provenance"] == "dependency_api" for edge in deps["edges"])
     assert deps["warnings"] == []
 
 
-def test_graph_identity_edges_are_backfilled_to_compat_relationships():
+def test_graph_identity_edges_are_used_for_tree_relationships():
     app = create_app()
     app.db.upsert_work_item(
         "phys-sims/phys-pipeline#10",

@@ -28,14 +28,6 @@ class OrchestratorDB:
                 payload_json TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS relationships (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                parent_ref TEXT NOT NULL,
-                child_ref TEXT NOT NULL,
-                source TEXT NOT NULL DEFAULT 'checklist',
-                UNIQUE(parent_ref, child_ref, source)
-            );
-
             CREATE TABLE IF NOT EXISTS graph_nodes (
                 node_key TEXT PRIMARY KEY,
                 org TEXT NOT NULL,
@@ -144,30 +136,11 @@ class OrchestratorDB:
             )
         if not self._has_column("changesets", "last_error"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
-        if not self._has_column("relationships", "source"):
-            self.conn.execute(
-                "ALTER TABLE relationships ADD COLUMN source TEXT NOT NULL DEFAULT 'checklist'"
-            )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_from_to ON graph_edges(from_node_key, to_node_key)"
-        )
-        self.conn.execute(
-            """
-            CREATE VIEW IF NOT EXISTS v_relationships_compat AS
-            SELECT
-              pn.issue_ref AS parent_ref,
-              cn.issue_ref AS child_ref,
-              ge.source AS source
-            FROM graph_edges ge
-            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
-            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
-            WHERE ge.edge_type = 'parent_child'
-            UNION
-            SELECT parent_ref, child_ref, source FROM relationships
-            """
         )
         self.conn.commit()
 
@@ -272,14 +245,6 @@ class OrchestratorDB:
         self.conn.commit()
 
     def add_relationship(self, parent_ref: str, child_ref: str, source: str = "checklist") -> None:
-        self.conn.execute(
-            """
-            INSERT INTO relationships (parent_ref, child_ref, source)
-            VALUES (?, ?, ?)
-            ON CONFLICT(parent_ref, child_ref, source) DO NOTHING
-            """,
-            (parent_ref, child_ref, source),
-        )
         self.add_graph_edge(
             from_issue_ref=parent_ref,
             to_issue_ref=child_ref,
@@ -444,11 +409,25 @@ class OrchestratorDB:
 
     def get_related(self, issue_ref: str) -> dict[str, list[str]]:
         parent_rows = self.conn.execute(
-            "SELECT parent_ref FROM relationships WHERE child_ref = ? ORDER BY parent_ref ASC",
+            """
+            SELECT pn.issue_ref AS parent_ref
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child' AND cn.issue_ref = ?
+            ORDER BY pn.issue_ref ASC
+            """,
             (issue_ref,),
         ).fetchall()
         child_rows = self.conn.execute(
-            "SELECT child_ref FROM relationships WHERE parent_ref = ? ORDER BY child_ref ASC",
+            """
+            SELECT cn.issue_ref AS child_ref
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child' AND pn.issue_ref = ?
+            ORDER BY cn.issue_ref ASC
+            """,
             (issue_ref,),
         ).fetchall()
         return {
@@ -459,9 +438,15 @@ class OrchestratorDB:
     def list_relationships(self) -> list[dict[str, str]]:
         rows = self.conn.execute(
             """
-            SELECT parent_ref, child_ref, source
-            FROM v_relationships_compat
-            ORDER BY parent_ref ASC, child_ref ASC, source ASC
+            SELECT
+              pn.issue_ref AS parent_ref,
+              cn.issue_ref AS child_ref,
+              ge.source AS source
+            FROM graph_edges ge
+            INNER JOIN graph_nodes pn ON pn.node_key = ge.from_node_key
+            INNER JOIN graph_nodes cn ON cn.node_key = ge.to_node_key
+            WHERE ge.edge_type = 'parent_child'
+            ORDER BY pn.issue_ref ASC, cn.issue_ref ASC, ge.source ASC
             """
         ).fetchall()
         return [
