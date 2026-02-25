@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { TreePage } from "./TreePage";
 
 vi.stubGlobal("fetch", vi.fn());

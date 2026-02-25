@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 04:40:03 UTC
+- Time (UTC): 04:43:36 UTC
 - By: @openai-codex
-- Scope: Normalized CI workflow step formatting for the release gate command to avoid YAML/plain-scalar parsing ambiguity in line-referenced CI errors.
+- Scope: Fixed frontend Vitest suites by importing explicit test globals (`beforeEach`, `test`, and `expect`) so UI unit tests run in CI without global-injection assumptions.
 
 
 ---
