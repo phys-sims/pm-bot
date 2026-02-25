@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, GraphTreeNode } from "./api";
+import { api, formatApiError, GraphTreeNode } from "./api";
 
 function TreeNode({ node }: { node: GraphTreeNode }) {
   return (
@@ -31,7 +31,7 @@ export function TreePage() {
       setDepSummary(depsResponse.summary);
       setError("");
     } catch (err) {
-      setError((err as Error).message);
+      setError(formatApiError(err));
     }
   };
 

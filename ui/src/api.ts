@@ -64,6 +64,55 @@ export type GraphDepsResponse = {
   summary: { node_count: number; edge_count: number };
 };
 
+export type ContextPackResponse = {
+  schema_version: string;
+  profile: string;
+  hash: string;
+  budget: {
+    max_chars: number;
+    used_chars: number;
+    strategy: string;
+  };
+  manifest: {
+    included_segments: string[];
+    excluded_segments: string[];
+    exclusion_reasons: Record<string, number>;
+    redaction_counts: { total: number; by_category: Record<string, number> };
+  };
+};
+
+export type AgentRunRecord = {
+  run_id: string;
+  status: string;
+  status_reason: string;
+  created_by: string;
+  intent: string;
+  model: string;
+  adapter_name: string;
+  claimed_by: string;
+  retry_count: number;
+  max_retries: number;
+  last_error: string;
+  job_id: string;
+};
+
+export type AgentRunClaimResponse = {
+  items: AgentRunRecord[];
+  summary: { count: number };
+};
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly reasonCode: string;
+
+  constructor(message: string, status: number, reasonCode = "request_failed") {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.reasonCode = reasonCode;
+  }
+}
+
 const baseUrl = (import.meta.env.VITE_PM_BOT_API_BASE as string | undefined) ?? "http://127.0.0.1:8000";
 
 async function httpJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -73,9 +122,17 @@ async function httpJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.reason_code ?? payload.error ?? "request_failed");
+    const reasonCode = String(payload.reason_code ?? payload.error ?? "request_failed");
+    throw new ApiError(String(payload.error ?? reasonCode), response.status, reasonCode);
   }
   return payload as T;
+}
+
+export function formatApiError(error: unknown): string {
+  if (error instanceof ApiError) {
+    return `${error.reasonCode}${error.message && error.message !== error.reasonCode ? ` (${error.message})` : ""}`;
+  }
+  return (error as Error).message;
 }
 
 export const api = {
@@ -93,7 +150,57 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ approved_by: approvedBy }),
     }),
-  graphTree: (root: string) =>
-    httpJson<GraphTreeResponse>(`/graph/tree?root=${encodeURIComponent(root)}`),
+  graphTree: (root: string) => httpJson<GraphTreeResponse>(`/graph/tree?root=${encodeURIComponent(root)}`),
   graphDeps: () => httpJson<GraphDepsResponse>("/graph/deps"),
+  contextPack: (params: {
+    issue_ref: string;
+    budget?: number;
+    profile?: string;
+    schema_version?: string;
+    run_id?: string;
+    requested_by?: string;
+  }) => {
+    const q = new URLSearchParams({ issue_ref: params.issue_ref });
+    if (params.budget !== undefined) q.set("budget", String(params.budget));
+    if (params.profile) q.set("profile", params.profile);
+    if (params.schema_version) q.set("schema_version", params.schema_version);
+    if (params.run_id) q.set("run_id", params.run_id);
+    if (params.requested_by) q.set("requested_by", params.requested_by);
+    return httpJson<ContextPackResponse>(`/context-pack?${q.toString()}`);
+  },
+  proposeAgentRun: (params: {
+    created_by: string;
+    spec: {
+      run_id: string;
+      model: string;
+      intent: string;
+      requires_approval: boolean;
+      adapter: string;
+      max_retries?: number;
+    };
+  }) =>
+    httpJson<AgentRunRecord>("/agent-runs/propose", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  transitionAgentRun: (params: { run_id: string; to_status: string; reason_code: string; actor: string }) =>
+    httpJson<AgentRunRecord>("/agent-runs/transition", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  claimAgentRuns: (params: { worker_id: string; limit?: number; lease_seconds?: number }) =>
+    httpJson<AgentRunClaimResponse>("/agent-runs/claim", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  executeAgentRun: (params: { run_id: string; worker_id: string }) =>
+    httpJson<AgentRunRecord>("/agent-runs/execute", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  cancelAgentRun: (params: { run_id: string; actor?: string }) =>
+    httpJson<AgentRunRecord>("/agent-runs/cancel", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
 };

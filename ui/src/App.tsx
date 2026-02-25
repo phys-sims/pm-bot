@@ -1,18 +1,39 @@
 import { useState } from "react";
+import { AgentRunsPage } from "./AgentRunsPage";
+import { ContextPackPage } from "./ContextPackPage";
 import { InboxPage } from "./InboxPage";
 import { TreePage } from "./TreePage";
 
+type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack";
+
+type RouteConfig = {
+  key: RouteKey;
+  label: string;
+  render: () => JSX.Element;
+};
+
+const ROUTES: RouteConfig[] = [
+  { key: "inbox", label: "Inbox", render: () => <InboxPage /> },
+  { key: "tree", label: "Tree", render: () => <TreePage /> },
+  { key: "agentRuns", label: "Agent Runs", render: () => <AgentRunsPage /> },
+  { key: "contextPack", label: "Context Pack", render: () => <ContextPackPage /> },
+];
+
 export function App() {
-  const [route, setRoute] = useState<"inbox" | "tree">("inbox");
+  const [route, setRoute] = useState<RouteKey>("inbox");
+  const activeRoute = ROUTES.find((item) => item.key === route) ?? ROUTES[0];
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 1000, margin: "0 auto", padding: 16 }}>
       <h1>pm-bot UI MVP</h1>
       <nav style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setRoute("inbox")}>Inbox</button>
-        <button onClick={() => setRoute("tree")}>Tree</button>
+        {ROUTES.map((item) => (
+          <button key={item.key} aria-current={item.key === activeRoute.key ? "page" : undefined} onClick={() => setRoute(item.key)}>
+            {item.label}
+          </button>
+        ))}
       </nav>
-      {route === "inbox" ? <InboxPage /> : <TreePage />}
+      {activeRoute.render()}
     </main>
   );
 }

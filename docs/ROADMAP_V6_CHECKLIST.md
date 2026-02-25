@@ -6,9 +6,9 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`, `⛔ blocked`.
 
 | Order | Track | Item | Owner | Status | PR link | Blockers |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | A | A1 GUI route expansion (Agent Runs + Context Pack pages) | agent | ☐ pending | — | none |
-| 2 | A | A2 API client coverage for `/context-pack` + `/agent-runs/*` | agent | ☐ pending | — | depends on A1 |
-| 3 | A | A3 approval-preserving UI action guards and reason-code rendering | agent | ☐ pending | — | depends on A2 |
+| 1 | A | A1 GUI route expansion (Agent Runs + Context Pack pages) | agent | ☑ done | — | none |
+| 2 | A | A2 API client coverage for `/context-pack` + `/agent-runs/*` | agent | ☑ done | — | depends on A1 |
+| 3 | A | A3 approval-preserving UI action guards and reason-code rendering | agent | ☑ done | — | depends on A2 |
 | 4 | B | B1 natural-text intake endpoint and audit envelope | agent | ☐ pending | — | depends on A2 |
 | 5 | B | B2 LLM-assisted `report_ir/v1` draft generation + validation feedback | agent | ☐ pending | — | depends on B1 |
 | 6 | B | B3 human edit/confirm checkpoint for generated ReportIR | agent | ☐ pending | — | depends on B2 |
@@ -49,4 +49,3 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`, `⛔ blocked`.
    - **Mitigation:** typed timeline sections + stable filtering/sorting keys.
 4. **Risk:** API/UI contract drift as new routes are added quickly.
    - **Mitigation:** fixture-backed HTTP contract snapshots and typed frontend API models.
-
