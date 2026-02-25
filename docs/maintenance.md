@@ -114,6 +114,21 @@ Before merging, ask:
 - Did we preserve Projects sync invariants?
 - If this is a design change, did we add/supersede an ADR?
 
+## Contradiction-check workflow
+
+Run this workflow whenever docs/spec/contracts/roadmap/status text is changed in a way that could
+introduce drift:
+
+1. Run the docs hygiene checker:
+   - `python scripts/docs_hygiene.py --check-contradictions`
+2. Confirm all local markdown links still resolve:
+   - `python scripts/docs_hygiene.py --check-links`
+3. Confirm status/operability gates remain explicit:
+   - `python scripts/docs_hygiene.py --check-status-gates`
+4. Re-run `pytest -q tests/test_docs_commands.py tests/test_docs_hygiene.py` before merge.
+
+This workflow is CI-gated via the `docs-hygiene` and `docs-command-validation` jobs.
+
 ## Keeping docs agent-friendly
 
 Agents are most effective when:
@@ -123,4 +138,3 @@ Agents are most effective when:
 - the “canonical sources” are clear
 
 Avoid “narrative-only” docs without examples or invariants.
-
