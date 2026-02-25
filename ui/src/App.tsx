@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { AgentRunsPage } from "./AgentRunsPage";
+import { AuditOpsPage } from "./AuditOpsPage";
 import { ContextPackPage } from "./ContextPackPage";
 import { InboxPage } from "./InboxPage";
 import { TreePage } from "./TreePage";
 
-type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack";
+type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps";
 
 type RouteConfig = {
   key: RouteKey;
@@ -17,6 +18,7 @@ const ROUTES: RouteConfig[] = [
   { key: "tree", label: "Tree", render: () => <TreePage /> },
   { key: "agentRuns", label: "Agent Runs", render: () => <AgentRunsPage /> },
   { key: "contextPack", label: "Context Pack", render: () => <ContextPackPage /> },
+  { key: "auditOps", label: "Audit Ops", render: () => <AuditOpsPage /> },
 ];
 
 export function App() {

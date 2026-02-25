@@ -392,3 +392,66 @@ def test_report_ir_intake_confirm_preview_and_propose_routes() -> None:
     assert [row["changeset"]["id"] for row in repeat_payload["items"]] == [
         row["changeset"]["id"] for row in propose_payload["items"]
     ]
+
+
+def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    service.db.append_audit_event(
+        "agent_run_completed",
+        {"run_id": "run-audit-1", "repo": "phys-sims/pm-bot", "actor": "alice"},
+    )
+    service.db.append_audit_event(
+        "agent_run_retry_scheduled",
+        {
+            "run_id": "run-audit-1",
+            "repo": "phys-sims/pm-bot",
+            "actor": "alice",
+            "reason_code": "transient_provider_error",
+            "queue_age_seconds": 12,
+        },
+    )
+    service.db.append_audit_event(
+        "changeset_denied",
+        {
+            "run_id": "run-audit-1",
+            "repo": "phys-sims/pm-bot",
+            "actor": "policy",
+            "reason_code": "repo_not_allowlisted",
+        },
+    )
+
+    chain_status, chain_payload = _asgi_request(
+        app,
+        "GET",
+        "/audit/chain",
+        query_string=b"run_id=run-audit-1&repo=phys-sims%2Fpm-bot&actor=alice&limit=2&offset=0",
+    )
+    assert chain_status == 200
+    assert chain_payload["schema_version"] == "audit_chain/v1"
+    assert chain_payload["summary"]["count"] == 2
+    assert chain_payload["summary"]["total"] == 2
+
+    rollup_status, rollup_payload = _asgi_request(
+        app,
+        "GET",
+        "/audit/rollups",
+        query_string=b"run_id=run-audit-1",
+    )
+    assert rollup_status == 200
+    assert rollup_payload["schema_version"] == "audit_rollups/v1"
+    assert rollup_payload["summary"]["sample_size"] == 3
+    assert rollup_payload["summary"]["retry_count"] == 1
+    assert rollup_payload["summary"]["denial_count"] == 1
+
+    bundle_status, bundle_payload = _asgi_request(
+        app,
+        "GET",
+        "/audit/incident-bundle",
+        query_string=b"run_id=run-audit-1&actor=alice",
+    )
+    assert bundle_status == 200
+    assert bundle_payload["schema_version"] == "incident_bundle/v1"
+    assert bundle_payload["chain"]["summary"]["total"] == 2
+    assert "retry_storm" in bundle_payload["runbook_hooks"]

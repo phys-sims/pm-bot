@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from datetime import datetime
 from urllib.parse import parse_qs
 from typing import Any
 
@@ -496,6 +497,175 @@ class ServerApp:
             },
         }
 
+    def audit_chain(
+        self,
+        *,
+        run_id: str = "",
+        event_type: str = "",
+        repo: str = "",
+        actor: str = "",
+        start_at: str = "",
+        end_at: str = "",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        base = self.db.list_audit_events(
+            event_type=event_type.strip() or None,
+            run_id=run_id.strip() or None,
+        )
+
+        normalized_repo = repo.strip().lower()
+        normalized_actor = actor.strip().lower()
+
+        def _iso(value: str) -> datetime | None:
+            if not value.strip():
+                return None
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+
+        start_dt = _iso(start_at)
+        end_dt = _iso(end_at)
+
+        filtered: list[dict[str, Any]] = []
+        for item in base:
+            payload = item.get("payload", {}) if isinstance(item.get("payload"), dict) else {}
+            payload_repo = str(payload.get("repo", payload.get("target_repo", ""))).strip().lower()
+            payload_actor = (
+                str(
+                    payload.get(
+                        "actor",
+                        payload.get(
+                            "approved_by",
+                            payload.get("requested_by", payload.get("created_by", "")),
+                        ),
+                    )
+                )
+                .strip()
+                .lower()
+            )
+
+            if normalized_repo and payload_repo != normalized_repo:
+                continue
+            if normalized_actor and payload_actor != normalized_actor:
+                continue
+
+            created_at = str(item.get("created_at", ""))
+            created_dt = _iso(created_at)
+            if start_dt and created_dt and created_dt < start_dt:
+                continue
+            if end_dt and created_dt and created_dt > end_dt:
+                continue
+
+            filtered.append(item)
+
+        filtered.sort(key=lambda row: int(row["id"]))
+        bounded_limit = max(1, min(limit, 500))
+        bounded_offset = max(0, offset)
+        page = filtered[bounded_offset : bounded_offset + bounded_limit]
+        next_offset = (
+            bounded_offset + bounded_limit
+            if bounded_offset + bounded_limit < len(filtered)
+            else None
+        )
+
+        return {
+            "schema_version": "audit_chain/v1",
+            "items": page,
+            "summary": {
+                "count": len(page),
+                "total": len(filtered),
+                "next_offset": next_offset,
+                "filters": {
+                    "run_id": run_id,
+                    "event_type": event_type,
+                    "repo": repo,
+                    "actor": actor,
+                    "start_at": start_at,
+                    "end_at": end_at,
+                },
+            },
+        }
+
+    def audit_rollups(self, *, run_id: str = "") -> dict[str, Any]:
+        events = self.db.list_audit_events(run_id=run_id.strip() or None)
+        total = len(events)
+        completed = len([e for e in events if e["event_type"] == "agent_run_completed"])
+        retried = len([e for e in events if e["event_type"] == "agent_run_retry_scheduled"])
+        dead_lettered = len(
+            [
+                e
+                for e in events
+                if e["event_type"] in {"agent_run_dead_lettered", "changeset_dead_lettered"}
+            ]
+        )
+        denied = len([e for e in events if "denied" in str(e["event_type"])])
+
+        reason_counts: dict[str, int] = {}
+        repo_counts: dict[str, int] = {}
+        queue_ages: list[float] = []
+
+        for event in events:
+            payload = event.get("payload", {}) if isinstance(event.get("payload"), dict) else {}
+            reason = str(payload.get("reason_code", "")).strip()
+            repo = str(payload.get("repo", payload.get("target_repo", ""))).strip()
+            if reason:
+                reason_counts[reason] = reason_counts.get(reason, 0) + 1
+            if repo:
+                repo_counts[repo] = repo_counts.get(repo, 0) + 1
+            if "queue_age_seconds" in payload:
+                try:
+                    queue_ages.append(float(payload.get("queue_age_seconds", 0.0)))
+                except (TypeError, ValueError):
+                    pass
+
+        return {
+            "schema_version": "audit_rollups/v1",
+            "summary": {
+                "sample_size": total,
+                "completion_rate": round((completed / total), 4) if total else 0.0,
+                "retry_count": retried,
+                "dead_letter_count": dead_lettered,
+                "denial_count": denied,
+                "average_queue_age_seconds": round(sum(queue_ages) / len(queue_ages), 2)
+                if queue_ages
+                else 0.0,
+            },
+            "top_reason_codes": [
+                {"reason_code": reason, "count": count}
+                for reason, count in sorted(
+                    reason_counts.items(), key=lambda item: (-item[1], item[0])
+                )[:5]
+            ],
+            "repo_concentration": [
+                {"repo": repo_name, "count": count}
+                for repo_name, count in sorted(
+                    repo_counts.items(), key=lambda item: (-item[1], item[0])
+                )[:5]
+            ],
+        }
+
+    def export_incident_bundle(self, *, run_id: str = "", actor: str = "") -> dict[str, Any]:
+        chain = self.audit_chain(run_id=run_id, actor=actor, limit=500, offset=0)
+        rollups = self.audit_rollups(run_id=run_id)
+        hooks = {
+            "retry_storm": "docs/runbooks/first-human-test.md",
+            "denial_spike": "docs/runbooks/first-human-test.md",
+            "webhook_drift": "docs/runbooks/first-human-test.md",
+        }
+        return {
+            "schema_version": "incident_bundle/v1",
+            "export": {
+                "run_id": run_id,
+                "actor": actor,
+                "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+            "runbook_hooks": hooks,
+            "chain": chain,
+            "rollups": rollups,
+        }
+
 
 class ASGIServer:
     """Minimal ASGI adapter exposing a safe subset of ServerApp methods."""
@@ -770,6 +940,50 @@ class ASGIServer:
                     await self._send_json(send, 400, {"error": "invalid_json"})
                     return
                 await self._send_json(send, 200, self.service.onboarding_dry_run())
+                return
+
+            if method == "GET" and path == "/audit/chain":
+                raw_limit = query_params.get("limit", "100").strip()
+                raw_offset = query_params.get("offset", "0").strip()
+                try:
+                    limit = int(raw_limit)
+                    offset = int(raw_offset)
+                except ValueError:
+                    await self._send_json(send, 400, {"error": "invalid_pagination"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.audit_chain(
+                        run_id=query_params.get("run_id", "").strip(),
+                        event_type=query_params.get("event_type", "").strip(),
+                        repo=query_params.get("repo", "").strip(),
+                        actor=query_params.get("actor", "").strip(),
+                        start_at=query_params.get("start_at", "").strip(),
+                        end_at=query_params.get("end_at", "").strip(),
+                        limit=limit,
+                        offset=offset,
+                    ),
+                )
+                return
+
+            if method == "GET" and path == "/audit/rollups":
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.audit_rollups(run_id=query_params.get("run_id", "").strip()),
+                )
+                return
+
+            if method == "GET" and path == "/audit/incident-bundle":
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.export_incident_bundle(
+                        run_id=query_params.get("run_id", "").strip(),
+                        actor=query_params.get("actor", "").strip(),
+                    ),
+                )
                 return
 
             if method == "GET" and path == "/agent-runs/transitions":
