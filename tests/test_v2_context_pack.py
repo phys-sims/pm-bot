@@ -40,7 +40,9 @@ def _asgi_request(
 def test_context_pack_v2_is_hash_stable_and_budgeted() -> None:
     app = ServerApp()
     parent = app.draft(item_type="epic", title="Parent", body_fields={"Goal": "Big"})
-    draft = app.draft(item_type="feature", title="Deterministic builder", body_fields={"Goal": "Ship"})
+    draft = app.draft(
+        item_type="feature", title="Deterministic builder", body_fields={"Goal": "Ship"}
+    )
     child = app.draft(
         item_type="task",
         title="Very long child segment to force exclusion",
