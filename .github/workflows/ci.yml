@@ -80,6 +80,23 @@ jobs:
       - name: Docs command validation
         run: pytest -q tests/test_docs_commands.py
 
+
+  docs-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Docs hygiene checks
+        run: |
+          python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates
+          pytest -q tests/test_docs_hygiene.py
+
   frontend-unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -144,6 +161,7 @@ jobs:
       - reliability-tests
       - regression-fixtures
       - docs-command-validation
+      - docs-hygiene
       - frontend-unit-tests
       - frontend-e2e
       - docker-validation

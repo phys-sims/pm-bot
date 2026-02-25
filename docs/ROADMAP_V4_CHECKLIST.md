@@ -16,9 +16,9 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`.
 | 8 | v2 | Estimator v1 with deterministic fallback path | agent | ☑ done | n/a (pre-existing) | none |
 | 9 | v2 | Weekly meta reporting output | agent | ☑ done | n/a (pre-existing) | none |
 | 10 | v2 | Data quality checks for canonical headings/labels | agent | ☑ done | n/a (pre-existing) | none |
-| 11 | v3 | Docs authority pass + active stage defaults | agent | ◐ in progress | (this PR) | continue hardening and link validation |
-| 12 | v3 | ADR index/path hygiene and contradiction cleanup | agent | ◐ in progress | (this PR) | complete contradiction-check workflow |
-| 13 | v3 | Operability gates reflected in STATUS + docs | agent | ◐ in progress | (this PR) | continue with CI/report hygiene checks |
+| 11 | v3 | Docs authority pass + active stage defaults (criteria: docs links validated by `python scripts/docs_hygiene.py --check-links` in CI + docs hygiene tests) | agent | ☑ done | (this PR) | none |
+| 12 | v3 | ADR index/path hygiene and contradiction cleanup (criteria: contradiction-check workflow documented in `docs/maintenance.md` and checked by `--check-contradictions`) | agent | ☑ done | (this PR) | none |
+| 13 | v3 | Operability gates reflected in STATUS + docs (criteria: STATUS command gates + docs hygiene CI/docs matrix coverage + explicit tests) | agent | ☑ done | (this PR) | none |
 | 14 | v4 | Policy decision normalization with reason codes | agent | ☑ done | (this PR) | none |
 | 15 | v4 | Queue/retry/idempotency hardening | agent | ☑ done | (this PR) | none |
 | 16 | v4 | Observability/SLO instrumentation and correlation IDs | agent | ☑ done | (this PR) | none |

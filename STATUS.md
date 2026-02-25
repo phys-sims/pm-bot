@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 07:09:14 UTC
+- Time (UTC): 07:31:32 UTC
 - By: @openai-codex
-- Scope: Implemented v5 org-readiness repo onboarding defaults: expanded org-ready write allowlist (including cpa-sim/fiber-link-sim/abcdef-sim/fiber-link-testbench/phys-sims-utils), added PM_BOT_ALLOWED_REPOS override path for non-phys-sims orgs, and updated user docs for org-vs-custom usage.
+- Scope: Completed v3 docs/operability hardening: docs link validation coverage, contradiction-check workflow documentation + checks, and STATUS/CI hygiene gates with automated docs hygiene script/tests.
 
 
 ---
@@ -20,6 +20,7 @@
 | Tests | `pytest -q` | ✅ | 2026-02-25 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, unified inbox contract/aggregation semantics, and HTTP contract behavior. |
 | Lint | `ruff check .` | ✅ | 2026-02-25 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-25 | Formatting is stable. |
+| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates` | ✅ | 2026-02-25 | Validates local markdown links, contradiction-check workflow docs presence, and STATUS operability gates. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 | Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | Added CI validation job; local shell in this environment does not include Docker CLI. |
 
@@ -95,9 +96,9 @@
 - [x] Meta reporting output generation (`pm_bot/server/reporting.py`, `reports/`)
 - [x] Safety incident tracking for denied writes (`changeset_denied` audit events)
 
-### Active sequencing — N1/N2/N3
-- [x] N1 / v3 near-term execution started (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
-- [x] N2 / v4 platform reliability started (`docs/roadmaps/agent-roadmap-v4-platform.md`)
+### Stage progress — N1/N2/N3
+- [x] N1 / v3 near-term complete (`docs/roadmaps/agent-roadmap-v3-near-term.md`)
+- [x] N2 / v4 platform reliability complete (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 
 ### Future roadmap (long-horizon, non-default)
@@ -106,7 +107,7 @@
 
 ## v4 ship readiness snapshot
 - Done: Policy reason normalization, idempotency-key reuse, bounded retry/dead-letter handling, operation metrics aggregation, and run-id correlation across changesets/webhooks/reports.
-- Remaining: N3 / v5 org-readiness stage only; v4 stage scope is complete.
+- Remaining: N3 / v5 org-readiness stage only; v3 near-term and v4 platform scopes are complete.
 - End-to-end demo (local):
   1) `pytest -q`
   2) Propose + approve a normal changeset (`create_issue`) and verify `changeset_applied`.
