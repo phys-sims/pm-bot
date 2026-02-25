@@ -6,10 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 05:37:46 UTC
+- Time (UTC): 05:43:46 UTC
 - By: @openai-codex
-- Scope: Added a root Dockerfile for non-interactive backend container startup on port 8000 using uvicorn and editable package installation.
-- Scope: Fixed `InboxPage` UI test flow to assert post-approve reload state (`Pending: 0`) and no-pending messaging instead of transient status text that is intentionally cleared by `load()`.
+- Scope: Added `ui/Dockerfile` for local Vite development using pinned Node 20 Alpine, dependency install with lockfile-aware `npm ci` fallback, exposed port `4173`, and runtime-configurable `VITE_PM_BOT_API_BASE`.
 
 
 ---
