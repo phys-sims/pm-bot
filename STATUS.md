@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 05:58:03 UTC
+- Time (UTC): 06:05:52 UTC
 - By: @openai-codex
-- Scope: Adjusted Docker onboarding UI API base to host-reachable `http://localhost:8000` (instead of Docker-internal hostname), and aligned README troubleshooting guidance for browser-based fetch behavior.
+- Scope: Added explicit workflow token permissions (`contents: read`, `pull-requests: read`) in CI so `dorny/paths-filter` can list PR-changed files in `docker-validation` without `Resource not accessible by integration`.
 
 
 ---
