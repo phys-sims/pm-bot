@@ -6,10 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-25
-- Time (UTC): 03:49:05 UTC
+- Time (UTC): 04:33:07 UTC
 - By: @openai-codex
-- Scope: Added a repo inventory baseline documenting current ASGI entrypoint, storage model, contracts, approval surfaces, GitHub integration, and UI routes for roadmap planning.
-- Scope: Added an org-scale roadmap reconciliation doc that maps the provided M0–M5 plan onto repo-native execution tracks (graph, context packs, runner portability, unified inbox) and links it into v5 stage planning.
+- Scope: Split org-scale Track A–D execution checklists into a dedicated agent-editable roadmap file and left the reconciliation roadmap as the stable source-of-truth pointer document.
 
 
 ---

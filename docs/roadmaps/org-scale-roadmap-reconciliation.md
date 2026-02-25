@@ -200,3 +200,12 @@ Use this task card format for each PR slice in Tracks A–D.
 2. Track C next to standardize run execution around approved specs.
 3. Track D in parallel late-stage once search/cache strategy is clear.
 4. M5 hardening (GitHub App auth, retention exports, SLO runbooks) after A–D baseline acceptance.
+
+---
+
+## Implemented execution plan cards (all track phases)
+
+The execution cards were moved to a dedicated agent-editable file to keep this reconciliation document stable as the source of truth.
+
+- Editable execution cards: `docs/roadmaps/org-scale-execution-task-cards.md`
+- Rule: update task progress/cards in the execution file, and only update this reconciliation doc when Track definitions or source-of-truth mapping changes.
