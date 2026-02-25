@@ -502,3 +502,18 @@ def test_run_id_correlation_for_webhook_and_reporting_events(tmp_path):
     report_event = app.db.list_audit_events("report_generated")[0]
     assert webhook_event["payload"]["run_id"] == "run-observe-1"
     assert report_event["payload"]["run_id"] == "run-observe-1"
+
+
+def test_changeset_and_audit_records_include_single_tenant_context():
+    app = create_app()
+    proposed = app.propose_changeset(
+        operation="create_issue",
+        repo="phys-sims/phys-pipeline",
+        payload={"title": "Contexted"},
+        run_id="run-ctx",
+    )
+    assert proposed["tenant_context"]["tenant_mode"] == "single_tenant"
+
+    events = app.db.list_audit_events("changeset_proposed")
+    assert events
+    assert events[0]["tenant_context"]["tenant_mode"] == "single_tenant"

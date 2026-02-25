@@ -28,6 +28,8 @@
 - Denied changesets: 1 (blocked write attempts=1, sample=5).
 - Denied agent runs: 0 (sample=5).
 - Dead-lettered changesets: 1 (sample=5).
+- Auth context denials: 0 (sample=5).
+- Org-sensitive operation events: 3 (sample=5).
 - Anomaly counts: 0 (sample=5).
 
 ## Data quality
