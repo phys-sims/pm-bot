@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import requests
@@ -22,11 +23,14 @@ class GitHubAPIConnector:
         auth: GitHubAuth | None = None,
         base_url: str = "https://api.github.com",
         session: requests.Session | None = None,
+        cache_ttl_s: int = 30,
     ) -> None:
         self.allowed_repos = allowed_repos or set()
         self.auth = auth or GitHubAuth(read_token=None, write_token=None)
         self.base_url = base_url.rstrip("/")
         self.session = session or requests.Session()
+        self.cache_ttl_s = max(1, int(cache_ttl_s))
+        self._inbox_cache: dict[str, tuple[float, list[dict[str, Any]], dict[str, Any]]] = {}
 
     def evaluate_write(self, repo: str, operation: str) -> PolicyDecision:
         if self.allowed_repos and repo not in self.allowed_repos:
@@ -125,14 +129,146 @@ class GitHubAPIConnector:
         )
         return _normalize_graph_edge_rows(response, edge_kind="dependency_api")
 
-    def _request(
+    def list_inbox_items(
+        self,
+        actor: str,
+        labels: list[str] | None = None,
+        repos: list[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        normalized_actor = actor.strip()
+        normalized_labels = sorted({label.strip() for label in (labels or []) if label.strip()})
+        normalized_repos = sorted({repo.strip() for repo in (repos or []) if repo.strip()})
+        if not normalized_repos:
+            normalized_repos = sorted(self.allowed_repos)
+
+        cache_key = "|".join(
+            [normalized_actor, ",".join(normalized_labels), ",".join(normalized_repos)]
+        )
+        now = time.time()
+        cached = self._inbox_cache.get(cache_key)
+        if cached and cached[0] > now:
+            cached_items, cached_diag = cached[1], dict(cached[2])
+            diag = dict(cached_diag)
+            diag["cache"] = {"hit": True, "ttl_seconds": self.cache_ttl_s, "key": cache_key}
+            return [dict(item) for item in cached_items], diag
+
+        calls = 0
+        all_rows: list[dict[str, Any]] = []
+        last_headers: dict[str, Any] = {}
+        chunk_size = 5
+        label_chunks = [
+            normalized_labels[i : i + chunk_size]
+            for i in range(0, len(normalized_labels), chunk_size)
+        ] or [[]]
+        query_chunks: list[dict[str, Any]] = []
+
+        for repo in normalized_repos:
+            for chunk in label_chunks:
+                params: dict[str, str] = {"state": "open", "per_page": "100"}
+                query = f"repo:{repo}"
+                if normalized_actor:
+                    query = f"{query} involves:{normalized_actor}"
+                if chunk:
+                    labels_expr = " ".join([f"label:{label}" for label in chunk])
+                    query = f"{query} {labels_expr}"
+                    params["q"] = query
+                query_chunks.append({"repo": repo, "labels": list(chunk), "q": query})
+                rows, headers = self._request_with_headers(
+                    "GET",
+                    f"/repos/{repo}/issues",
+                    token=self.auth.read_token,
+                    params=params,
+                )
+                calls += 1
+                last_headers = headers
+                if isinstance(rows, list):
+                    for row in rows:
+                        normalized = self._normalize_inbox_row(
+                            row=row, repo=repo, actor=normalized_actor
+                        )
+                        if normalized is not None:
+                            all_rows.append(normalized)
+
+        dedup: dict[str, dict[str, Any]] = {item["id"]: item for item in all_rows}
+        items = sorted(
+            dedup.values(),
+            key=lambda item: (
+                item.get("source", ""),
+                item.get("item_type", ""),
+                item.get("priority", ""),
+                float(item.get("age_hours", 0.0)),
+                item.get("repo", ""),
+                item.get("id", ""),
+            ),
+        )
+        diagnostics = {
+            "cache": {"hit": False, "ttl_seconds": self.cache_ttl_s, "key": cache_key},
+            "rate_limit": {
+                "remaining": int(last_headers.get("X-RateLimit-Remaining", 0) or 0),
+                "reset_at": str(last_headers.get("X-RateLimit-Reset", "")),
+                "source": "github",
+            },
+            "queries": {"calls": calls, "chunks": query_chunks, "chunk_size": chunk_size},
+        }
+        self._inbox_cache[cache_key] = (
+            now + self.cache_ttl_s,
+            [dict(item) for item in items],
+            dict(diagnostics),
+        )
+        return items, diagnostics
+
+    def _normalize_inbox_row(self, row: Any, repo: str, actor: str) -> dict[str, Any] | None:
+        if not isinstance(row, dict):
+            return None
+        if "pull_request" in row and row.get("state") != "open":
+            return None
+        issue_number = row.get("number")
+        if not issue_number:
+            return None
+        labels = [
+            str(label.get("name", "")) for label in row.get("labels", []) if isinstance(label, dict)
+        ]
+        is_pr = "pull_request" in row
+        requested_reviewers = (
+            row.get("requested_reviewers", [])
+            if isinstance(row.get("requested_reviewers"), list)
+            else []
+        )
+        actor_requested = any(
+            isinstance(reviewer, dict) and str(reviewer.get("login", "")).strip() == actor
+            for reviewer in requested_reviewers
+        )
+        item_type = "pr_review" if is_pr and actor_requested else "triage"
+        action = "review" if item_type == "pr_review" else "triage"
+        return {
+            "source": "github",
+            "item_type": item_type,
+            "id": f"github:{repo}#{issue_number}",
+            "title": str(row.get("title", "")),
+            "repo": repo,
+            "url": str(row.get("html_url", "")),
+            "state": str(row.get("state", "open")),
+            "priority": "",
+            "age_hours": 0.0,
+            "action": action,
+            "requires_internal_approval": False,
+            "stale": False,
+            "stale_reason": "",
+            "metadata": {
+                "labels": labels,
+                "requested_reviewer": actor if actor_requested else "",
+                "query_actor": actor,
+            },
+        }
+
+    def _request_with_headers(
         self,
         method: str,
         path: str,
         token: str | None,
         json: dict[str, Any] | None = None,
         params: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> tuple[Any, dict[str, Any]]:
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -155,7 +291,7 @@ class GitHubAPIConnector:
             raise RetryableGitHubError(
                 "GitHub API retryable failure",
                 reason_code=_reason_code_for_status(response.status_code),
-                retry_after_s=_parse_retry_after(response.headers.get("Retry-After")),
+                retry_after_s=_parse_retry_after((response.headers or {}).get("Retry-After")),
             )
         if response.status_code in {500, 502, 503, 504}:
             raise RetryableGitHubError(
@@ -165,8 +301,25 @@ class GitHubAPIConnector:
 
         response.raise_for_status()
         if not response.content:
-            return {}
-        return response.json()
+            return {}, dict(response.headers or {})
+        return response.json(), dict(response.headers or {})
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        token: str | None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
+    ) -> Any:
+        payload, _headers = self._request_with_headers(
+            method=method,
+            path=path,
+            token=token,
+            json=json,
+            params=params,
+        )
+        return payload
 
 
 def _issue_number_from_ref(issue_ref: str) -> int:

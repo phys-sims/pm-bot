@@ -224,3 +224,45 @@ def test_api_connector_normalizes_sub_issues_and_dependencies() -> None:
             "observed_at": "2026-02-24T00:00:02Z",
         },
     ]
+
+
+def test_api_connector_inbox_items_are_cached_and_deterministic() -> None:
+    session = FakeSession(
+        [
+            FakeResponse(
+                200,
+                [
+                    {
+                        "number": 10,
+                        "title": "Needs review",
+                        "state": "open",
+                        "html_url": "https://github.com/phys-sims/phys-pipeline/pull/10",
+                        "pull_request": {"url": "x"},
+                        "requested_reviewers": [{"login": "octo"}],
+                        "labels": [{"name": "needs-human"}],
+                    }
+                ],
+                {"X-RateLimit-Remaining": "4999", "X-RateLimit-Reset": "1700000000"},
+            )
+        ]
+    )
+    connector = GitHubAPIConnector(
+        allowed_repos={"phys-sims/phys-pipeline"},
+        auth=load_github_auth_from_env({"PM_BOT_GITHUB_READ_TOKEN": "read-token"}),
+        session=session,
+        cache_ttl_s=60,
+    )
+
+    items_1, diag_1 = connector.list_inbox_items(
+        actor="octo", labels=["needs-human"], repos=["phys-sims/phys-pipeline"]
+    )
+    items_2, diag_2 = connector.list_inbox_items(
+        actor="octo", labels=["needs-human"], repos=["phys-sims/phys-pipeline"]
+    )
+
+    assert len(items_1) == 1
+    assert items_1[0]["id"] == "github:phys-sims/phys-pipeline#10"
+    assert items_1 == items_2
+    assert diag_1["cache"]["hit"] is False
+    assert diag_2["cache"]["hit"] is True
+    assert len(session.calls) == 1

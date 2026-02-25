@@ -95,3 +95,61 @@ class InMemoryGitHubConnector:
     def list_issue_dependencies(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
         rows = self.dependencies.get((repo, issue_ref), [])
         return [dict(row) for row in rows]
+
+    def list_inbox_items(
+        self,
+        actor: str,
+        labels: list[str] | None = None,
+        repos: list[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        del actor
+        labels = [label.strip() for label in (labels or []) if label.strip()]
+        repos_filter = [repo.strip() for repo in (repos or []) if repo.strip()]
+        repo_candidates = sorted(repos_filter) if repos_filter else sorted(self.allowed_repos)
+
+        items: list[dict[str, Any]] = []
+        diagnostics = {
+            "cache": {"hit": False, "ttl_seconds": 0, "key": "in_memory"},
+            "rate_limit": {"remaining": None, "reset_at": "", "source": "in_memory"},
+            "queries": {"calls": 0, "chunks": [], "chunk_size": 0},
+        }
+
+        for repo in repo_candidates:
+            repo_issues = [
+                (issue_ref, issue)
+                for (issue_repo, issue_ref), issue in self.issues.items()
+                if issue_repo == repo
+            ]
+            repo_issues.sort(key=lambda item: item[0])
+            for issue_ref, issue in repo_issues:
+                issue_labels = [str(label) for label in issue.get("labels", [])]
+                label_match = (
+                    not labels
+                    or any(label in issue_labels for label in labels)
+                    or any(label in str(issue.get("labels_csv", "")).split(",") for label in labels)
+                )
+                if not label_match:
+                    continue
+                item_type = "pr_review" if bool(issue.get("is_pr")) else "triage"
+                items.append(
+                    {
+                        "source": "github",
+                        "item_type": item_type,
+                        "id": f"github:{repo}{issue_ref}",
+                        "title": str(issue.get("title", "")),
+                        "repo": repo,
+                        "url": str(issue.get("url", "")),
+                        "state": str(issue.get("state", "open")),
+                        "priority": str(issue.get("priority", "")),
+                        "age_hours": float(issue.get("age_hours", 0.0) or 0.0),
+                        "action": "review" if item_type == "pr_review" else "triage",
+                        "requires_internal_approval": False,
+                        "stale": bool(issue.get("stale", False)),
+                        "stale_reason": str(issue.get("stale_reason", "")),
+                        "metadata": {
+                            "labels": issue_labels,
+                            "requested_reviewer": str(issue.get("requested_reviewer", "")),
+                        },
+                    }
+                )
+        return items, diagnostics

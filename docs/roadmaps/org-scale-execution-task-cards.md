@@ -386,10 +386,10 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 - [ ] Confirm provider credentials and network boundaries are policy-approved.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Implement provider adapter behind feature flag.
@@ -412,20 +412,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Disable provider adapter flag and fall back to manual adapter.
 
-### Task: D1 — Unified inbox schema + aggregator
+### Task: D1 — Unified inbox schema + aggregator ✅
 
 **Objective**
 - Create unified inbox item schema and backend aggregator joining pm-bot approvals with GitHub triage/review items.
 
 **Pre-flight checks**
-- [ ] Link repo inventory section 7 for current inbox/tree UI.
-- [ ] Confirm GitHub connector read APIs required for external feed aggregation.
+- [x] Link repo inventory section 7 for current inbox/tree UI.
+- [x] Confirm GitHub connector read APIs required for external feed aggregation.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Define normalized inbox item schema with `source` discriminator.
@@ -449,20 +449,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Revert to pm-bot-only pending approval inbox endpoint.
 
-### Task: D2 — Search-safe query/caching strategy
+### Task: D2 — Search-safe query/caching strategy ✅
 
 **Objective**
 - Add bounded GitHub query decomposition plus cache controls to avoid rate-limit churn.
 
 **Pre-flight checks**
-- [ ] Confirm auth/rate-limit guidance from GitHub docs.
-- [ ] Validate current cache/TTL helpers (if any) for reuse.
+- [x] Confirm auth/rate-limit guidance from GitHub docs.
+- [x] Validate current cache/TTL helpers (if any) for reuse.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Implement query chunking strategy for operator/length constraints.
@@ -486,20 +486,20 @@ The following cards instantiate every phase in Tracks A–D using the task templ
 **Rollback**
 - Disable external query path and continue serving internal-only inbox feed.
 
-### Task: D3 — Inbox UI expansion with audit panel
+### Task: D3 — Inbox UI expansion with audit panel ✅
 
 **Objective**
 - Expand UI inbox with tabs, filters, and audit details while keeping approval actions scoped to pm-bot-native items.
 
 **Pre-flight checks**
-- [ ] Confirm current React route/page architecture in `ui/src/`.
-- [ ] Validate accessibility and interaction expectations from existing components.
+- [x] Confirm current React route/page architecture in `ui/src/`.
+- [x] Validate accessibility and interaction expectations from existing components.
 
 **Safety constraints**
-- [ ] Approval gate preserved.
-- [ ] Runner has no GitHub write token access.
-- [ ] Deterministic ordering/hash behavior maintained.
-- [ ] Idempotent retry behavior preserved or improved.
+- [x] Approval gate preserved.
+- [x] Runner has no GitHub write token access.
+- [x] Deterministic ordering/hash behavior maintained.
+- [x] Idempotent retry behavior preserved or improved.
 
 **Implementation steps**
 1. Add source tabs and filter controls to inbox page.

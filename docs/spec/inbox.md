@@ -73,3 +73,35 @@ Inbox is read-only. Any “approve” action must still:
 - `docs/contracts/agent_run_spec.md` (agent approvals)
 - `docs/spec/product.md` (workflow goal)
 
+
+
+## Unified API contract (`/inbox`)
+
+The server exposes a unified inbox payload with deterministic ordering and typed source items.
+
+### Query params
+
+- `actor` (optional): GitHub login used when mapping review-request items.
+- `labels` (optional): comma-separated label filters (for example `needs-human,needs-triage,status:review`).
+- `repos` (optional): comma-separated repo list to bound external queries.
+
+### Response shape (`inbox/v1`)
+
+- `schema_version`: fixed `inbox/v1`
+- `items`: merged list of
+  - `source=pm_bot` / `item_type=approval` (internal changeset approvals)
+  - `source=github` / `item_type=pr_review|triage` (external inbox)
+- `diagnostics`:
+  - `cache`: hit/miss + TTL + normalized key
+  - `queries`: call-count + chunk metadata
+  - `rate_limit`: remaining/reset telemetry snapshot
+- `summary`: total count + per-source counts
+
+### Determinism rules
+
+Merged ordering is deterministic by source-group then stable tie-breakers (`item_type`, `priority`, `age_hours`, `repo`, `id`).
+
+### Safety constraints
+
+- External GitHub items are always read-only inbox entries.
+- Approval actions remain available only for `source=pm_bot` entries and continue through the existing approval/audit pipeline.
