@@ -98,6 +98,16 @@ class OrchestratorDB:
                 completed_at TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS agent_run_transitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                from_status TEXT,
+                to_status TEXT NOT NULL,
+                reason_code TEXT NOT NULL,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS estimate_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bucket_key TEXT NOT NULL,
@@ -136,11 +146,51 @@ class OrchestratorDB:
             )
         if not self._has_column("changesets", "last_error"):
             self.conn.execute("ALTER TABLE changesets ADD COLUMN last_error TEXT")
+        if not self._has_column("agent_runs", "run_id"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN run_id TEXT")
+        if not self._has_column("agent_runs", "created_by"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN created_by TEXT DEFAULT ''")
+        if not self._has_column("agent_runs", "status"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN status TEXT DEFAULT 'proposed'")
+        if not self._has_column("agent_runs", "status_reason"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN status_reason TEXT DEFAULT ''")
+        if not self._has_column("agent_runs", "requires_approval"):
+            self.conn.execute(
+                "ALTER TABLE agent_runs ADD COLUMN requires_approval INTEGER DEFAULT 1"
+            )
+        if not self._has_column("agent_runs", "intent"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN intent TEXT DEFAULT ''")
+        if not self._has_column("agent_runs", "spec_json"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN spec_json TEXT DEFAULT '{}'")
+        if not self._has_column("agent_runs", "adapter_name"):
+            self.conn.execute(
+                "ALTER TABLE agent_runs ADD COLUMN adapter_name TEXT DEFAULT 'manual'"
+            )
+        if not self._has_column("agent_runs", "claimed_by"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN claimed_by TEXT")
+        if not self._has_column("agent_runs", "claim_expires_at"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN claim_expires_at TEXT")
+        if not self._has_column("agent_runs", "retry_count"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN retry_count INTEGER DEFAULT 0")
+        if not self._has_column("agent_runs", "max_retries"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN max_retries INTEGER DEFAULT 2")
+        if not self._has_column("agent_runs", "next_attempt_at"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN next_attempt_at TEXT")
+        if not self._has_column("agent_runs", "last_error"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN last_error TEXT")
+        if not self._has_column("agent_runs", "job_id"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN job_id TEXT")
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_from_to ON graph_edges(from_node_key, to_node_key)"
+        )
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_run_id ON agent_runs(run_id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_runs_queue ON agent_runs(status, next_attempt_at, id)"
         )
         self.conn.commit()
 
@@ -586,3 +636,197 @@ class OrchestratorDB:
             """
         )
         return [dict(row) for row in rows]
+
+    def create_agent_run(
+        self,
+        run_id: str,
+        spec: dict[str, Any],
+        created_by: str,
+        adapter_name: str = "manual",
+        max_retries: int = 2,
+    ) -> dict[str, Any]:
+        self.conn.execute(
+            """
+            INSERT INTO agent_runs (
+              run_id, prompt_profile, model, created_by, status, status_reason,
+              requires_approval, intent, spec_json, adapter_name, max_retries,
+              next_attempt_at
+            )
+            VALUES (?, ?, ?, ?, 'proposed', 'run_created', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (
+                run_id,
+                str(spec.get("prompt_profile", "default")),
+                str(spec.get("model", "")),
+                created_by,
+                1 if spec.get("requires_approval", True) else 0,
+                str(spec.get("intent", "")),
+                json.dumps(spec, sort_keys=True),
+                adapter_name,
+                int(max_retries),
+            ),
+        )
+        self.conn.commit()
+        return self.get_agent_run(run_id) or {}
+
+    def get_agent_run(self, run_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM agent_runs WHERE run_id = ?", (run_id,)).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "run_id": str(row["run_id"]),
+            "prompt_profile": str(row["prompt_profile"]),
+            "model": str(row["model"]),
+            "created_by": str(row["created_by"]),
+            "status": str(row["status"]),
+            "status_reason": str(row["status_reason"] or ""),
+            "requires_approval": bool(row["requires_approval"]),
+            "intent": str(row["intent"] or ""),
+            "spec": json.loads(row["spec_json"] or "{}"),
+            "adapter_name": str(row["adapter_name"] or "manual"),
+            "claimed_by": str(row["claimed_by"] or ""),
+            "claim_expires_at": str(row["claim_expires_at"] or ""),
+            "retry_count": int(row["retry_count"] or 0),
+            "max_retries": int(row["max_retries"] or 0),
+            "next_attempt_at": str(row["next_attempt_at"] or ""),
+            "last_error": str(row["last_error"] or ""),
+            "job_id": str(row["job_id"] or ""),
+            "started_at": str(row["started_at"]),
+            "completed_at": str(row["completed_at"] or ""),
+        }
+
+    def update_agent_run_status(
+        self,
+        run_id: str,
+        to_status: str,
+        reason_code: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        row = self.conn.execute(
+            "SELECT status FROM agent_runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("Unknown agent run")
+        from_status = str(row["status"])
+        completed_at_expr = (
+            "CURRENT_TIMESTAMP"
+            if to_status in {"completed", "failed", "cancelled", "rejected"}
+            else "NULL"
+        )
+        self.conn.execute(
+            f"""
+            UPDATE agent_runs
+            SET status = ?, status_reason = ?, completed_at = {completed_at_expr}
+            WHERE run_id = ?
+            """,
+            (to_status, reason_code, run_id),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO agent_run_transitions (run_id, from_status, to_status, reason_code, metadata_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                from_status,
+                to_status,
+                reason_code,
+                json.dumps(metadata or {}, sort_keys=True),
+            ),
+        )
+        self.conn.commit()
+
+    def list_agent_run_transitions(self, run_id: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT run_id, from_status, to_status, reason_code, metadata_json, created_at
+            FROM agent_run_transitions
+            WHERE run_id = ?
+            ORDER BY id ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [
+            {
+                "run_id": str(row["run_id"]),
+                "from_status": str(row["from_status"] or ""),
+                "to_status": str(row["to_status"]),
+                "reason_code": str(row["reason_code"]),
+                "metadata": json.loads(row["metadata_json"]),
+                "created_at": str(row["created_at"]),
+            }
+            for row in rows
+        ]
+
+    def claim_agent_runs(
+        self, worker_id: str, limit: int = 1, lease_seconds: int = 30
+    ) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT run_id
+            FROM agent_runs
+            WHERE status = 'approved'
+              AND COALESCE(next_attempt_at, CURRENT_TIMESTAMP) <= CURRENT_TIMESTAMP
+              AND (
+                claimed_by IS NULL OR claimed_by = '' OR claim_expires_at IS NULL
+                OR claim_expires_at <= CURRENT_TIMESTAMP
+                OR claimed_by = ?
+              )
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (worker_id, limit),
+        ).fetchall()
+        claimed_runs: list[dict[str, Any]] = []
+        for row in rows:
+            run_id = str(row["run_id"])
+            self.conn.execute(
+                """
+                UPDATE agent_runs
+                SET claimed_by = ?,
+                    claim_expires_at = datetime(CURRENT_TIMESTAMP, '+' || ? || ' seconds')
+                WHERE run_id = ?
+                """,
+                (worker_id, int(lease_seconds), run_id),
+            )
+            fetched = self.get_agent_run(run_id)
+            if fetched is not None:
+                claimed_runs.append(fetched)
+        self.conn.commit()
+        return claimed_runs
+
+    def clear_agent_run_claim(self, run_id: str) -> None:
+        self.conn.execute(
+            "UPDATE agent_runs SET claimed_by = NULL, claim_expires_at = NULL WHERE run_id = ?",
+            (run_id,),
+        )
+        self.conn.commit()
+
+    def set_agent_run_execution(
+        self,
+        run_id: str,
+        *,
+        job_id: str = "",
+        retry_count: int | None = None,
+        next_attempt_seconds: int | None = None,
+        last_error: str = "",
+    ) -> None:
+        if retry_count is not None:
+            self.conn.execute(
+                "UPDATE agent_runs SET retry_count = ? WHERE run_id = ?",
+                (retry_count, run_id),
+            )
+        if next_attempt_seconds is not None:
+            self.conn.execute(
+                "UPDATE agent_runs SET next_attempt_at = datetime(CURRENT_TIMESTAMP, '+' || ? || ' seconds') WHERE run_id = ?",
+                (int(next_attempt_seconds), run_id),
+            )
+        if job_id:
+            self.conn.execute("UPDATE agent_runs SET job_id = ? WHERE run_id = ?", (job_id, run_id))
+        if last_error:
+            self.conn.execute(
+                "UPDATE agent_runs SET last_error = ? WHERE run_id = ?",
+                (last_error, run_id),
+            )
+        self.conn.commit()

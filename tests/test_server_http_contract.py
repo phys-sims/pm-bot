@@ -181,3 +181,62 @@ def test_graph_ingest_route_requires_repo_and_returns_diagnostics():
     assert ok_status == 200
     assert ok_payload["partial"] is False
     assert ok_payload["calls"] >= 1
+
+
+def test_agent_run_routes_cover_propose_transition_claim_execute():
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    propose_status, propose_payload = _asgi_request(
+        app,
+        "POST",
+        "/agent-runs/propose",
+        body=json.dumps(
+            {
+                "created_by": "alice",
+                "spec": {
+                    "run_id": "http-run-1",
+                    "model": "gpt-5",
+                    "intent": "HTTP runner",
+                    "adapter": "manual",
+                    "requires_approval": True,
+                },
+            }
+        ).encode("utf-8"),
+    )
+    assert propose_status == 200
+    assert propose_payload["status"] == "proposed"
+
+    transition_status, transition_payload = _asgi_request(
+        app,
+        "POST",
+        "/agent-runs/transition",
+        body=json.dumps(
+            {
+                "run_id": "http-run-1",
+                "to_status": "approved",
+                "reason_code": "human_approved",
+                "actor": "reviewer",
+            }
+        ).encode("utf-8"),
+    )
+    assert transition_status == 200
+    assert transition_payload["status"] == "approved"
+
+    claim_status, claim_payload = _asgi_request(
+        app,
+        "POST",
+        "/agent-runs/claim",
+        body=json.dumps({"worker_id": "worker-1", "limit": 1, "lease_seconds": 30}).encode("utf-8"),
+    )
+    assert claim_status == 200
+    assert claim_payload["summary"]["count"] == 1
+
+    execute_status, execute_payload = _asgi_request(
+        app,
+        "POST",
+        "/agent-runs/execute",
+        body=json.dumps({"run_id": "http-run-1", "worker_id": "worker-1"}).encode("utf-8"),
+    )
+    assert execute_status == 200
+    assert execute_payload["status"] == "completed"

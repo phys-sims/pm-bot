@@ -15,6 +15,7 @@ from pm_bot.server.estimator import EstimatorService
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.reporting import ReportingService
+from pm_bot.server.runner import RunnerService
 
 
 class ServerApp:
@@ -29,6 +30,7 @@ class ServerApp:
         self.estimator = EstimatorService(db=self.db)
         self.graph = GraphService(db=self.db)
         self.reporting = ReportingService(db=self.db)
+        self.runner = RunnerService(db=self.db)
 
     def draft(
         self, item_type: str, title: str, body_fields: dict[str, Any] | None = None
@@ -180,6 +182,33 @@ class ServerApp:
         )
         return {"status": "generated", "report_path": str(path)}
 
+    def propose_agent_run(self, spec: dict[str, Any], created_by: str) -> dict[str, Any]:
+        return self.runner.create_run(spec=spec, created_by=created_by)
+
+    def transition_agent_run(
+        self,
+        run_id: str,
+        to_status: str,
+        reason_code: str,
+        actor: str = "",
+    ) -> dict[str, Any]:
+        return self.runner.transition(
+            run_id=run_id, to_status=to_status, reason_code=reason_code, actor=actor
+        )
+
+    def claim_agent_runs(
+        self, worker_id: str, limit: int = 1, lease_seconds: int = 30
+    ) -> list[dict[str, Any]]:
+        return self.runner.claim_ready_runs(
+            worker_id=worker_id, limit=limit, lease_seconds=lease_seconds
+        )
+
+    def execute_claimed_agent_run(self, run_id: str, worker_id: str) -> dict[str, Any]:
+        return self.runner.execute_claimed_run(run_id=run_id, worker_id=worker_id)
+
+    def cancel_agent_run(self, run_id: str, actor: str = "") -> dict[str, Any]:
+        return self.runner.cancel(run_id=run_id, actor=actor)
+
     def observability_metrics(self) -> list[dict[str, Any]]:
         return self.db.list_operation_metrics()
 
@@ -321,6 +350,99 @@ class ASGIServer:
                     requested_by=query_params.get("requested_by", ""),
                 )
                 await self._send_json(send, 200, result)
+                return
+
+            if method == "POST" and path == "/agent-runs/propose":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                spec = payload.get("spec")
+                if not isinstance(spec, dict):
+                    await self._send_json(send, 400, {"error": "missing_spec"})
+                    return
+                created_by = str(payload.get("created_by", "")).strip()
+                if not created_by:
+                    await self._send_json(send, 400, {"error": "missing_created_by"})
+                    return
+                await self._send_json(
+                    send, 200, self.service.propose_agent_run(spec=spec, created_by=created_by)
+                )
+                return
+
+            if method == "POST" and path == "/agent-runs/transition":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                run_id = str(payload.get("run_id", "")).strip()
+                to_status = str(payload.get("to_status", "")).strip()
+                reason_code = str(payload.get("reason_code", "")).strip() or "status_updated"
+                if not run_id or not to_status:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.transition_agent_run(
+                        run_id=run_id,
+                        to_status=to_status,
+                        reason_code=reason_code,
+                        actor=str(payload.get("actor", "")),
+                    ),
+                )
+                return
+
+            if method == "POST" and path == "/agent-runs/claim":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                worker_id = str(payload.get("worker_id", "")).strip()
+                if not worker_id:
+                    await self._send_json(send, 400, {"error": "missing_worker_id"})
+                    return
+                items = self.service.claim_agent_runs(
+                    worker_id=worker_id,
+                    limit=int(payload.get("limit", 1)),
+                    lease_seconds=int(payload.get("lease_seconds", 30)),
+                )
+                await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
+                return
+
+            if method == "POST" and path == "/agent-runs/execute":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                run_id = str(payload.get("run_id", "")).strip()
+                worker_id = str(payload.get("worker_id", "")).strip()
+                if not run_id or not worker_id:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.execute_claimed_agent_run(run_id=run_id, worker_id=worker_id),
+                )
+                return
+
+            if method == "POST" and path == "/agent-runs/cancel":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                run_id = str(payload.get("run_id", "")).strip()
+                if not run_id:
+                    await self._send_json(send, 400, {"error": "missing_run_id"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.cancel_agent_run(
+                        run_id=run_id, actor=str(payload.get("actor", ""))
+                    ),
+                )
                 return
 
             await self._send_json(send, 404, {"error": "not_found"})
