@@ -517,3 +517,72 @@ def test_changeset_and_audit_records_include_single_tenant_context():
     events = app.db.list_audit_events("changeset_proposed")
     assert events
     assert events[0]["tenant_context"]["tenant_mode"] == "single_tenant"
+
+
+def test_board_snapshot_flow_records_snapshot_diff_and_proposals() -> None:
+    app = create_app()
+
+    app.connector.issues[("phys-sims/phys-pipeline", "#1")] = {
+        "issue_ref": "#1",
+        "title": "First",
+        "state": "open",
+        "labels": ["status:todo"],
+        "blocked_by": [],
+        "created_at": "2026-02-20T00:00:00Z",
+    }
+    initial = app.board_snapshot_replanner_flow(
+        repo="phys-sims/phys-pipeline", trigger_source="periodic", run_id="run-snap-1"
+    )
+    assert initial["significant_drift"] is False
+    assert initial["summary"]["proposal_count"] == 0
+
+    app.connector.issues[("phys-sims/phys-pipeline", "#1")] = {
+        "issue_ref": "#1",
+        "title": "First",
+        "state": "open",
+        "labels": ["status:in-progress"],
+        "blocked_by": ["#99"],
+        "created_at": "2026-02-20T00:00:00Z",
+    }
+    app.connector.issues[("phys-sims/phys-pipeline", "#2")] = {
+        "issue_ref": "#2",
+        "title": "Second",
+        "state": "open",
+        "labels": ["status:todo"],
+        "blocked_by": [],
+        "created_at": "2026-02-24T00:00:00Z",
+    }
+
+    result = app.board_snapshot_replanner_flow(
+        repo="phys-sims/phys-pipeline", trigger_source="webhook", run_id="run-snap-2"
+    )
+
+    assert result["significant_drift"] is True
+    assert result["diff"]["triggered_replanner"] is True
+    assert result["summary"]["proposal_count"] >= 1
+
+    pending = app.db.list_pending_changesets()
+    assert len(pending) >= 1
+
+    diff_events = app.db.list_audit_events("board_snapshot_diff_recorded", run_id="run-snap-2")
+    assert diff_events
+
+
+def test_board_snapshot_diff_row_persists_transition_context() -> None:
+    app = create_app()
+    app.connector.issues[("phys-sims/phys-pipeline", "#10")] = {
+        "issue_ref": "#10",
+        "title": "Drift seed",
+        "state": "open",
+        "labels": ["status:todo"],
+    }
+    app.board_snapshot_replanner_flow(repo="phys-sims/phys-pipeline", run_id="run-diff-1")
+
+    app.connector.issues[("phys-sims/phys-pipeline", "#10")]["labels"] = ["status:done"]
+    result = app.board_snapshot_replanner_flow(repo="phys-sims/phys-pipeline", run_id="run-diff-2")
+
+    diff_row = result["diff"]
+    assert diff_row["previous_snapshot_id"] is not None
+    assert diff_row["current_snapshot_id"] is not None
+    assert diff_row["drift_score"] > 0
+    assert diff_row["run_id"] == "run-diff-2"

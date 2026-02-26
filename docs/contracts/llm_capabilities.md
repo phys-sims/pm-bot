@@ -6,6 +6,7 @@ pm-bot capability orchestration is contract-first for all LLM-backed outputs und
 
 - `report_ir_draft` → `pm_bot/schema/llm/report_ir_draft.schema.json`
 - `board_strategy_review` → `pm_bot/schema/llm/board_strategy_review.schema.json`
+- `issue_replanner` → `pm_bot/schema/llm/issue_adjustment_proposal.schema.json`
 - `issue_adjustment_proposal` → `pm_bot/schema/llm/issue_adjustment_proposal.schema.json`
 
 ## Prompt registry and orchestration requirements (normative)

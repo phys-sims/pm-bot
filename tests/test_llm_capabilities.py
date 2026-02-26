@@ -5,6 +5,7 @@ import pytest
 from pm_bot.server.llm.capabilities import (
     BOARD_STRATEGY_REVIEW,
     ISSUE_ADJUSTMENT_PROPOSAL,
+    ISSUE_REPLANNER,
     REPORT_IR_DRAFT,
 )
 from pm_bot.server.llm.providers.base import LLMRequest, LLMResponse
@@ -206,3 +207,17 @@ def test_mutation_capability_accepts_changeset_bundle_contract_when_policy_allow
     assert result["capability_class"] == "mutation_proposal"
     assert result["policy_enforcement"]["requires_human_approval"] is True
     assert result["output"]["schema_version"] == "changeset_bundle_proposal/v1"
+
+
+def test_issue_replanner_requires_mutation_policy_gates() -> None:
+    with pytest.raises(
+        ValueError,
+        match="capability_policy_denied:issue_replanner:changeset_bundle_proposal_required",
+    ):
+        run_capability(
+            ISSUE_REPLANNER,
+            input_payload={"repo": "phys-sims/pm-bot", "diff": {}},
+            context={"provider": "mutation-proposal"},
+            policy={"require_human_approval": True},
+            providers={"mutation-proposal": _MutationProposalProvider()},
+        )

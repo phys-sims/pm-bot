@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 03:13:55 UTC
+- Time (UTC): 03:23:27 UTC
 - By: @openai-codex
-- Scope: Added capability-class policy enforcement in orchestration (`read_only_advice` vs `mutation_proposal`), disallowed direct GitHub-write bypass flags, required ChangesetBundle-compatible mutation proposals with mandatory human approval policy, and added negative bypass tests.
+- Scope: Added board snapshot drift flow with persisted snapshot/diff tables, significant-drift-triggered `issue_replanner` proposal generation routed into pending changeset approvals (inbox-compatible), and tests covering snapshot transition persistence and policy gating.
 
 
 ---
