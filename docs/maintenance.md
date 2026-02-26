@@ -13,11 +13,23 @@ If you change behavior, you must update:
 
 ## What each document type is for
 
+### `README.md`
+
+- **Purpose:** short repository orientation plus install/run commands.
+- **Must include:** links out to canonical docs entrypoints.
+- **Must not include:** deep architecture narratives, roadmap snapshots, or policy prose.
+
+### `docs/README.md`
+
+- **Purpose:** authoritative documentation IA, precedence model, and section ownership.
+- **Update on:** any change to doc hierarchy, precedence, or folder responsibilities.
+- **Rule:** this is the only authoritative location for documentation precedence.
+
 ### `STATUS.md`
 
-- **Purpose:** current truth of “what exists” and “what is compatible”.
+- **Purpose:** operational health and current-state deltas.
 - **Update on:** any behavior, schema, workflow, or canonical input change.
-- **Audience:** agents and maintainers who need a quick, authoritative overview.
+- **Must not include:** durable onboarding guidance, broad architecture overviews, or roadmap prose.
 
 ### `docs/spec/*`
 
@@ -123,7 +135,7 @@ introduce drift:
    - `python scripts/docs_hygiene.py --check-contradictions`
 2. Confirm all local markdown links still resolve:
    - `python scripts/docs_hygiene.py --check-links`
-3. Confirm status/operability gates remain explicit:
+3. Confirm status/operability and entrypoint-boundary gates remain explicit:
    - `python scripts/docs_hygiene.py --check-status-gates`
 4. Re-run `pytest -q tests/test_docs_commands.py tests/test_docs_hygiene.py` before merge.
 
