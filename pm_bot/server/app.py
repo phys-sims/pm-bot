@@ -20,10 +20,11 @@ from pm_bot.server.github_auth import (
 )
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
+from pm_bot.server.llm.capabilities import REPORT_IR_DRAFT
+from pm_bot.server.llm.service import run_capability
 from pm_bot.server.reporting import ReportingService
 from pm_bot.server.report_ir_intake import (
     build_changeset_preview,
-    draft_report_ir_from_natural_text,
     validate_report_ir,
 )
 from pm_bot.server.runner import RunnerService
@@ -310,13 +311,21 @@ class ServerApp:
         generated_at: str = "",
         mode: str = "basic",
     ) -> dict[str, Any]:
-        draft = draft_report_ir_from_natural_text(
-            natural_text=natural_text,
-            org=org,
-            repos=repos,
-            generated_at=generated_at,
-            mode=mode,
+        capability_result = run_capability(
+            REPORT_IR_DRAFT,
+            input_payload={
+                "natural_text": natural_text,
+                "org": org,
+                "repos": repos,
+                "generated_at": generated_at,
+                "mode": mode,
+            },
+            context={"provider": "local", "run_id": run_id, "requested_by": requested_by},
+            policy={"allow_external_llm": False},
         )
+        draft = capability_result.get("output", {}).get("draft")
+        if not isinstance(draft, dict):
+            raise RuntimeError("invalid_capability_output")
         validation = validate_report_ir(draft)
         draft_id = draft.get("report", {}).get("source", {}).get("prompt_hash", "")
         self.db.append_audit_event(
@@ -325,6 +334,11 @@ class ServerApp:
                 "run_id": run_id,
                 "requested_by": requested_by,
                 "draft_id": draft_id,
+                "capability": {
+                    "id": capability_result.get("capability_id", ""),
+                    "provider": capability_result.get("provider", ""),
+                    "model": capability_result.get("model", ""),
+                },
                 "input": {"natural_text": natural_text, "mode": mode},
                 "validation": validation,
             },
