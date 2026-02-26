@@ -12,7 +12,7 @@ This repository uses a strict 3-level docs entrypoint model:
 
 1. **`README.md` (this file):** quick orientation plus install/run commands.
 2. **`docs/README.md`:** canonical documentation IA, precedence rules, and section ownership.
-3. **`STATUS.md`:** current operational health, validation checks, and recent scope deltas.
+3. **`STATUS.md`:** current operational health, compatibility notes, and active change scope bullets.
 
 Primary links:
 

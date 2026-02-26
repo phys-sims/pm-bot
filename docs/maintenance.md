@@ -27,9 +27,10 @@ If you change behavior, you must update:
 
 ### `STATUS.md`
 
-- **Purpose:** operational health and current-state deltas.
+- **Purpose:** operational health snapshot with compatibility state and active change scope only.
+- **Required sections:** `Last updated`, `CI health checklist`, `Current compatibility notes`, `Active change scope bullets`.
 - **Update on:** any behavior, schema, workflow, or canonical input change.
-- **Must not include:** durable onboarding guidance, broad architecture overviews, or roadmap prose.
+- **Must not include:** durable onboarding guidance, broad architecture overviews, roadmap prose, or historical/superseded scope bullet logs.
 
 ### `docs/spec/*`
 
@@ -119,7 +120,7 @@ You MUST update:
 
 Before merging, ask:
 
-- Did we update `STATUS.md` scope bullets?
+- Did we update `STATUS.md` active scope bullets and prune superseded bullets?
 - Did we update the relevant contract doc(s)?
 - If contracts/specs changed, did we verify no contradictory statements remain between `docs/README.md`, `docs/spec/*.md`, and `docs/contracts/*.md`?
 - Did we update example JSON and validation tests?
