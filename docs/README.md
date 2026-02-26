@@ -1,6 +1,25 @@
 # pm-bot documentation IA
+> **Audience:** Contributors and maintainers navigating documentation.
+> **Depth:** L0 (documentation IA).
+> **Source of truth:** Canonical source for documentation architecture and precedence.
+
 
 This file is the canonical documentation information architecture for pm-bot.
+
+## Documentation depth model
+
+- **L0 (orientation):** `README.md`, `docs/README.md`.
+  - Goal: quick navigation and entrypoint constraints.
+  - Target: `<~200` lines per page.
+- **L1 (procedural usage):** `docs/quickstart.md`, `docs/runbooks/*.md`.
+  - Goal: operational steps and verification procedures.
+  - Rule: link to L2/L3 for deep contract/behavior detail instead of duplicating it.
+- **L2 (behavior and integration detail):** `docs/spec/*.md`, `docs/github/*.md`.
+  - Goal: normative behavior and integration semantics.
+  - Rule: use RFC 2119 language (`MUST`, `SHOULD`, `MAY`) consistently.
+- **L3 (normative contract truth):** `docs/contracts/*.md`, `pm_bot/schema/*.json`.
+  - Goal: canonical data-shape and validation truth.
+  - Rule: L3 supersedes L2/L1 when fields, invariants, or schemas conflict.
 
 ## Documentation precedence (authoritative)
 

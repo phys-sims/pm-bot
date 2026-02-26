@@ -1,4 +1,8 @@
 # AgentRunSpec
+> **Audience:** Contributors implementing agent execution planning and controls.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for AgentRunSpec and guardrails.
+
 
 AgentRunSpec is the contract for proposing and executing LLM-powered agent runs safely.
 

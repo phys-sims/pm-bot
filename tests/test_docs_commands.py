@@ -12,7 +12,7 @@ def test_qa_matrix_commands_are_listed_in_ci_jobs() -> None:
         "pytest -q tests/test_runbook_scenarios.py",
         "pytest -q tests/test_golden_issue_fixtures.py tests/test_reporting.py",
         "pytest -q tests/test_docs_commands.py",
-        "python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates",
+        "python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat",
         "pytest -q tests/test_docs_hygiene.py",
     ]
 

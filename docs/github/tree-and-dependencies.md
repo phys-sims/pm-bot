@@ -1,4 +1,8 @@
 # Tree and dependencies
+> **Audience:** Contributors implementing hierarchy and dependency sync.
+> **Depth:** L2 (integration behavior detail).
+> **Source of truth:** Normative derivation and precedence behavior for tree/dependency integration.
+
 
 pm-bot supports a “tree view” of work (epic → feature → task) and an overlay of dependencies (“blocked by”).
 

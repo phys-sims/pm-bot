@@ -1,4 +1,8 @@
 # GitHub Projects field sync contract
+> **Audience:** Contributors editing templates, parsers, and renderer behavior for GitHub Projects sync.
+> **Depth:** L2 (integration contract detail).
+> **Source of truth:** Normative integration constraints for sync compatibility; canonical workflow inputs remain in vendor/dotgithub files.
+
 
 pm-bot relies on a GitHub Projects v2 sync workflow that reads **issue-body headings** (and sometimes labels) and sets Project fields accordingly.
 

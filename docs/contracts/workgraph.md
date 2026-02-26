@@ -1,4 +1,8 @@
 # WorkGraph
+> **Audience:** Contributors producing or validating WorkGraph payloads.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for WorkGraph; MUST-level terms are binding.
+
 
 WorkGraph is pm-bot’s normalized representation of work across repositories:
 

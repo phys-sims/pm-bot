@@ -12,6 +12,9 @@ STATUS_FILE = ROOT / "STATUS.md"
 CHECKLIST_FILE = DOCS_DIR / "ROADMAP_V4_CHECKLIST.md"
 
 _LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+_AUDIENCE_PATTERN = re.compile(r"^> \*\*Audience:\*\* .+")
+_DEPTH_PATTERN = re.compile(r"^> \*\*Depth:\*\* (L[0-3])\b")
+_SOT_PATTERN = re.compile(r"^> \*\*Source of truth:\*\* .+")
 
 
 def _iter_markdown_files() -> list[Path]:
@@ -73,7 +76,7 @@ def check_status_operability_hygiene() -> list[str]:
         "pytest -q",
         "ruff check .",
         "ruff format .",
-        "python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates",
+        "python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat",
     ]
     for command in required_commands:
         if command not in status_text:
@@ -113,6 +116,64 @@ def check_status_operability_hygiene() -> list[str]:
     return errors
 
 
+def _major_docs() -> list[tuple[Path, str]]:
+    docs: list[tuple[Path, str]] = [
+        (ROOT / "README.md", "L0"),
+        (DOCS_DIR / "README.md", "L0"),
+        (DOCS_DIR / "quickstart.md", "L1"),
+    ]
+    for path in sorted((DOCS_DIR / "runbooks").glob("*.md")):
+        docs.append((path, "L1"))
+    for path in sorted((DOCS_DIR / "spec").glob("*.md")):
+        docs.append((path, "L2"))
+    for path in sorted((DOCS_DIR / "github").glob("*.md")):
+        docs.append((path, "L2"))
+    for path in sorted((DOCS_DIR / "contracts").glob("*.md")):
+        docs.append((path, "L3"))
+    return docs
+
+
+def check_doc_depth_metadata() -> list[str]:
+    errors: list[str] = []
+    for path, expected_depth in _major_docs():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if len(lines) < 4:
+            errors.append(
+                f"{path.relative_to(ROOT)} missing required audience/depth/source metadata block."
+            )
+            continue
+
+        audience_line = lines[1] if len(lines) > 1 else ""
+        depth_line = lines[2] if len(lines) > 2 else ""
+        source_line = lines[3] if len(lines) > 3 else ""
+
+        if not _AUDIENCE_PATTERN.match(audience_line):
+            errors.append(f"{path.relative_to(ROOT)} missing '> **Audience:** ...' on line 2.")
+        depth_match = _DEPTH_PATTERN.match(depth_line)
+        if depth_match is None:
+            errors.append(f"{path.relative_to(ROOT)} missing '> **Depth:** Lx ...' on line 3.")
+        elif depth_match.group(1) != expected_depth:
+            errors.append(
+                f"{path.relative_to(ROOT)} has depth {depth_match.group(1)} but expected {expected_depth}."
+            )
+        if not _SOT_PATTERN.match(source_line):
+            errors.append(
+                f"{path.relative_to(ROOT)} missing '> **Source of truth:** ...' on line 4."
+            )
+    return errors
+
+
+def check_l0_bloat() -> list[str]:
+    errors: list[str] = []
+    for path in (ROOT / "README.md", DOCS_DIR / "README.md"):
+        line_count = len(path.read_text(encoding="utf-8").splitlines())
+        if line_count > 200:
+            errors.append(
+                f"{path.relative_to(ROOT)} exceeds L0 size target (<~200 lines): {line_count} lines."
+            )
+    return errors
+
+
 def run_checks(args: argparse.Namespace) -> int:
     errors: list[str] = []
     if args.check_links:
@@ -121,6 +182,10 @@ def run_checks(args: argparse.Namespace) -> int:
         errors.extend(check_contradiction_workflow_docs())
     if args.check_status_gates:
         errors.extend(check_status_operability_hygiene())
+    if args.check_depth_metadata:
+        errors.extend(check_doc_depth_metadata())
+    if args.check_l0_bloat:
+        errors.extend(check_l0_bloat())
 
     if errors:
         for err in errors:
@@ -144,14 +209,34 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate STATUS.md contains required operability gates.",
     )
+    parser.add_argument(
+        "--check-depth-metadata",
+        action="store_true",
+        help="Validate major docs include audience/depth/source metadata with expected tier.",
+    )
+    parser.add_argument(
+        "--check-l0-bloat",
+        action="store_true",
+        help="Validate L0 docs remain under the target line-count budget.",
+    )
     return parser
 
 
 if __name__ == "__main__":
     parser = build_parser()
     ns = parser.parse_args()
-    if not any((ns.check_links, ns.check_contradictions, ns.check_status_gates)):
+    if not any(
+        (
+            ns.check_links,
+            ns.check_contradictions,
+            ns.check_status_gates,
+            ns.check_depth_metadata,
+            ns.check_l0_bloat,
+        )
+    ):
         ns.check_links = True
         ns.check_contradictions = True
         ns.check_status_gates = True
+        ns.check_depth_metadata = True
+        ns.check_l0_bloat = True
     raise SystemExit(run_checks(ns))

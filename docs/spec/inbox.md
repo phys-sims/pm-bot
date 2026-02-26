@@ -1,4 +1,8 @@
 # Triage inbox specification
+> **Audience:** Contributors implementing inbox ingestion and triage.
+> **Depth:** L2 (behavioral specification).
+> **Source of truth:** Normative workflow behavior using RFC 2119 terms; data contracts remain defined at L3.
+
 
 The “inbox” is a unified review queue intended to reduce cognitive load.
 

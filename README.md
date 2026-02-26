@@ -1,4 +1,8 @@
 # pm-bot
+> **Audience:** Contributors and operators evaluating the repository.
+> **Depth:** L0 (orientation).
+> **Source of truth:** Entry-point orientation only; not normative for behavior or contracts.
+
 
 `pm-bot` is an agent-native project management orchestrator for deterministic, schema-driven GitHub issue and project workflows.
 

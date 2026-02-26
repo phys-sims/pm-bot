@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 04:04:52 UTC
+- Time (UTC): 04:12:01 UTC
 - By: @openai-codex
-- Scope: Roadmap lifecycle cleanup: triaged `docs/roadmaps/*`, moved historical artifacts to `docs/archive/roadmaps/`, moved prompt/meta artifacts to `docs/implementation/roadmap-prompts/`, removed stale `web-ui-action-plan.md`, and updated entrypoint docs so only active roadmap artifacts are linked for execution planning.
+- Scope: Documentation depth model rollout: added tiered L0-L3 model in docs IA, added audience/depth/source metadata preambles across major L0-L3 docs, refactored quickstart to link downward, and expanded docs hygiene automation + CI/docs command references to enforce metadata and L0 size guardrails.
 
 ---
 
@@ -19,7 +19,7 @@
 | Tests | `pytest -q` | ✅ | 2026-02-26 | Core suites cover parser/rendering, server behavior, contracts, and docs hygiene. |
 | Lint | `ruff check .` | ✅ | 2026-02-26 | No lint violations. |
 | Format | `ruff format .` | ✅ | 2026-02-26 | Formatting is stable. |
-| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates` | ✅ | 2026-02-26 | Validates markdown links, docs-governance workflow references, and entrypoint boundary gates. |
+| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat` | ✅ | 2026-02-26 | Validates markdown links, docs-governance workflow references, and entrypoint boundary gates. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 | Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | CI validates compose; local shell in this environment may not include Docker CLI. |
 

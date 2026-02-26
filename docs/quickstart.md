@@ -1,164 +1,69 @@
 # Quickstart
+> **Audience:** First-time operators and contributors.
+> **Depth:** L1 (procedural usage).
+> **Source of truth:** Practical onboarding path. For normative behavior, defer to L2 specs and L3 contracts.
 
-This guide is the shortest path to getting value from pm-bot **safely**.
+This guide is the shortest safe path to first value with pm-bot.
 
-pm-bot has two “modes”:
+## 1) Install
 
-- **Local CLI mode** (safe by default): draft/parse/render without writing to GitHub.
-- **Server mode** (powerful, but approval-gated): propose → approve → apply changesets, context packs, graph endpoints, reports.
-
-If you haven’t run pm-bot before, do **Local CLI** first, then follow the **First Human Test** runbook before enabling any real GitHub writes.
-
-## Prerequisites
-
-- Python + pip
-- (Optional) GitHub token for reading issue bodies by URL (`pm parse --url ...`).
-- (Optional) A write-capable GitHub credential (PAT or GitHub App token) **only if** you plan to apply approved changesets.
-
-## Install (editable, dev)
-
-From the repo root:
+From repository root:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-This is also the command pm-bot uses in its CI checklist.
+## 2) Validate local environment
 
-## Sanity checks
-
-Run the same checks listed in `STATUS.md`:
+Run the baseline checks listed in `STATUS.md`:
 
 ```bash
 pytest -q
 ruff check .
 ruff format .
+python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat
 ```
 
-If these pass, your environment is sane.
+## 3) Run pm-bot in local-safe mode
 
-## Local CLI: draft, parse, and tree
-
-> The CLI’s exact flags may evolve. Use `pm --help` to confirm the current interface.
-
-### Draft an issue body from templates
-
-Draft a Feature issue body using canonical headings:
+Use local CLI flows first so nothing writes to GitHub:
 
 ```bash
 pm draft feature --title "Add graph view endpoint" --area "cpa-sim" --priority "P1"
+pm parse --help
+pm tree --help
 ```
 
-Expected result:
-
-- A Markdown issue body that preserves the required headings for Projects sync.
-- Canonical JSON (WorkItem) that round-trips deterministically.
-
-### Parse an existing issue body file
+If CLI flags drift, use:
 
 ```bash
-pm parse --file path/to/issue.md
+pm --help
 ```
 
-Expected result: a validated canonical WorkItem JSON output.
+## 4) Validate GitHub compatibility before any writes
 
-### Parse by URL (supported formats)
+Before write-capable operation, complete the first human validation runbook:
 
-GitHub issue URL (fetches issue body through the GitHub Issues API):
+- [`docs/runbooks/first-human-test.md`](runbooks/first-human-test.md)
 
-```bash
-pm parse --url https://github.com/<owner>/<repo>/issues/<number>
-```
+This is mandatory because Projects sync depends on strict issue-body heading formatting.
 
-Raw markdown URL (fetches markdown directly):
+## 5) Learn deeper contracts only when needed
 
-```bash
-pm parse --url https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>.md
-```
+Use depth-first links instead of this guide as source-of-truth:
 
-`pm parse --url` supports exactly these URL classes:
+- L2 behavior specs: [`docs/spec/product.md`](spec/product.md), [`docs/spec/graph-api.md`](spec/graph-api.md), [`docs/spec/reporting.md`](spec/reporting.md)
+- L2 GitHub integration detail: [`docs/github/projects-field-sync.md`](github/projects-field-sync.md), [`docs/github/auth-and-tokens.md`](github/auth-and-tokens.md), [`docs/github/tree-and-dependencies.md`](github/tree-and-dependencies.md)
+- L3 normative contracts: [`docs/contracts/README.md`](contracts/README.md), [`pm_bot/schema/work_item.schema.json`](../pm_bot/schema/work_item.schema.json)
 
-- `https://github.com/<owner>/<repo>/issues/<number>`
-- `https://.../*.md` (including `raw.githubusercontent.com/.../*.md`)
+## 6) Optional: server mode
 
-GitHub issue URLs require auth for private repos (or repos with restricted access). Set `PM_BOT_GITHUB_TOKEN` (preferred) or `GITHUB_TOKEN` with read access.
-
-### Render canonical JSON back to Markdown
-
-The renderer exists as a library (`pm_bot/github/render_issue_body.py`), and is usually exposed either as:
-
-- a CLI command (often `pm render --json ...`), or
-- as part of `pm draft` and/or `pm parse` output.
-
-If you don’t see an explicit render command, search for “render” in `pm --help` and consult the repo README.
-
-### Print a tree view
-
-```bash
-pm tree --file path/to/epic.md
-```
-
-In v0-style workflows, this is typically derived from checklists in Epic/Feature bodies.
-In later versions, tree edges SHOULD come from GitHub sub-issues and dependencies (see `docs/github/tree-and-dependencies.md`).
-
-## Server mode (local)
-
-pm-bot includes a server app entrypoint (`pm_bot/server/app.py`) and a local backing store (SQLite).
-
-Use the supported ASGI startup path:
+Start API server only after passing local checks and runbook validation:
 
 ```bash
 uvicorn pm_bot.server.app:app --host 127.0.0.1 --port 8000
 ```
 
-Quick smoke checks:
-
-```bash
-python -m pm_bot.server.app --print-startup
-curl -s http://127.0.0.1:8000/health
-```
-
-Allowlist configuration:
-
-- Default v5 org-ready allowlist includes `phys-sims/.github`, `phys-sims/phys-pipeline`, `phys-sims/cpa-sim`, `phys-sims/fiber-link-sim`, `phys-sims/abcdef-sim`, `phys-sims/fiber-link-testbench`, and `phys-sims/phys-sims-utils`.
-- For non-phys-sims usage (or custom subsets), set `PM_BOT_ALLOWED_REPOS`:
-
-```bash
-export PM_BOT_ALLOWED_REPOS="my-org/repo-a,my-org/repo-b"
-```
-
-Example proposal flow over HTTP:
-
-```bash
-curl -s -X POST http://127.0.0.1:8000/changesets/propose \
-  -H "content-type: application/json" \
-  -d '{"operation":"create_issue","repo":"phys-sims/phys-pipeline","payload":{"issue_ref":"#77","title":"Ingest events"}}'
-```
-
-Once running, you typically use the server to:
-
-- ingest issues/webhooks into a local DB
-- generate context packs
-- create proposed changesets
-- approve changesets
-- apply approved changesets to GitHub through a connector
-
-Before you do any “apply”, follow:
-
-- `docs/runbooks/first-human-test.md`
-
-## The single most important constraint
-
-If you use GitHub Projects sync, **Projects fields are populated deterministically from issue-body headings**.
-
-That means the issue body MUST preserve the required headings and value placement rules.
-
-Read this before changing templates or rendering code:
-
-- `docs/github/projects-field-sync.md`
-
-## Next steps
-
-- Run the first end-to-end human validation: `docs/runbooks/first-human-test.md`
-- Read the product spec to understand intended behavior: `docs/spec/product.md`
-
+Server and approval semantics are defined in L2/L3 docs; this page intentionally links out rather than duplicating those rules.

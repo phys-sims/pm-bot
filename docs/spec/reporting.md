@@ -1,4 +1,8 @@
 # Meta reporting specification
+> **Audience:** Contributors implementing reporting and summaries.
+> **Depth:** L2 (behavioral specification).
+> **Source of truth:** Normative reporting behavior using RFC 2119 terms; data contracts remain defined at L3.
+
 
 Meta reports answer: “Are agents and automation helping or hurting?”
 

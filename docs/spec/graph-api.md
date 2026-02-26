@@ -1,4 +1,8 @@
 # Graph and tree API specification
+> **Audience:** API implementers and integrators.
+> **Depth:** L2 (behavioral/integration specification).
+> **Source of truth:** Normative endpoint behavior using RFC 2119 terms; schema contracts at L3 are authoritative for payload shapes.
+
 
 pm-bot exposes graph/tree views via server APIs (and optionally a UI).
 

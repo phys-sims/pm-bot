@@ -1,4 +1,8 @@
 # LLM Capability Output Contracts
+> **Audience:** Contributors implementing model capability declarations.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for LLM capability descriptors.
+
 
 pm-bot capability orchestration is contract-first for all LLM-backed outputs under `pm_bot/schema/llm/`.
 

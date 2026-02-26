@@ -1,4 +1,8 @@
 # Product specification
+> **Audience:** Product, platform, and implementation contributors.
+> **Depth:** L2 (behavioral specification).
+> **Source of truth:** Normative behavioral intent using RFC 2119 terms; contracts at L3 override data-shape details.
+
 
 This document defines **what pm-bot is supposed to do**.
 
