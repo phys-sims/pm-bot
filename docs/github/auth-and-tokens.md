@@ -1,4 +1,8 @@
 # GitHub auth and tokens
+> **Audience:** Operators and developers configuring GitHub credentials.
+> **Depth:** L2 (integration policy detail).
+> **Source of truth:** Normative auth guidance for integration behavior; implementation must preserve approval/safety policies.
+
 
 pm-bot supports multiple runtime modes, and each mode has different authentication needs.
 

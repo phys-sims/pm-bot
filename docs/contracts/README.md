@@ -1,4 +1,8 @@
 # Contracts
+> **Audience:** Contributors authoring or reviewing contract documents.
+> **Depth:** L3 (contract index).
+> **Source of truth:** Canonical index for contract documents; normative contract truth lives in linked L3 docs and schemas.
+
 
 This folder defines pm-bot’s core data contracts.
 

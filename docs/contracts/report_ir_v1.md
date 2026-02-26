@@ -1,4 +1,8 @@
 # ReportIR v1
+> **Audience:** Contributors producing or validating ReportIR payloads.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for ReportIR v1; MUST-level terms are binding.
+
 
 ReportIR (“Report Intermediate Representation”) is the **machine-readable plan format** that pm-bot ingests deterministically.
 

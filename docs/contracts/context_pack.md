@@ -1,4 +1,8 @@
 # ContextPack contract
+> **Audience:** Contributors implementing context-pack composition/consumption.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for ContextPack payloads.
+
 
 ## Versions
 

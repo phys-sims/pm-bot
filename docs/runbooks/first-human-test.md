@@ -1,4 +1,8 @@
 # Runbook: First human test
+> **Audience:** Operators validating end-to-end safety in GitHub environments.
+> **Depth:** L1 (procedural verification).
+> **Source of truth:** Canonical human validation procedure; not a contract definition.
+
 
 This runbook is the minimum manual validation needed to trust pm-bot in real repos.
 

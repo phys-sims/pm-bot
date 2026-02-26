@@ -1,4 +1,8 @@
 # Estimator v1 specification
+> **Audience:** Contributors implementing estimation behavior.
+> **Depth:** L2 (behavioral specification).
+> **Source of truth:** Normative estimator behavior using RFC 2119 terms; does not supersede L3 contracts.
+
 
 pm-bot’s estimator is designed to be:
 

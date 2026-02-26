@@ -11,6 +11,8 @@ def test_docs_hygiene_script_passes() -> None:
             "--check-links",
             "--check-contradictions",
             "--check-status-gates",
+            "--check-depth-metadata",
+            "--check-l0-bloat",
         ],
         check=False,
         capture_output=True,

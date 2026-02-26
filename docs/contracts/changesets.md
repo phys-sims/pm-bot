@@ -1,4 +1,8 @@
 # Changesets and approvals
+> **Audience:** Contributors implementing preview/approval/apply write flows.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative contract semantics for ChangesetBundle and lifecycle states.
+
 
 Changesets are pm-bot’s **only** mechanism for mutating external systems (GitHub Issues, Projects, PRs, etc.).
 
