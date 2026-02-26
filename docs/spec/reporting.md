@@ -121,6 +121,7 @@ The server exposes audit-first operations endpoints for deterministic chain tria
   - optional filter: `run_id`
   - response: `audit_rollups/v1` summary with sample size, completion rate,
     retry/dead-letter/denial counts, queue age mean, and top reason/repo concentration slices.
+  - includes capability/prompt concentration slices derived from `llm_metadata` to support replay when prompt behavior changes.
 - `GET /audit/incident-bundle`
   - optional filters: `run_id`, `actor`
   - response: `incident_bundle/v1` containing run metadata, runbook hooks,
