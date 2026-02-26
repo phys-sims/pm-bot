@@ -3,26 +3,33 @@
   "$id": "pm_bot/schema/llm/issue_adjustment_proposal.schema.json",
   "title": "issue_adjustment_proposal capability output",
   "type": "object",
-  "required": ["issue_ref", "adjustments"],
+  "required": ["schema_version", "bundle"],
   "additionalProperties": false,
   "properties": {
-    "issue_ref": { "type": "string" },
-    "adjustments": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["field", "proposed_value", "reason"],
-        "additionalProperties": false,
-        "properties": {
-          "field": { "type": "string" },
-          "proposed_value": {},
-          "reason": { "type": "string" }
+    "schema_version": { "type": "string", "enum": ["changeset_bundle_proposal/v1"] },
+    "bundle": {
+      "type": "object",
+      "required": ["bundle_id", "requires_human_approval", "changesets"],
+      "additionalProperties": false,
+      "properties": {
+        "bundle_id": { "type": "string" },
+        "requires_human_approval": { "type": "boolean", "const": true },
+        "changesets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["operation", "repo", "target_ref", "idempotency_key", "payload"],
+            "additionalProperties": false,
+            "properties": {
+              "operation": { "type": "string" },
+              "repo": { "type": "string" },
+              "target_ref": { "type": "string" },
+              "idempotency_key": { "type": "string" },
+              "payload": { "type": "object" }
+            }
+          }
         }
       }
-    },
-    "warnings": {
-      "type": "array",
-      "items": { "type": "string" }
     }
   }
 }

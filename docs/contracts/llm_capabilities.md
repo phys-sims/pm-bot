@@ -26,6 +26,24 @@ Validation errors are deterministic records:
 - `code`: stable machine code (`JSON_*`, `SCHEMA_*`)
 - `message`: human-readable description
 
+
+## Capability classes and policy gates (normative)
+
+Capabilities are grouped into explicit classes:
+
+- `read_only_advice` (for example board analysis and prioritization suggestions).
+- `mutation_proposal` (for example issue changes, reparenting, relabeling, body edits).
+
+Orchestration MUST enforce class policy before provider execution:
+
+1. `read_only_advice` runs may use low-friction approval policy (`approval_level=low`).
+2. `mutation_proposal` runs MUST set `proposal_output_changeset_bundle=true` and `require_human_approval=true`.
+3. `mutation_proposal` outputs MUST validate as ChangesetBundle-compatible proposal payloads.
+4. No capability may enable direct GitHub write paths (`allow_direct_github_writes` is denied).
+
+Policy violations return deterministic error codes with prefix
+`capability_policy_denied:<capability_id>:...`.
+
 ## Error response contract
 
 If capability output fails parse/schema validation, orchestration raises
