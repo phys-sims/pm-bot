@@ -57,10 +57,10 @@ If you change behavior, you must update:
 - **Purpose:** design decisions (“why we did it this way”).
 - **Update on:** architecture changes, trade-off choices, long-lived decisions.
 
-### Roadmaps (`agent-roadmap-*.md`, `future-roadmap.md`, `human-roadmap.md`)
+### Roadmaps (`docs/roadmaps/`, `docs/archive/roadmaps/`, `docs/implementation/roadmap-prompts/`)
 
-- **Purpose:** planning and sequencing.
-- **Update on:** priorities/timelines; not used as a contract.
+- **Purpose:** planning and sequencing support.
+- **Update on:** priorities/timelines and roadmap lifecycle transitions; not used as a contract.
 
 ## Required updates by change type
 

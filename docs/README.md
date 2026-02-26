@@ -16,9 +16,11 @@ When documents conflict, resolve in this order:
 3. **Behavior specs** (`docs/spec/*.md`)
 4. **Architecture decisions** (`docs/adr/INDEX.md` + relevant ADRs)
 5. **Operational status** (`STATUS.md`)
-6. **Planning artifacts** (`docs/roadmaps/*.md`)
+6. **Planning artifacts** (`docs/roadmaps/*.md`, `docs/archive/roadmaps/*.md`, `docs/implementation/roadmap-prompts/*.md`)
 
 Roadmaps are planning aids only and MUST NOT override higher-precedence sources.
+
+**Roadmaps policy:** roadmap documents follow a lifecycle of **active → archived → removed**. Active plans stay in `docs/roadmaps/`; once superseded, they move to `docs/archive/roadmaps/` for historical reference; stale artifacts with no ongoing planning value are removed.
 
 ## Section ownership by folder
 
@@ -28,7 +30,9 @@ Roadmaps are planning aids only and MUST NOT override higher-precedence sources.
 - `docs/adr/` — long-lived architecture/policy decisions and rationale.
 - `docs/runbooks/` — repeatable operational/human test procedures.
 - `docs/examples/` — concrete contract payload examples tied to schemas/specs.
-- `docs/roadmaps/` — sequencing/planning only (non-normative).
+- `docs/roadmaps/` — active sequencing/planning only (non-normative).
+- `docs/archive/roadmaps/` — archived planning history (non-authoritative).
+- `docs/implementation/roadmap-prompts/` — internal roadmap prompt/meta-generation assets (tooling support only).
 - `docs/qa-matrix.md` — test and CI command mapping.
 - `docs/maintenance.md` — documentation governance and hygiene workflows.
 
@@ -44,7 +48,8 @@ Roadmaps are planning aids only and MUST NOT override higher-precedence sources.
   - [`docs/github/projects-field-sync.md`](github/projects-field-sync.md)
   - [`docs/github/auth-and-tokens.md`](github/auth-and-tokens.md)
   - [`docs/github/tree-and-dependencies.md`](github/tree-and-dependencies.md)
-- Runbook: [`docs/runbooks/first-human-test.md`](runbooks/first-human-test.md)
+- Active planning index: [`docs/roadmaps/README.md`](roadmaps/README.md)
+- Archived planning index: [`docs/archive/roadmaps/README.md`](archive/roadmaps/README.md)
 - Operational health: [`STATUS.md`](../STATUS.md)
 
 ## Entry-point boundary rules
