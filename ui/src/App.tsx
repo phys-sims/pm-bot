@@ -3,9 +3,10 @@ import { AgentRunsPage } from "./AgentRunsPage";
 import { AuditOpsPage } from "./AuditOpsPage";
 import { ContextPackPage } from "./ContextPackPage";
 import { InboxPage } from "./InboxPage";
+import { PlanIntakePage } from "./PlanIntakePage";
 import { TreePage } from "./TreePage";
 
-type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps";
+type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps" | "planIntake";
 
 type RouteConfig = {
   key: RouteKey;
@@ -19,6 +20,7 @@ const ROUTES: RouteConfig[] = [
   { key: "agentRuns", label: "Agent Runs", render: () => <AgentRunsPage /> },
   { key: "contextPack", label: "Context Pack", render: () => <ContextPackPage /> },
   { key: "auditOps", label: "Audit Ops", render: () => <AuditOpsPage /> },
+  { key: "planIntake", label: "Plan Intake", render: () => <PlanIntakePage /> },
 ];
 
 export function App() {

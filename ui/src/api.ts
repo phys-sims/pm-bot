@@ -164,6 +164,69 @@ export type AuditIncidentBundleResponse = {
   rollups: AuditRollupsResponse;
 };
 
+export type ReportIrValidation = {
+  errors: string[];
+  warnings: string[];
+};
+
+export type ReportIrIntakeResponse = {
+  draft_id: string;
+  schema_version: "report_ir_draft/v1";
+  draft: Record<string, unknown>;
+  validation: ReportIrValidation;
+};
+
+export type ReportIrConfirmResponse = {
+  status: "confirmed";
+  confirmation_id: string;
+  validation: ReportIrValidation;
+  report_ir: Record<string, unknown>;
+};
+
+export type ReportIrPreviewItem = {
+  repo: string;
+  operation: string;
+  stable_id: string;
+  target_ref: string;
+  payload: Record<string, unknown>;
+  idempotency_key: string;
+};
+
+export type ReportIrPreviewResponse = {
+  schema_version: "changeset_preview/v1";
+  items: ReportIrPreviewItem[];
+  summary: {
+    count: number;
+    repos: string[];
+    repo_count: number;
+  };
+};
+
+export type ReportIrProposalResponse = {
+  schema_version: "report_ir_proposal/v1";
+  items: Array<{
+    stable_id: string;
+    repo: string;
+    idempotency_key: string;
+    changeset: {
+      id: number;
+      operation: string;
+      repo: string;
+      payload: Record<string, unknown>;
+      status: string;
+      requested_by: string;
+      approved_by: string;
+      run_id: string;
+      target_ref: string;
+      idempotency_key: string;
+      reason_code: string;
+      created_at: string;
+      updated_at: string;
+    };
+  }>;
+  summary: { count: number };
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly reasonCode: string;
@@ -300,4 +363,36 @@ export const api = {
     if (params.actor) q.set("actor", params.actor);
     return httpJson<AuditIncidentBundleResponse>(`/audit/incident-bundle${q.toString() ? `?${q.toString()}` : ""}`);
   },
+  reportIrIntake: (params: {
+    natural_text: string;
+    org: string;
+    repos?: string[];
+    run_id?: string;
+    requested_by?: string;
+    generated_at?: string;
+  }) =>
+    httpJson<ReportIrIntakeResponse>("/report-ir/intake", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  reportIrConfirm: (params: {
+    report_ir: Record<string, unknown>;
+    confirmed_by: string;
+    run_id?: string;
+    draft?: Record<string, unknown>;
+  }) =>
+    httpJson<ReportIrConfirmResponse>("/report-ir/confirm", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  reportIrPreview: (params: { report_ir: Record<string, unknown>; run_id?: string }) =>
+    httpJson<ReportIrPreviewResponse>("/report-ir/preview", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  reportIrPropose: (params: { report_ir: Record<string, unknown>; run_id: string; requested_by: string }) =>
+    httpJson<ReportIrProposalResponse>("/report-ir/propose", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
 };
