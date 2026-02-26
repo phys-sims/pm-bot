@@ -536,7 +536,9 @@ def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
     assert "retry_storm" in bundle_payload["runbook_hooks"]
 
 
-def test_report_ir_intake_rejects_invalid_capability_output_before_proposal(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_report_ir_intake_rejects_invalid_capability_output_before_proposal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     service = ServerApp()
     app = ASGIServer(service=service)
 
@@ -549,8 +551,16 @@ def test_report_ir_intake_rejects_invalid_capability_output_before_proposal(monk
     def _fake_run_capability(*args, **kwargs):
         raise app_module.CapabilityOutputValidationError(
             "report_ir_draft",
-            errors=[{"path": "$.draft", "code": "SCHEMA_REQUIRED", "message": "'draft' is a required property"}],
-            warnings=[{"path": "$", "code": "COERCION_DISABLED", "message": "no coercion attempted"}],
+            errors=[
+                {
+                    "path": "$.draft",
+                    "code": "SCHEMA_REQUIRED",
+                    "message": "'draft' is a required property",
+                }
+            ],
+            warnings=[
+                {"path": "$", "code": "COERCION_DISABLED", "message": "no coercion attempted"}
+            ],
         )
 
     monkeypatch.setattr(service, "propose_report_ir_changesets", _fake_propose)

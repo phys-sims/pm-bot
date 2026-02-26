@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 01:32:37 UTC
+- Time (UTC): 01:48:07 UTC
 - By: @openai-codex
-- Scope: Added capability output JSON-schema contracts under `pm_bot/schema/llm/`, enforced JSON-only parse + schema validation in LLM orchestration with structured errors/warnings, documented the contract, and added server/unit tests verifying invalid model output is rejected before proposal writes.
+- Scope: Addressed CI formatting feedback by applying repository formatting (`ruff format .`) for HTTP contract tests and re-validated lint + server contract tests.
 
 
 ---
