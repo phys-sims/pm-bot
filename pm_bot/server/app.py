@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import parse_qs
 from typing import Any
 
@@ -20,7 +20,7 @@ from pm_bot.server.github_auth import (
 )
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
-from pm_bot.server.llm.capabilities import REPORT_IR_DRAFT
+from pm_bot.server.llm.capabilities import ISSUE_REPLANNER, REPORT_IR_DRAFT
 from pm_bot.server.llm.service import CapabilityOutputValidationError, run_capability
 from pm_bot.server.reporting import ReportingService
 from pm_bot.server.report_ir_intake import (
@@ -459,6 +459,288 @@ class ServerApp:
             "schema_version": "report_ir_proposal/v1",
             "items": items,
             "summary": {"count": len(items)},
+        }
+
+    def _utc_now_iso(self) -> str:
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    def _extract_board_status(self, issue: dict[str, Any]) -> str:
+        state = str(issue.get("state", "")).strip().lower()
+        if state == "closed":
+            return "closed"
+        status = str(issue.get("status", issue.get("project_status", ""))).strip().lower()
+        if status:
+            return status
+        labels = issue.get("labels", [])
+        if isinstance(labels, list):
+            for label in labels:
+                label_str = str(label).strip().lower()
+                if label_str.startswith("status:"):
+                    return label_str.split(":", 1)[1].strip()
+        return "open"
+
+    def _extract_blockers(self, issue: dict[str, Any]) -> list[str]:
+        blockers = issue.get("blocked_by", issue.get("blockers", []))
+        if isinstance(blockers, str):
+            entries = [token.strip() for token in blockers.split(",") if token.strip()]
+            return sorted(set(entries))
+        if isinstance(blockers, list):
+            entries = [str(token).strip() for token in blockers if str(token).strip()]
+            return sorted(set(entries))
+        return []
+
+    def _compute_issue_age_days(self, issue: dict[str, Any], now_iso: str) -> float:
+        opened_at = str(issue.get("created_at", issue.get("opened_at", ""))).strip()
+        if not opened_at:
+            return 0.0
+        try:
+            start_dt = datetime.fromisoformat(opened_at.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+        except ValueError:
+            return 0.0
+        if end_dt < start_dt:
+            return 0.0
+        return round((end_dt - start_dt).total_seconds() / 86400.0, 2)
+
+    def capture_board_snapshot(
+        self, repo: str, trigger_source: str, run_id: str = ""
+    ) -> dict[str, Any]:
+        now_iso = self._utc_now_iso()
+        issues = self.list_issues(repo=repo)
+        normalized_issues: list[dict[str, Any]] = []
+        for issue in sorted(issues, key=lambda row: str(row.get("issue_ref", row.get("id", "")))):
+            issue_ref = str(issue.get("issue_ref", issue.get("id", ""))).strip()
+            if not issue_ref:
+                continue
+            normalized_issues.append(
+                {
+                    "issue_ref": issue_ref,
+                    "title": str(issue.get("title", "")),
+                    "status": self._extract_board_status(issue),
+                    "blockers": self._extract_blockers(issue),
+                    "age_days": self._compute_issue_age_days(issue, now_iso),
+                }
+            )
+        snapshot_payload = {
+            "schema_version": "board_snapshot/v1",
+            "repo": repo,
+            "captured_at": now_iso,
+            "issues": normalized_issues,
+            "summary": {
+                "issue_count": len(normalized_issues),
+                "blocked_count": len([row for row in normalized_issues if row["blockers"]]),
+                "status_counts": {
+                    status: len([row for row in normalized_issues if row["status"] == status])
+                    for status in sorted({row["status"] for row in normalized_issues})
+                },
+            },
+        }
+        return self.db.store_board_snapshot(
+            repo=repo, trigger_source=trigger_source, snapshot=snapshot_payload, run_id=run_id
+        )
+
+    def _diff_board_snapshots(
+        self, previous_snapshot: dict[str, Any] | None, current_snapshot: dict[str, Any]
+    ) -> tuple[dict[str, Any], float]:
+        current_items = {
+            row["issue_ref"]: row
+            for row in current_snapshot.get("snapshot", {}).get("issues", [])
+            if isinstance(row, dict) and str(row.get("issue_ref", "")).strip()
+        }
+        previous_items = {
+            row["issue_ref"]: row
+            for row in (previous_snapshot or {}).get("snapshot", {}).get("issues", [])
+            if isinstance(row, dict) and str(row.get("issue_ref", "")).strip()
+        }
+
+        added_refs = sorted(set(current_items) - set(previous_items))
+        removed_refs = sorted(set(previous_items) - set(current_items))
+
+        status_changes: list[dict[str, Any]] = []
+        blocker_changes: list[dict[str, Any]] = []
+        age_changes: list[dict[str, Any]] = []
+        for issue_ref in sorted(set(current_items) & set(previous_items)):
+            prev = previous_items[issue_ref]
+            curr = current_items[issue_ref]
+            if str(prev.get("status", "")) != str(curr.get("status", "")):
+                status_changes.append(
+                    {
+                        "issue_ref": issue_ref,
+                        "from": str(prev.get("status", "")),
+                        "to": str(curr.get("status", "")),
+                    }
+                )
+            prev_blockers = sorted(
+                {str(item) for item in prev.get("blockers", []) if str(item).strip()}
+            )
+            curr_blockers = sorted(
+                {str(item) for item in curr.get("blockers", []) if str(item).strip()}
+            )
+            if prev_blockers != curr_blockers:
+                blocker_changes.append(
+                    {
+                        "issue_ref": issue_ref,
+                        "from": prev_blockers,
+                        "to": curr_blockers,
+                    }
+                )
+            prev_age = float(prev.get("age_days", 0.0) or 0.0)
+            curr_age = float(curr.get("age_days", 0.0) or 0.0)
+            if abs(curr_age - prev_age) >= 3.0:
+                age_changes.append(
+                    {
+                        "issue_ref": issue_ref,
+                        "from": prev_age,
+                        "to": curr_age,
+                        "delta": round(curr_age - prev_age, 2),
+                    }
+                )
+
+        drift_score = float(
+            len(added_refs)
+            + len(removed_refs)
+            + len(status_changes)
+            + len(blocker_changes)
+            + (0.5 * len(age_changes))
+        )
+        diff = {
+            "schema_version": "board_snapshot_diff/v1",
+            "repo": current_snapshot.get("repo", ""),
+            "previous_snapshot_id": previous_snapshot.get("id") if previous_snapshot else None,
+            "current_snapshot_id": current_snapshot.get("id"),
+            "added_issue_refs": added_refs,
+            "removed_issue_refs": removed_refs,
+            "status_changes": status_changes,
+            "blocker_changes": blocker_changes,
+            "age_changes": age_changes,
+        }
+        return diff, round(drift_score, 2)
+
+    def _is_significant_board_drift(self, diff: dict[str, Any], drift_score: float) -> bool:
+        if drift_score >= 3.0:
+            return True
+        if len(diff.get("blocker_changes", [])) >= 1 and drift_score >= 2.0:
+            return True
+        return False
+
+    def _propose_issue_adjustments_from_replanner(
+        self,
+        *,
+        repo: str,
+        run_id: str,
+        requested_by: str,
+        previous_snapshot_id: int | None,
+        current_snapshot_id: int,
+        diff: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        capability_result = run_capability(
+            ISSUE_REPLANNER,
+            input_payload={
+                "repo": repo,
+                "previous_snapshot_id": previous_snapshot_id,
+                "current_snapshot_id": current_snapshot_id,
+                "diff": diff,
+            },
+            context={"provider": "local", "run_id": run_id, "requested_by": requested_by},
+            policy={
+                "proposal_output_changeset_bundle": True,
+                "require_human_approval": True,
+            },
+        )
+        self.db.append_audit_event(
+            "issue_replanner_triggered",
+            {
+                "run_id": run_id,
+                "requested_by": requested_by,
+                "repo": repo,
+                "capability_id": capability_result.get("capability_id", ""),
+                "previous_snapshot_id": previous_snapshot_id,
+                "current_snapshot_id": current_snapshot_id,
+            },
+            tenant_context=self._request_tenant_context(repo=repo),
+        )
+        output = capability_result.get("output", {})
+        bundle = output.get("bundle", {}) if isinstance(output, dict) else {}
+        proposed_items: list[dict[str, Any]] = []
+        for row in bundle.get("changesets", []):
+            if not isinstance(row, dict):
+                continue
+            proposed = self.propose_changeset(
+                operation=str(row.get("operation", "")).strip(),
+                repo=str(row.get("repo", repo)).strip() or repo,
+                target_ref=str(row.get("target_ref", "")).strip(),
+                payload=row.get("payload", {}) if isinstance(row.get("payload"), dict) else {},
+                idempotency_key=str(row.get("idempotency_key", "")).strip(),
+                run_id=run_id,
+                tenant_context=self._request_tenant_context(repo=repo),
+            )
+            proposed_items.append({"proposal": row, "changeset": proposed})
+        return proposed_items
+
+    def board_snapshot_replanner_flow(
+        self,
+        *,
+        repo: str,
+        trigger_source: str = "periodic",
+        run_id: str = "",
+        requested_by: str = "system",
+    ) -> dict[str, Any]:
+        previous_snapshot = self.db.latest_board_snapshot(repo=repo)
+        current_snapshot = self.capture_board_snapshot(
+            repo=repo, trigger_source=trigger_source, run_id=run_id
+        )
+        diff_payload, drift_score = self._diff_board_snapshots(previous_snapshot, current_snapshot)
+        significant_drift = self._is_significant_board_drift(diff_payload, drift_score)
+
+        proposals: list[dict[str, Any]] = []
+        if significant_drift and previous_snapshot is not None:
+            proposals = self._propose_issue_adjustments_from_replanner(
+                repo=repo,
+                run_id=run_id,
+                requested_by=requested_by,
+                previous_snapshot_id=previous_snapshot.get("id"),
+                current_snapshot_id=current_snapshot.get("id", 0),
+                diff=diff_payload,
+            )
+
+        diff_row = self.db.store_board_snapshot_diff(
+            repo=repo,
+            previous_snapshot_id=(int(previous_snapshot["id"]) if previous_snapshot else None),
+            current_snapshot_id=int(current_snapshot["id"]),
+            drift_score=drift_score,
+            significant_drift=significant_drift,
+            triggered_replanner=bool(proposals),
+            proposal_count=len(proposals),
+            diff=diff_payload,
+            run_id=run_id,
+        )
+
+        self.db.append_audit_event(
+            "board_snapshot_diff_recorded",
+            {
+                "run_id": run_id,
+                "repo": repo,
+                "trigger_source": trigger_source,
+                "previous_snapshot_id": previous_snapshot.get("id") if previous_snapshot else None,
+                "current_snapshot_id": current_snapshot.get("id"),
+                "diff_id": diff_row.get("id"),
+                "drift_score": drift_score,
+                "significant_drift": significant_drift,
+                "proposal_count": len(proposals),
+            },
+            tenant_context=self._request_tenant_context(repo=repo),
+        )
+        return {
+            "schema_version": "board_replanner_flow/v1",
+            "repo": repo,
+            "snapshot": current_snapshot,
+            "diff": diff_row,
+            "significant_drift": significant_drift,
+            "proposals": proposals,
+            "summary": {
+                "proposal_count": len(proposals),
+                "triggered_replanner": bool(proposals),
+            },
         }
 
     def observability_metrics(self) -> list[dict[str, Any]]:

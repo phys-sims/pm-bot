@@ -134,6 +134,31 @@ class OrchestratorDB:
                 report_path TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS board_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo TEXT NOT NULL,
+                trigger_source TEXT NOT NULL,
+                run_id TEXT NOT NULL DEFAULT '',
+                snapshot_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS board_snapshot_diffs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo TEXT NOT NULL,
+                previous_snapshot_id INTEGER,
+                current_snapshot_id INTEGER NOT NULL,
+                drift_score REAL NOT NULL,
+                significant_drift INTEGER NOT NULL,
+                triggered_replanner INTEGER NOT NULL,
+                proposal_count INTEGER NOT NULL DEFAULT 0,
+                diff_json TEXT NOT NULL,
+                run_id TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(previous_snapshot_id) REFERENCES board_snapshots(id),
+                FOREIGN KEY(current_snapshot_id) REFERENCES board_snapshots(id)
+            );
             """
         )
         self.conn.execute(
@@ -605,6 +630,144 @@ class OrchestratorDB:
             "SELECT id FROM changesets WHERE status = 'pending' ORDER BY id ASC"
         )
         return [self.get_changeset(int(row[0])) for row in rows if row is not None]
+
+    def store_board_snapshot(
+        self,
+        *,
+        repo: str,
+        trigger_source: str,
+        snapshot: dict[str, Any],
+        run_id: str = "",
+    ) -> dict[str, Any]:
+        cur = self.conn.execute(
+            """
+            INSERT INTO board_snapshots (repo, trigger_source, run_id, snapshot_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (repo, trigger_source, run_id, json.dumps(snapshot, sort_keys=True)),
+        )
+        self.conn.commit()
+        snapshot_id = int(cur.lastrowid)
+        return self.get_board_snapshot(snapshot_id) or {}
+
+    def get_board_snapshot(self, snapshot_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT id, repo, trigger_source, run_id, snapshot_json, created_at
+            FROM board_snapshots
+            WHERE id = ?
+            """,
+            (snapshot_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "repo": str(row["repo"]),
+            "trigger_source": str(row["trigger_source"]),
+            "run_id": str(row["run_id"] or ""),
+            "snapshot": json.loads(row["snapshot_json"]),
+            "created_at": str(row["created_at"]),
+        }
+
+    def latest_board_snapshot(self, repo: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT id
+            FROM board_snapshots
+            WHERE repo = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (repo,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self.get_board_snapshot(int(row["id"]))
+
+    def store_board_snapshot_diff(
+        self,
+        *,
+        repo: str,
+        previous_snapshot_id: int | None,
+        current_snapshot_id: int,
+        drift_score: float,
+        significant_drift: bool,
+        triggered_replanner: bool,
+        proposal_count: int,
+        diff: dict[str, Any],
+        run_id: str = "",
+    ) -> dict[str, Any]:
+        cur = self.conn.execute(
+            """
+            INSERT INTO board_snapshot_diffs (
+              repo,
+              previous_snapshot_id,
+              current_snapshot_id,
+              drift_score,
+              significant_drift,
+              triggered_replanner,
+              proposal_count,
+              diff_json,
+              run_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                repo,
+                previous_snapshot_id,
+                current_snapshot_id,
+                float(drift_score),
+                1 if significant_drift else 0,
+                1 if triggered_replanner else 0,
+                int(proposal_count),
+                json.dumps(diff, sort_keys=True),
+                run_id,
+            ),
+        )
+        self.conn.commit()
+        diff_id = int(cur.lastrowid)
+        return self.get_board_snapshot_diff(diff_id) or {}
+
+    def get_board_snapshot_diff(self, diff_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT
+              id,
+              repo,
+              previous_snapshot_id,
+              current_snapshot_id,
+              drift_score,
+              significant_drift,
+              triggered_replanner,
+              proposal_count,
+              diff_json,
+              run_id,
+              created_at
+            FROM board_snapshot_diffs
+            WHERE id = ?
+            """,
+            (diff_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "repo": str(row["repo"]),
+            "previous_snapshot_id": (
+                int(row["previous_snapshot_id"])
+                if row["previous_snapshot_id"] is not None
+                else None
+            ),
+            "current_snapshot_id": int(row["current_snapshot_id"]),
+            "drift_score": float(row["drift_score"]),
+            "significant_drift": bool(row["significant_drift"]),
+            "triggered_replanner": bool(row["triggered_replanner"]),
+            "proposal_count": int(row["proposal_count"]),
+            "diff": json.loads(row["diff_json"]),
+            "run_id": str(row["run_id"] or ""),
+            "created_at": str(row["created_at"]),
+        }
 
     def list_audit_events(
         self,

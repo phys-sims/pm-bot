@@ -10,6 +10,7 @@ from typing import Any
 from pm_bot.server.llm.capabilities import (
     BOARD_STRATEGY_REVIEW,
     ISSUE_ADJUSTMENT_PROPOSAL,
+    ISSUE_REPLANNER,
     MUTATION_PROPOSAL,
     READ_ONLY_ADVICE,
     REPORT_IR_DRAFT,
@@ -66,6 +67,20 @@ CAPABILITY_REGISTRY: dict[str, CapabilityDefinition] = {
         guardrails={
             "capability_class": READ_ONLY_ADVICE,
             "approval_level": "low",
+            "allow_direct_github_writes": False,
+        },
+    ),
+    ISSUE_REPLANNER: CapabilityDefinition(
+        capability_id=ISSUE_REPLANNER,
+        capability_class=MUTATION_PROPOSAL,
+        prompt_template=_load_prompt("issue_adjustment_proposal.v1.md"),
+        prompt_version="v1",
+        schema_version="changeset_bundle_proposal/v1",
+        output_schema=_load_schema("issue_adjustment_proposal.schema.json"),
+        guardrails={
+            "capability_class": MUTATION_PROPOSAL,
+            "requires_changeset_bundle": True,
+            "requires_human_approval": True,
             "allow_direct_github_writes": False,
         },
     ),

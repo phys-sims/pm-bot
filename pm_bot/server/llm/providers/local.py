@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pm_bot.server.llm.capabilities import REPORT_IR_DRAFT
+from pm_bot.server.llm.capabilities import (
+    ISSUE_ADJUSTMENT_PROPOSAL,
+    ISSUE_REPLANNER,
+    REPORT_IR_DRAFT,
+)
 from pm_bot.server.llm.providers.base import LLMProvider, LLMRequest, LLMResponse
 from pm_bot.server.report_ir_intake import draft_report_ir_from_natural_text
 
@@ -16,10 +20,12 @@ class LocalLLMProvider(LLMProvider):
     name = "local"
 
     def run(self, request: LLMRequest) -> LLMResponse:
-        if request.capability_id != REPORT_IR_DRAFT:
+        if request.capability_id == REPORT_IR_DRAFT:
+            output = self._run_report_ir_draft(request)
+        elif request.capability_id in {ISSUE_ADJUSTMENT_PROPOSAL, ISSUE_REPLANNER}:
+            output = self._run_issue_adjustment_proposal(request)
+        else:
             raise ValueError(f"unsupported_local_capability:{request.capability_id}")
-
-        output = self._run_report_ir_draft(request)
         return LLMResponse(
             output=output,
             model="deterministic-rule-engine",
@@ -47,3 +53,42 @@ class LocalLLMProvider(LLMProvider):
             mode=mode,
         )
         return {"draft": draft}
+
+    def _run_issue_adjustment_proposal(self, request: LLMRequest) -> dict[str, Any]:
+        repo = str(request.input_payload.get("repo", "")).strip()
+        diff = request.input_payload.get("diff", {})
+        status_changes = diff.get("status_changes", []) if isinstance(diff, dict) else []
+        blocker_changes = diff.get("blocker_changes", []) if isinstance(diff, dict) else []
+
+        changesets: list[dict[str, Any]] = []
+        for row in [*status_changes, *blocker_changes]:
+            if not isinstance(row, dict):
+                continue
+            issue_ref = str(row.get("issue_ref", "")).strip()
+            if not issue_ref:
+                continue
+            idempotency_key = (
+                f"issue-replanner:{repo}:{issue_ref}:"
+                f"{str(request.input_payload.get('current_snapshot_id', ''))}"
+            )
+            changesets.append(
+                {
+                    "operation": "update_issue",
+                    "repo": repo,
+                    "target_ref": issue_ref,
+                    "idempotency_key": idempotency_key,
+                    "payload": {
+                        "proposal_reason": "board_drift_replanner",
+                        "suggested_action": "review_scope_and_dependencies",
+                    },
+                }
+            )
+
+        return {
+            "schema_version": "changeset_bundle_proposal/v1",
+            "bundle": {
+                "bundle_id": f"issue-replanner-{request.input_payload.get('current_snapshot_id', '0')}",
+                "requires_human_approval": True,
+                "changesets": changesets,
+            },
+        }
