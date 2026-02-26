@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 03:23:27 UTC
+- Time (UTC): 03:32:36 UTC
 - By: @openai-codex
-- Scope: Added board snapshot drift flow with persisted snapshot/diff tables, significant-drift-triggered `issue_replanner` proposal generation routed into pending changeset approvals (inbox-compatible), and tests covering snapshot transition persistence and policy gating.
+- Scope: Extended weekly reporting with LLM feature performance counters (acceptance, override/edit, false-positive, downstream outcomes), added per-capability metric breakdowns, and aligned reporting spec/tests/fixtures to the updated report output.
 
 
 ---
