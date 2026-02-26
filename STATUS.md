@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 03:42:11 UTC
+- Time (UTC): 03:47:45 UTC
 - By: @openai-codex
-- Scope: Established strict 3-level documentation entrypoints (`README.md`, `docs/README.md`, `STATUS.md`), moved durable docs governance into docs IA/maintenance, and trimmed status content to operational health + current-state deltas only.
+- Scope: Follow-up hygiene fix: applied `ruff format` to `scripts/docs_hygiene.py`, re-ran lint/docs-hygiene/doc-command tests, and confirmed the strict 3-level docs entrypoint enforcement remains green.
 
 ---
 

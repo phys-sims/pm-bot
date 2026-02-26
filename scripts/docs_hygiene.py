@@ -103,7 +103,9 @@ def check_status_operability_hygiene() -> list[str]:
         errors.append("docs/README.md missing authoritative documentation precedence section.")
 
     if "Documentation precedence" in readme_text:
-        errors.append("README.md must not define documentation precedence; link to docs/README.md instead.")
+        errors.append(
+            "README.md must not define documentation precedence; link to docs/README.md instead."
+        )
 
     if "Roadmap snapshot" in readme_text or "Core concepts" in readme_text:
         errors.append("README.md must stay concise and avoid deep narrative sections.")
