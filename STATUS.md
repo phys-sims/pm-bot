@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 03:47:45 UTC
+- Time (UTC): 04:04:52 UTC
 - By: @openai-codex
-- Scope: Follow-up hygiene fix: applied `ruff format` to `scripts/docs_hygiene.py`, re-ran lint/docs-hygiene/doc-command tests, and confirmed the strict 3-level docs entrypoint enforcement remains green.
+- Scope: Roadmap lifecycle cleanup: triaged `docs/roadmaps/*`, moved historical artifacts to `docs/archive/roadmaps/`, moved prompt/meta artifacts to `docs/implementation/roadmap-prompts/`, removed stale `web-ui-action-plan.md`, and updated entrypoint docs so only active roadmap artifacts are linked for execution planning.
 
 ---
 
@@ -16,14 +16,23 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-26 | Core suites cover parser/rendering, server behavior, contracts, and docs hygiene.
-| Lint | `ruff check .` | ✅ | 2026-02-26 | No lint violations.
-| Format | `ruff format .` | ✅ | 2026-02-26 | Formatting is stable.
-| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates` | ✅ | 2026-02-26 | Validates markdown links, docs-governance workflow references, and entrypoint boundary gates.
-| Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed.
-| Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | CI validates compose; local shell in this environment may not include Docker CLI.
+| Tests | `pytest -q` | ✅ | 2026-02-26 | Core suites cover parser/rendering, server behavior, contracts, and docs hygiene. |
+| Lint | `ruff check .` | ✅ | 2026-02-26 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-26 | Formatting is stable. |
+| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates` | ✅ | 2026-02-26 | Validates markdown links, docs-governance workflow references, and entrypoint boundary gates. |
+| Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
+| Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | CI validates compose; local shell in this environment may not include Docker CLI. |
 
 ---
+
+## Roadmap status
+
+- **Active operational planning:**
+  - `docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`
+  - `docs/roadmaps/org-scale-execution-task-cards.md`
+- **Archived historical planning:** `docs/archive/roadmaps/README.md`
+- **Internal prompt/meta-generation assets:** `docs/implementation/roadmap-prompts/`
+- **Removed stale roadmap artifact:** `docs/roadmaps/web-ui-action-plan.md`
 
 ## Canonical contract status
 
@@ -47,3 +56,4 @@
   - `README.md`: orientation + install/run + links only.
   - `docs/README.md`: canonical docs IA + precedence + ownership.
   - `STATUS.md`: runtime health + current-state updates only.
+- Roadmap docs now follow an explicit lifecycle (`active → archived → removed`) with active execution planning isolated in `docs/roadmaps/`.

@@ -16,6 +16,12 @@ Primary links:
 - Product behavior spec: [`docs/spec/product.md`](docs/spec/product.md)
 - Operational status snapshot: [`STATUS.md`](STATUS.md)
 
+## Roadmap (active planning only)
+
+- Active roadmap index: [`docs/roadmaps/README.md`](docs/roadmaps/README.md)
+- Active stage plan: [`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`](docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md)
+- Execution task cards: [`docs/roadmaps/org-scale-execution-task-cards.md`](docs/roadmaps/org-scale-execution-task-cards.md)
+
 ## Install
 
 ```bash

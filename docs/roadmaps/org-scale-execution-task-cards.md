@@ -1,6 +1,6 @@
 # Org-scale execution task cards (agent-editable)
 
-_Source doc: `docs/roadmaps/org-scale-roadmap-reconciliation.md`_
+_Source doc (archived): `docs/archive/roadmaps/org-scale-roadmap-reconciliation.md`_
 
 This file is intended for agent/operator updates while the reconciliation roadmap remains stable source-of-truth planning.
 
