@@ -183,6 +183,190 @@ class ReportingService:
             "top_offenders": offenders[:3],
         }
 
+    def _llm_feature_metrics(self) -> dict[str, object]:
+        events = self.db.list_audit_events()
+        run_capabilities: dict[str, set[str]] = {}
+        capability_metrics: dict[str, dict[str, float | int]] = {}
+        capability_seen_changesets: dict[str, dict[str, set[str]]] = {}
+
+        def _ensure_capability(capability_id: str) -> dict[str, float | int]:
+            if capability_id not in capability_metrics:
+                capability_metrics[capability_id] = {
+                    "proposal_count": 0,
+                    "accepted_count": 0,
+                    "rejected_count": 0,
+                    "override_or_edit_count": 0,
+                    "lead_time_total_hours": 0.0,
+                    "lead_time_sample": 0,
+                    "reopened_count": 0,
+                    "blocker_resolution_count": 0,
+                }
+                capability_seen_changesets[capability_id] = {
+                    "proposed": set(),
+                    "accepted": set(),
+                    "rejected": set(),
+                }
+            return capability_metrics[capability_id]
+
+        for event in events:
+            payload = event.get("payload", {}) if isinstance(event.get("payload"), dict) else {}
+            run_id = str(payload.get("run_id", "")).strip()
+            llm_metadata = payload.get("llm_metadata", {}) if isinstance(payload, dict) else {}
+            capability_id = ""
+            if isinstance(llm_metadata, dict):
+                capability_id = str(llm_metadata.get("capability_id", "")).strip()
+            if not capability_id:
+                capability_id = str(payload.get("capability_id", "")).strip()
+            if run_id and capability_id:
+                run_capabilities.setdefault(run_id, set()).add(capability_id)
+                _ensure_capability(capability_id)
+
+        for event in events:
+            payload = event.get("payload", {}) if isinstance(event.get("payload"), dict) else {}
+            run_id = str(payload.get("run_id", "")).strip()
+            capabilities = run_capabilities.get(run_id, set())
+            if not capabilities:
+                continue
+
+            event_type = str(event.get("event_type", "")).strip()
+            for capability_id in capabilities:
+                metrics = _ensure_capability(capability_id)
+                changeset_id = str(payload.get("changeset_id", "")).strip()
+                seen = capability_seen_changesets.get(capability_id, {})
+                if event_type == "changeset_proposed":
+                    if changeset_id and changeset_id in seen.get("proposed", set()):
+                        pass
+                    else:
+                        metrics["proposal_count"] += 1
+                        if changeset_id:
+                            seen["proposed"].add(changeset_id)
+                elif event_type == "changeset_applied":
+                    if changeset_id and changeset_id in seen.get("accepted", set()):
+                        pass
+                    else:
+                        metrics["accepted_count"] += 1
+                        if changeset_id:
+                            seen["accepted"].add(changeset_id)
+                elif event_type in {"changeset_denied", "changeset_dead_lettered"}:
+                    if changeset_id and changeset_id in seen.get("rejected", set()):
+                        pass
+                    else:
+                        metrics["rejected_count"] += 1
+                        if changeset_id:
+                            seen["rejected"].add(changeset_id)
+
+                if event_type in {
+                    "changeset_override_requested",
+                    "changeset_override_applied",
+                    "changeset_payload_edited",
+                    "changeset_edited_before_approval",
+                }:
+                    metrics["override_or_edit_count"] += 1
+                elif bool(payload.get("override_before_approval")) or bool(
+                    payload.get("edited_before_approval")
+                ):
+                    metrics["override_or_edit_count"] += 1
+
+                lead_time_hours = payload.get("lead_time_hours")
+                if isinstance(lead_time_hours, (int, float)):
+                    metrics["lead_time_total_hours"] += float(lead_time_hours)
+                    metrics["lead_time_sample"] += 1
+
+                if event_type in {"task_reopened", "work_item_reopened"} or bool(
+                    payload.get("reopened")
+                ):
+                    metrics["reopened_count"] += 1
+
+                blocker_resolution_count = payload.get("blocker_resolution_count")
+                if isinstance(blocker_resolution_count, int):
+                    metrics["blocker_resolution_count"] += blocker_resolution_count
+                elif event_type in {"blocker_resolved", "blocked_by_cleared"}:
+                    metrics["blocker_resolution_count"] += 1
+
+        summaries: list[dict[str, float | int | str]] = []
+        totals = {
+            "proposal_count": 0,
+            "accepted_count": 0,
+            "rejected_count": 0,
+            "override_or_edit_count": 0,
+            "lead_time_total_hours": 0.0,
+            "lead_time_sample": 0,
+            "reopened_count": 0,
+            "blocker_resolution_count": 0,
+        }
+
+        for capability_id in sorted(capability_metrics):
+            metrics = capability_metrics[capability_id]
+            proposal_count = int(metrics["proposal_count"])
+            accepted_count = int(metrics["accepted_count"])
+            rejected_count = int(metrics["rejected_count"])
+            override_count = int(metrics["override_or_edit_count"])
+            lead_time_sample = int(metrics["lead_time_sample"])
+            lead_time_total_hours = float(metrics["lead_time_total_hours"])
+            reopened_count = int(metrics["reopened_count"])
+            blocker_resolution_count = int(metrics["blocker_resolution_count"])
+
+            totals["proposal_count"] += proposal_count
+            totals["accepted_count"] += accepted_count
+            totals["rejected_count"] += rejected_count
+            totals["override_or_edit_count"] += override_count
+            totals["lead_time_total_hours"] += lead_time_total_hours
+            totals["lead_time_sample"] += lead_time_sample
+            totals["reopened_count"] += reopened_count
+            totals["blocker_resolution_count"] += blocker_resolution_count
+
+            summaries.append(
+                {
+                    "capability_id": capability_id,
+                    "proposal_count": proposal_count,
+                    "accepted_count": accepted_count,
+                    "rejected_count": rejected_count,
+                    "override_or_edit_count": override_count,
+                    "recommendation_acceptance_rate": (
+                        accepted_count / proposal_count if proposal_count else 0.0
+                    ),
+                    "override_or_edit_rate": (
+                        override_count / proposal_count if proposal_count else 0.0
+                    ),
+                    "false_positive_rate": (
+                        rejected_count / proposal_count if proposal_count else 0.0
+                    ),
+                    "avg_lead_time_hours": (
+                        lead_time_total_hours / lead_time_sample if lead_time_sample else 0.0
+                    ),
+                    "lead_time_sample": lead_time_sample,
+                    "reopened_count": reopened_count,
+                    "blocker_resolution_count": blocker_resolution_count,
+                }
+            )
+
+        proposal_total = int(totals["proposal_count"])
+        lead_time_sample_total = int(totals["lead_time_sample"])
+        return {
+            "proposal_count": proposal_total,
+            "accepted_count": int(totals["accepted_count"]),
+            "rejected_count": int(totals["rejected_count"]),
+            "override_or_edit_count": int(totals["override_or_edit_count"]),
+            "recommendation_acceptance_rate": (
+                int(totals["accepted_count"]) / proposal_total if proposal_total else 0.0
+            ),
+            "override_or_edit_rate": (
+                int(totals["override_or_edit_count"]) / proposal_total if proposal_total else 0.0
+            ),
+            "false_positive_rate": (
+                int(totals["rejected_count"]) / proposal_total if proposal_total else 0.0
+            ),
+            "avg_lead_time_hours": (
+                float(totals["lead_time_total_hours"]) / lead_time_sample_total
+                if lead_time_sample_total
+                else 0.0
+            ),
+            "lead_time_sample": lead_time_sample_total,
+            "reopened_count": int(totals["reopened_count"]),
+            "blocker_resolution_count": int(totals["blocker_resolution_count"]),
+            "capability_breakdown": summaries,
+        }
+
     def _traceability_metadata(self) -> dict[str, object]:
         audit_events = self.db.list_audit_events()
         context_events = [
@@ -218,6 +402,7 @@ class ReportingService:
     def generate_weekly_report(self, report_name: str = "weekly.md") -> Path:
         counts = self._metric_counts()
         draft = self._draft_quality_metrics(counts)
+        llm = self._llm_feature_metrics()
         estimation = self._estimation_metrics()
         safety = self._safety_metrics(counts)
         data_quality = self._data_quality_metrics()
@@ -249,14 +434,62 @@ class ReportingService:
                 f"{draft['avg_human_edits']:.2f} (sample={draft['published_sample']})."
             ),
             "",
-            "## Estimation",
+            "## LLM feature performance",
             (
-                f"- P80 coverage: {estimation['p80_coverage']:.2%} "
-                f"(covered={estimation['covered_count']}, sample={estimation['coverage_sample']})."
+                "- Recommendation acceptance rate: "
+                f"{llm['recommendation_acceptance_rate']:.2%} "
+                f"(accepted={llm['accepted_count']}, sample={llm['proposal_count']})."
             ),
-            f"- Snapshot bucket count: {estimation['bucket_count']}.",
-            "- Sparse buckets:",
+            (
+                "- Override/edit rate before approval: "
+                f"{llm['override_or_edit_rate']:.2%} "
+                f"(count={llm['override_or_edit_count']}, sample={llm['proposal_count']})."
+            ),
+            (
+                "- False-positive rate (rejected proposals): "
+                f"{llm['false_positive_rate']:.2%} "
+                f"(rejected={llm['rejected_count']}, sample={llm['proposal_count']})."
+            ),
+            (
+                "- Downstream outcomes: "
+                f"avg lead time={llm['avg_lead_time_hours']:.2f}h (sample={llm['lead_time_sample']}), "
+                f"reopened tasks={llm['reopened_count']}, "
+                f"blocker resolutions={llm['blocker_resolution_count']}."
+            ),
+            "- Per-capability metrics:",
         ]
+
+        if llm["capability_breakdown"]:
+            for capability in llm["capability_breakdown"]:
+                lines.append(
+                    "  - "
+                    f"{capability['capability_id']}: "
+                    f"acceptance={capability['recommendation_acceptance_rate']:.2%} "
+                    f"(accepted={capability['accepted_count']}, sample={capability['proposal_count']}), "
+                    f"override/edit={capability['override_or_edit_rate']:.2%} "
+                    f"(count={capability['override_or_edit_count']}, sample={capability['proposal_count']}), "
+                    f"false-positive={capability['false_positive_rate']:.2%} "
+                    f"(rejected={capability['rejected_count']}, sample={capability['proposal_count']}), "
+                    f"avg lead time={capability['avg_lead_time_hours']:.2f}h "
+                    f"(sample={capability['lead_time_sample']}), "
+                    f"reopened={capability['reopened_count']}, "
+                    f"blocker resolutions={capability['blocker_resolution_count']}"
+                )
+        else:
+            lines.append("  - none")
+
+        lines.extend(
+            [
+                "",
+                "## Estimation",
+                (
+                    f"- P80 coverage: {estimation['p80_coverage']:.2%} "
+                    f"(covered={estimation['covered_count']}, sample={estimation['coverage_sample']})."
+                ),
+                f"- Snapshot bucket count: {estimation['bucket_count']}.",
+                "- Sparse buckets:",
+            ]
+        )
 
         if estimation["sparse_buckets"]:
             for bucket in estimation["sparse_buckets"]:

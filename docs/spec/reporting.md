@@ -22,6 +22,22 @@ They should be:
 - Validator failure rate (per template type)
 - Average # of human edits per published draft (proxy for churn)
 
+### LLM feature performance
+
+- Recommendation acceptance rate:
+  - % of LLM-backed proposals accepted/applied
+- Override/edit rate before approval:
+  - % of proposals modified by a human prior to approval
+- False-positive rate (rejected proposals):
+  - % of proposals rejected/denied/dead-lettered
+- Downstream outcomes:
+  - average lead time (hours) for accepted proposals
+  - reopened task count attributable to accepted proposals
+  - blocker resolution count attributable to accepted proposals
+- Per-capability counters:
+  - all rates and downstream outcomes broken down by capability (for example `report_ir_draft`, `issue_replanner`)
+  - used to decide whether a capability/integration should be kept, retrained, or disabled
+
 ### Estimation quality
 
 - Calibration:
@@ -57,6 +73,13 @@ They should be:
 ## Drafting quality
 - Acceptance rate:
 - Validator failures:
+
+## LLM feature performance
+- Recommendation acceptance rate:
+- Override/edit rate before approval:
+- False-positive rate (rejected proposals):
+- Downstream outcomes (lead time, reopened tasks, blocker resolution):
+- Per-capability metrics:
 
 ## Estimation
 - P80 coverage:
