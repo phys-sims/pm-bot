@@ -33,11 +33,12 @@ Legend: `☑ done`, `◐ in progress`, `☐ pending`, `⛔ blocked`.
 
 ## Exit gates for v6 closure
 
-1. A user can complete natural-text intake → ReportIR confirm → multi-repo preview → approve flow from GUI.
-2. A user can complete context-pack build + agent-run propose/approve/execute flow from GUI.
-3. Multi-agent audit chain is queryable and visible by `run_id` with deterministic ordering.
-4. Weekly report includes multi-agent operations rollups with sample sizes.
-5. `STATUS.md` and roadmap/checklist statuses reflect the final state with no stale in-progress entries.
+1. Observable GUI intake flow is shipped at the route level (`Plan Intake`): natural-text intake → ReportIR confirm → multi-repo preview → changeset proposal, with route-level tests proving guarded progression and preview validation behavior.
+2. GUI approval remains explicitly observable via `Inbox` (approval action), and v6 closure requires an end-to-end tested handoff that links `Plan Intake` proposal output to `Inbox` approval/apply outcomes.
+3. A user can complete context-pack build + agent-run propose/approve/execute flow from GUI.
+4. Multi-agent audit chain is queryable and visible by `run_id` with deterministic ordering.
+5. Weekly report includes multi-agent operations rollups with sample sizes.
+6. `STATUS.md` and roadmap/checklist statuses reflect the final state with no stale in-progress entries.
 
 ## Top risk register (keep current)
 
