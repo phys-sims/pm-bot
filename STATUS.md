@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:29:57 UTC
+- Time (UTC): 00:37:30 UTC
 - By: @openai-codex
-- Scope: Added deterministic structured markdown intake mode for report-ir parsing (headings/checklists/dependencies/tokens) with hierarchical epic/feature/task extraction and HTTP contract coverage for stable output.
+- Scope: Added deterministic ReportIR preview dependency metadata (repo-grouped nodes/edges) and Plan Intake UI tree preview with prominent validation diagnostics that gate final propose on unresolved preview errors.
 
 
 ---

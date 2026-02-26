@@ -349,6 +349,32 @@ def build_changeset_preview(report_ir: dict[str, Any]) -> dict[str, Any]:
     fallback_repo = f"{org}/pm-bot" if org else ""
 
     entries: list[dict[str, Any]] = []
+    preview_nodes: dict[str, list[dict[str, Any]]] = {}
+    preview_edges: dict[str, list[dict[str, Any]]] = {}
+
+    known_ids: set[str] = set()
+    for item_type in ("epics", "features", "tasks"):
+        for item in report_ir.get(item_type) or []:
+            if not isinstance(item, dict):
+                continue
+            stable_id = str(item.get("stable_id", "")).strip()
+            if stable_id:
+                known_ids.add(stable_id)
+
+    def _add_edge(repo: str, *, edge_type: str, source: str, target: str, provenance: str) -> None:
+        if not source or not target:
+            return
+        if repo not in preview_edges:
+            preview_edges[repo] = []
+        preview_edges[repo].append(
+            {
+                "edge_type": edge_type,
+                "source": source,
+                "target": target,
+                "provenance": provenance,
+            }
+        )
+
     for item_type in ("epics", "features", "tasks"):
         for item in report_ir.get(item_type) or []:
             if not isinstance(item, dict):
@@ -361,6 +387,59 @@ def build_changeset_preview(report_ir: dict[str, Any]) -> dict[str, Any]:
             repo = repo_hint or (scope_repos[0] if scope_repos else fallback_repo)
             if not repo:
                 continue
+            parent_id = ""
+            if item_type == "features":
+                parent_id = str(item.get("epic_id", "")).strip()
+            elif item_type == "tasks":
+                parent_id = str(item.get("feature_id", "")).strip()
+
+            blocked_by = [
+                str(dep).strip() for dep in (item.get("blocked_by") or []) if str(dep).strip()
+            ]
+            depends_on = [
+                str(dep).strip() for dep in (item.get("depends_on") or []) if str(dep).strip()
+            ]
+
+            if repo not in preview_nodes:
+                preview_nodes[repo] = []
+            preview_nodes[repo].append(
+                {
+                    "stable_id": stable_id,
+                    "title": title,
+                    "item_type": item_type[:-1],
+                    "parent_id": parent_id,
+                    "blocked_by": blocked_by,
+                    "depends_on": depends_on,
+                }
+            )
+
+            if parent_id and parent_id in known_ids:
+                _add_edge(
+                    repo,
+                    edge_type="parent_child",
+                    source=parent_id,
+                    target=stable_id,
+                    provenance="report_ir",
+                )
+            for blocker_id in blocked_by:
+                if blocker_id in known_ids:
+                    _add_edge(
+                        repo,
+                        edge_type="blocked_by",
+                        source=stable_id,
+                        target=blocker_id,
+                        provenance="report_ir",
+                    )
+            for dependency_id in depends_on:
+                if dependency_id in known_ids:
+                    _add_edge(
+                        repo,
+                        edge_type="depends_on",
+                        source=stable_id,
+                        target=dependency_id,
+                        provenance="report_ir",
+                    )
+
             payload = {
                 "issue_ref": "",
                 "title": title,
@@ -379,6 +458,7 @@ def build_changeset_preview(report_ir: dict[str, Any]) -> dict[str, Any]:
                 {
                     "repo": repo,
                     "operation": "create_issue",
+                    "item_type": item_type[:-1],
                     "stable_id": stable_id,
                     "target_ref": "",
                     "payload": payload,
@@ -388,9 +468,23 @@ def build_changeset_preview(report_ir: dict[str, Any]) -> dict[str, Any]:
 
     entries.sort(key=lambda row: (row["repo"], row["stable_id"], row["operation"]))
     repos = sorted({entry["repo"] for entry in entries})
+    dependency_preview = {
+        "repos": [
+            {
+                "repo": repo,
+                "nodes": sorted(preview_nodes.get(repo, []), key=lambda node: node["stable_id"]),
+                "edges": sorted(
+                    preview_edges.get(repo, []),
+                    key=lambda edge: (edge["edge_type"], edge["source"], edge["target"]),
+                ),
+            }
+            for repo in repos
+        ]
+    }
     return {
         "schema_version": "changeset_preview/v1",
         "items": entries,
+        "dependency_preview": dependency_preview,
         "summary": {
             "count": len(entries),
             "repos": repos,
