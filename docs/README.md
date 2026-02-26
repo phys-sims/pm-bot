@@ -81,4 +81,4 @@ duplicated across multiple docs.
 
 - `README.md` MUST stay brief: orientation + install/run + links only.
 - `docs/README.md` is the only authoritative location for documentation IA and precedence.
-- `STATUS.md` MUST contain operational health and current-state deltas only.
+- `STATUS.md` MUST contain only: runtime `Last updated`, CI health checklist, current compatibility notes, and active change scope bullets.

@@ -83,15 +83,19 @@ def check_status_operability_hygiene() -> list[str]:
             errors.append(f"STATUS.md missing CI/operability command: {command}")
 
     required_status_headings = [
+        "## Last updated",
         "## CI health checklist",
-        "## Canonical contract status",
-        "## Current-state deltas",
+        "## Current compatibility notes",
+        "## Active change scope bullets",
     ]
     for heading in required_status_headings:
         if heading not in status_text:
             errors.append(f"STATUS.md missing required section: {heading}")
 
     forbidden_status_sections = [
+        "## Roadmap status",
+        "## Canonical contract status",
+        "## Current-state deltas",
         "Roadmap checklist",
         "Roadmap deliverables status",
         "Future roadmap",
@@ -101,6 +105,21 @@ def check_status_operability_hygiene() -> list[str]:
     for section in forbidden_status_sections:
         if section in status_text:
             errors.append(f"STATUS.md contains non-operational guidance section: {section}")
+
+    if re.search(r"^- Scope:", status_text, flags=re.MULTILINE):
+        errors.append(
+            "STATUS.md contains legacy Last updated scope bullets; keep scope bullets only in the active scope section."
+        )
+
+    if "## Active change scope bullets" in status_text and "superseded" not in status_text:
+        errors.append(
+            "STATUS.md active scope section missing explicit superseded/stale pruning guidance."
+        )
+
+    if "Template + stale content pruning instructions" not in status_text:
+        errors.append(
+            "STATUS.md missing stale content pruning instructions in active scope section."
+        )
 
     if "## Documentation precedence (authoritative)" not in docs_readme_text:
         errors.append("docs/README.md missing authoritative documentation precedence section.")
