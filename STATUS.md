@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:22:17 UTC
+- Time (UTC): 00:29:57 UTC
 - By: @openai-codex
-- Scope: Added Plan Intake stepper UX in the UI and report-ir API client helpers/types for intake/confirm/preview/propose workflow, including route navigation coverage and component tests for the guided flow.
+- Scope: Added deterministic structured markdown intake mode for report-ir parsing (headings/checklists/dependencies/tokens) with hierarchical epic/feature/task extraction and HTTP contract coverage for stable output.
 
 
 ---

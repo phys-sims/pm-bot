@@ -394,6 +394,78 @@ def test_report_ir_intake_confirm_preview_and_propose_routes() -> None:
     ]
 
 
+def test_report_ir_intake_structured_mode_extracts_hierarchy_and_tokens() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    structured_markdown = """# Epic: Platform Reliability area=platform priority=P1
+## Feature: Queue hardening estimate=8 depends on feat:retry-policy
+- [ ] Task: Add retry backoff area=platform priority=P1 est=3 blocked by task:db-migration
+- [x] Task: Add dead letter queue area=platform priority=P1 estimate=2
+"""
+
+    intake_status, intake_payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/intake",
+        body=json.dumps(
+            {
+                "natural_text": structured_markdown,
+                "org": "phys-sims",
+                "repos": ["phys-sims/pm-bot"],
+                "mode": "structured",
+                "generated_at": "2026-02-26",
+            }
+        ).encode("utf-8"),
+    )
+
+    assert intake_status == 200
+    draft = intake_payload["draft"]
+    assert draft["epics"] == [
+        {
+            "stable_id": "epic:platform-reliability",
+            "title": "Platform Reliability",
+            "objective": "Platform Reliability",
+            "area": "platform",
+            "priority": "P1",
+        }
+    ]
+    assert draft["features"] == [
+        {
+            "stable_id": "feat:queue-hardening",
+            "title": "Queue hardening",
+            "goal": "Queue hardening",
+            "area": "triage",
+            "priority": "Triage",
+            "epic_id": "epic:platform-reliability",
+            "estimate_hrs": 8,
+            "depends_on": ["feat:retry-policy"],
+        }
+    ]
+    assert draft["tasks"] == [
+        {
+            "stable_id": "task:add-retry-backoff",
+            "title": "Add retry backoff",
+            "area": "platform",
+            "priority": "P1",
+            "type": "task",
+            "feature_id": "feat:queue-hardening",
+            "estimate_hrs": 3,
+            "blocked_by": ["task:db-migration"],
+        },
+        {
+            "stable_id": "task:add-dead-letter-queue",
+            "title": "Add dead letter queue",
+            "area": "platform",
+            "priority": "P1",
+            "type": "task",
+            "feature_id": "feat:queue-hardening",
+            "estimate_hrs": 2,
+        },
+    ]
+    assert intake_payload["validation"]["errors"] == []
+
+
 def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
     service = ServerApp()
     app = ASGIServer(service=service)

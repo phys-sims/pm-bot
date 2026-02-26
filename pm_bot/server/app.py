@@ -308,12 +308,14 @@ class ServerApp:
         run_id: str = "",
         requested_by: str = "",
         generated_at: str = "",
+        mode: str = "basic",
     ) -> dict[str, Any]:
         draft = draft_report_ir_from_natural_text(
             natural_text=natural_text,
             org=org,
             repos=repos,
             generated_at=generated_at,
+            mode=mode,
         )
         validation = validate_report_ir(draft)
         draft_id = draft.get("report", {}).get("source", {}).get("prompt_hash", "")
@@ -323,7 +325,7 @@ class ServerApp:
                 "run_id": run_id,
                 "requested_by": requested_by,
                 "draft_id": draft_id,
-                "input": {"natural_text": natural_text},
+                "input": {"natural_text": natural_text, "mode": mode},
                 "validation": validation,
             },
             tenant_context=self._request_tenant_context(repo=repos[0] if repos else "", org=org),
@@ -1040,6 +1042,7 @@ class ASGIServer:
                         run_id=str(payload.get("run_id", "")).strip(),
                         requested_by=str(payload.get("requested_by", "")).strip(),
                         generated_at=str(payload.get("generated_at", "")).strip(),
+                        mode=str(payload.get("mode", "basic")).strip() or "basic",
                     ),
                 )
                 return

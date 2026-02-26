@@ -24,13 +24,225 @@ def _iter_natural_text_items(natural_text: str) -> list[str]:
     return lines
 
 
+def _extract_tokens(text: str) -> tuple[str, dict[str, Any]]:
+    metadata: dict[str, Any] = {}
+    cleaned = text
+
+    token_patterns = {
+        "area": r"\barea\s*[:=]\s*([a-z0-9_-]+)",
+        "priority": r"\bpriority\s*[:=]\s*([a-z0-9_-]+)",
+        "estimate_hrs": r"\b(?:estimate|est|hrs|hours)\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)",
+    }
+
+    for key, pattern in token_patterns.items():
+        match = re.search(pattern, cleaned, flags=re.IGNORECASE)
+        if not match:
+            continue
+        raw_value = match.group(1).strip()
+        if key == "estimate_hrs":
+            metadata[key] = float(raw_value) if "." in raw_value else int(raw_value)
+        else:
+            metadata[key] = raw_value
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+
+    return re.sub(r"\s{2,}", " ", cleaned).strip(" -,;"), metadata
+
+
+def _strip_dependency_phrases(text: str) -> str:
+    return re.sub(r"\b(?:depends on|blocked by)\s+[^.;]+", "", text, flags=re.IGNORECASE).strip(
+        " -,;"
+    )
+
+
+def _extract_dependency_phrases(text: str) -> dict[str, list[str]]:
+    dependencies: dict[str, list[str]] = {"depends_on": [], "blocked_by": []}
+    patterns = {
+        "depends_on": r"depends on\s+([^.;]+)",
+        "blocked_by": r"blocked by\s+([^.;]+)",
+    }
+    for field, pattern in patterns.items():
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            values = re.split(r",|\band\b", match.group(1), flags=re.IGNORECASE)
+            normalized = [value.strip(" #[]()") for value in values if value.strip(" #[]()")]
+            dependencies[field].extend(normalized)
+    return dependencies
+
+
+def _stable_id_for(kind: str, text: str, counts: dict[str, int]) -> str:
+    base = f"{kind}:{_slugify(text)}"
+    seen = counts.get(base, 0)
+    counts[base] = seen + 1
+    return base if seen == 0 else f"{base}-{seen + 1}"
+
+
+def _draft_report_ir_from_structured_markdown(
+    *,
+    natural_text: str,
+    org: str,
+    repos: list[str],
+    generated_at: str = "",
+) -> dict[str, Any] | None:
+    lines = [line.rstrip() for line in natural_text.splitlines()]
+    if not any(line.lstrip().startswith("#") for line in lines):
+        return None
+
+    epics: list[dict[str, Any]] = []
+    features: list[dict[str, Any]] = []
+    tasks: list[dict[str, Any]] = []
+    id_counts: dict[str, int] = {}
+
+    current_epic_id = ""
+    current_feature_id = ""
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading:
+            depth = len(heading.group(1))
+            heading_text = heading.group(2).strip()
+            normalized = heading_text.lower()
+            content, metadata = _extract_tokens(_strip_dependency_phrases(heading_text))
+
+            if "epic" in normalized:
+                title = re.sub(r"^epic\s*[:\-]\s*", "", content, flags=re.IGNORECASE).strip()
+                stable_id = _stable_id_for("epic", title or content, id_counts)
+                current_epic_id = stable_id
+                current_feature_id = ""
+                epics.append(
+                    {
+                        "stable_id": stable_id,
+                        "title": title or content,
+                        "objective": title or content,
+                        "area": str(metadata.get("area", "triage")),
+                        "priority": str(metadata.get("priority", "Triage")),
+                    }
+                )
+                continue
+
+            if "feature" in normalized:
+                title = re.sub(r"^feature\s*[:\-]\s*", "", content, flags=re.IGNORECASE).strip()
+                stable_id = _stable_id_for("feat", title or content, id_counts)
+                current_feature_id = stable_id
+                if depth <= 1:
+                    current_epic_id = ""
+                feature: dict[str, Any] = {
+                    "stable_id": stable_id,
+                    "title": title or content,
+                    "goal": title or content,
+                    "area": str(metadata.get("area", "triage")),
+                    "priority": str(metadata.get("priority", "Triage")),
+                }
+                if current_epic_id:
+                    feature["epic_id"] = current_epic_id
+                if "estimate_hrs" in metadata:
+                    feature["estimate_hrs"] = metadata["estimate_hrs"]
+                feature_deps = _extract_dependency_phrases(heading_text)
+                if feature_deps["depends_on"]:
+                    feature["depends_on"] = feature_deps["depends_on"]
+                if feature_deps["blocked_by"]:
+                    feature["blocked_by"] = feature_deps["blocked_by"]
+                features.append(feature)
+                continue
+
+            if "task" in normalized:
+                title = re.sub(r"^task\s*[:\-]\s*", "", content, flags=re.IGNORECASE).strip()
+                stable_id = _stable_id_for("task", title or content, id_counts)
+                task: dict[str, Any] = {
+                    "stable_id": stable_id,
+                    "title": title or content,
+                    "area": str(metadata.get("area", "triage")),
+                    "priority": str(metadata.get("priority", "Triage")),
+                    "type": "task",
+                }
+                if current_feature_id:
+                    task["feature_id"] = current_feature_id
+                if "estimate_hrs" in metadata:
+                    task["estimate_hrs"] = metadata["estimate_hrs"]
+                task_deps = _extract_dependency_phrases(heading_text)
+                if task_deps["depends_on"]:
+                    task["depends_on"] = task_deps["depends_on"]
+                if task_deps["blocked_by"]:
+                    task["blocked_by"] = task_deps["blocked_by"]
+                tasks.append(task)
+                continue
+
+        checklist_match = re.match(r"^[-*]\s+\[(?: |x|X)\]\s+(.+)$", stripped)
+        if checklist_match:
+            raw_item = checklist_match.group(1).strip()
+            title, metadata = _extract_tokens(_strip_dependency_phrases(raw_item))
+            title = re.sub(r"^task\s*[:\-]\s*", "", title, flags=re.IGNORECASE).strip()
+            stable_id = _stable_id_for("task", title, id_counts)
+            task: dict[str, Any] = {
+                "stable_id": stable_id,
+                "title": title,
+                "area": str(metadata.get("area", "triage")),
+                "priority": str(metadata.get("priority", "Triage")),
+                "type": "task",
+            }
+            if current_feature_id:
+                task["feature_id"] = current_feature_id
+            if "estimate_hrs" in metadata:
+                task["estimate_hrs"] = metadata["estimate_hrs"]
+            deps = _extract_dependency_phrases(raw_item)
+            if deps["depends_on"]:
+                task["depends_on"] = deps["depends_on"]
+            if deps["blocked_by"]:
+                task["blocked_by"] = deps["blocked_by"]
+            tasks.append(task)
+
+    if not epics and not features and not tasks:
+        return None
+
+    title = "Structured intake plan"
+    if epics:
+        title = epics[0]["title"]
+    elif features:
+        title = features[0]["title"]
+    elif tasks:
+        title = tasks[0]["title"]
+
+    resolved_generated_at = generated_at.strip() or datetime.now(timezone.utc).date().isoformat()
+    return {
+        "schema_version": "report_ir/v1",
+        "report": {
+            "title": title,
+            "generated_at": resolved_generated_at,
+            "scope": {
+                "org": org.strip(),
+                "repos": [repo.strip() for repo in repos if repo.strip()],
+            },
+            "source": {
+                "kind": "markdown_structured",
+                "prompt_hash": hashlib.sha256(natural_text.encode("utf-8")).hexdigest()[:16],
+            },
+        },
+        "epics": epics,
+        "features": features,
+        "tasks": tasks,
+    }
+
+
 def draft_report_ir_from_natural_text(
     *,
     natural_text: str,
     org: str,
     repos: list[str],
     generated_at: str = "",
+    mode: str = "basic",
 ) -> dict[str, Any]:
+    if mode == "structured":
+        structured_draft = _draft_report_ir_from_structured_markdown(
+            natural_text=natural_text,
+            org=org,
+            repos=repos,
+            generated_at=generated_at,
+        )
+        if structured_draft is not None:
+            return structured_draft
+
     items = _iter_natural_text_items(natural_text)
     if not items:
         items = ["Triage natural-text plan"]
