@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 04:12:01 UTC
+- Time (UTC): 04:18:17 UTC
 - By: @openai-codex
-- Scope: Documentation depth model rollout: added tiered L0-L3 model in docs IA, added audience/depth/source metadata preambles across major L0-L3 docs, refactored quickstart to link downward, and expanded docs hygiene automation + CI/docs command references to enforce metadata and L0 size guardrails.
+- Scope: Added canonical agent documentation map, simplified agent pointers in top-level docs, synchronized trigger matrices across guidance files, and added docs sync tests to prevent drift.
 
 ---
 
