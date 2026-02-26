@@ -79,6 +79,9 @@ test("adds agent-runs, context-pack, and audit routes to app shell", async () =>
   await userEvent.click(screen.getByRole("button", { name: "Audit Ops" }));
   expect(await screen.findByRole("heading", { name: "Audit Ops" })).toBeTruthy();
 
+  await userEvent.click(screen.getByRole("button", { name: "Plan Intake" }));
+  expect(await screen.findByRole("heading", { name: "Plan Intake" })).toBeTruthy();
+
   await userEvent.click(screen.getByRole("button", { name: "Tree" }));
   expect(await screen.findByRole("heading", { name: "Tree and Dependencies" })).toBeTruthy();
 });
