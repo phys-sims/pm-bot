@@ -186,15 +186,41 @@ export type ReportIrConfirmResponse = {
 export type ReportIrPreviewItem = {
   repo: string;
   operation: string;
+  item_type?: string;
   stable_id: string;
   target_ref: string;
   payload: Record<string, unknown>;
   idempotency_key: string;
 };
 
+export type ReportIrPreviewNode = {
+  stable_id: string;
+  title: string;
+  item_type: string;
+  parent_id: string;
+  blocked_by: string[];
+  depends_on: string[];
+};
+
+export type ReportIrPreviewEdge = {
+  edge_type: "parent_child" | "blocked_by" | "depends_on";
+  source: string;
+  target: string;
+  provenance: string;
+};
+
+export type ReportIrDependencyPreviewRepo = {
+  repo: string;
+  nodes: ReportIrPreviewNode[];
+  edges: ReportIrPreviewEdge[];
+};
+
 export type ReportIrPreviewResponse = {
   schema_version: "changeset_preview/v1";
   items: ReportIrPreviewItem[];
+  dependency_preview?: {
+    repos: ReportIrDependencyPreviewRepo[];
+  };
   summary: {
     count: number;
     repos: string[];

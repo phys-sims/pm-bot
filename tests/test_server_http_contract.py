@@ -358,6 +358,11 @@ def test_report_ir_intake_confirm_preview_and_propose_routes() -> None:
     assert preview_status == 200
     assert preview_payload["schema_version"] == "changeset_preview/v1"
     assert preview_payload["summary"]["count"] >= 1
+    assert "dependency_preview" in preview_payload
+    assert isinstance(preview_payload["dependency_preview"]["repos"], list)
+    first_repo_preview = preview_payload["dependency_preview"]["repos"][0]
+    assert "nodes" in first_repo_preview
+    assert "edges" in first_repo_preview
 
     propose_status, propose_payload = _asgi_request(
         app,

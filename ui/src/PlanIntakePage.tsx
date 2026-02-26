@@ -28,10 +28,7 @@ export function PlanIntakePage() {
   const [proposalResponse, setProposalResponse] = useState<ReportIrProposalResponse | null>(null);
   const [message, setMessage] = useState("");
 
-  const repos = useMemo(
-    () => reposRaw.split(",").map((repo) => repo.trim()).filter(Boolean),
-    [reposRaw],
-  );
+  const repos = useMemo(() => reposRaw.split(",").map((repo) => repo.trim()).filter(Boolean), [reposRaw]);
 
   const parsedReportIr = useMemo<Record<string, unknown> | null>(() => {
     if (!reportIrText.trim()) {
@@ -70,6 +67,51 @@ export function PlanIntakePage() {
     }
     return grouped;
   }, [previewResponse]);
+
+  const previewValidation = useMemo(() => {
+    if (!parsedReportIr || !previewResponse) {
+      return null;
+    }
+    const report = typeof parsedReportIr.report === "object" && parsedReportIr.report ? parsedReportIr.report : {};
+    const scope = typeof (report as { scope?: unknown }).scope === "object" && (report as { scope?: unknown }).scope
+      ? ((report as { scope?: unknown }).scope as { org?: unknown; repos?: unknown })
+      : {};
+    const defaultRepo =
+      Array.isArray(scope.repos) && scope.repos.length > 0
+        ? String(scope.repos[0] ?? "").trim()
+        : `${String(scope.org ?? "").trim()}/pm-bot`;
+
+    const nodes = previewResponse.dependency_preview?.repos.flatMap((repoGroup) =>
+      repoGroup.nodes.map((node) => ({ ...node, repo: repoGroup.repo })),
+    ) ?? [];
+    const nodeIds = new Set(nodes.map((node) => node.stable_id));
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    for (const node of nodes) {
+      if (node.parent_id && !nodeIds.has(node.parent_id)) {
+        errors.push(`${node.stable_id} references missing parent ${node.parent_id}`);
+      }
+      for (const blockerId of node.blocked_by ?? []) {
+        if (!nodeIds.has(blockerId)) {
+          warnings.push(`${node.stable_id} blocked_by ${blockerId} is external or unresolved`);
+        }
+      }
+    }
+
+    if (nodes.length === 0 && previewResponse.summary.count > 0) {
+      warnings.push("Preview returned operations but no dependency graph metadata.");
+    }
+
+    if (nodes.some((node) => !node.repo)) {
+      warnings.push(`Some nodes are missing repo metadata; default repo ${defaultRepo || "<missing>"} assumed.`);
+    }
+
+    return { errors: Array.from(new Set(errors)).sort(), warnings: Array.from(new Set(warnings)).sort() };
+  }, [parsedReportIr, previewResponse]);
+
+  const canPropose = Boolean(previewResponse) && (previewValidation?.errors.length ?? 0) === 0;
 
   const submitIntake = async () => {
     try {
@@ -132,6 +174,10 @@ export function PlanIntakePage() {
       setMessage("Error: report_ir JSON must be a valid object.");
       return;
     }
+    if (!canPropose) {
+      setMessage("Error: resolve preview validation errors before proposing changesets.");
+      return;
+    }
     try {
       const response = await api.reportIrPropose({
         report_ir: parsedReportIr,
@@ -189,7 +235,7 @@ export function PlanIntakePage() {
         <button disabled={!confirmResponse} onClick={() => void previewChangesets()}>
           5) Preview operations
         </button>
-        <button disabled={!previewResponse} onClick={() => void proposeChangesets()}>
+        <button disabled={!canPropose} onClick={() => void proposeChangesets()}>
           6) Propose changesets
         </button>
       </div>
@@ -213,6 +259,32 @@ export function PlanIntakePage() {
         </article>
       )}
 
+      {previewValidation && (previewValidation.errors.length > 0 || previewValidation.warnings.length > 0) && (
+        <article>
+          <h3>Preview validation</h3>
+          {previewValidation.errors.length > 0 && (
+            <>
+              <p style={{ color: "#8b0000", fontWeight: 700 }}>Errors ({previewValidation.errors.length})</p>
+              <ul>
+                {previewValidation.errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {previewValidation.warnings.length > 0 && (
+            <>
+              <p style={{ color: "#7a5200", fontWeight: 700 }}>Warnings ({previewValidation.warnings.length})</p>
+              <ul>
+                {previewValidation.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </article>
+      )}
+
       {previewResponse && (
         <article>
           <h3>Grouped proposed operations</h3>
@@ -229,6 +301,61 @@ export function PlanIntakePage() {
                 </ul>
               </li>
             ))}
+          </ul>
+          <h3>Dependency preview by repo</h3>
+          <ul>
+            {(previewResponse.dependency_preview?.repos ?? []).map((repoGroup) => {
+              const childrenByParent: Record<string, string[]> = {};
+              for (const edge of repoGroup.edges) {
+                if (edge.edge_type !== "parent_child") {
+                  continue;
+                }
+                if (!childrenByParent[edge.source]) {
+                  childrenByParent[edge.source] = [];
+                }
+                childrenByParent[edge.source].push(edge.target);
+              }
+              const nodeById = Object.fromEntries(repoGroup.nodes.map((node) => [node.stable_id, node]));
+              const childSet = new Set(repoGroup.edges.filter((edge) => edge.edge_type === "parent_child").map((edge) => edge.target));
+              const roots = repoGroup.nodes
+                .map((node) => node.stable_id)
+                .filter((stableId) => !childSet.has(stableId))
+                .sort();
+
+              const renderTree = (stableId: string, depth = 0): JSX.Element | null => {
+                const node = nodeById[stableId];
+                if (!node) {
+                  return null;
+                }
+                const blockers = repoGroup.edges.filter(
+                  (edge) => edge.edge_type === "blocked_by" && edge.source === stableId,
+                );
+                return (
+                  <li key={`${stableId}-${depth}`}>
+                    <span>
+                      {node.item_type}: {node.title} ({node.stable_id})
+                    </span>
+                    {blockers.length > 0 && (
+                      <ul>
+                        {blockers.map((edge) => (
+                          <li key={`${edge.source}-${edge.target}-blocked`}>blocked by {edge.target}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {(childrenByParent[stableId] ?? []).length > 0 && (
+                      <ul>{(childrenByParent[stableId] ?? []).sort().map((childId) => renderTree(childId, depth + 1))}</ul>
+                    )}
+                  </li>
+                );
+              };
+
+              return (
+                <li key={`preview-${repoGroup.repo}`}>
+                  <strong>{repoGroup.repo}</strong>
+                  <ul>{roots.map((rootId) => renderTree(rootId))}</ul>
+                </li>
+              );
+            })}
           </ul>
           <p>Total operations: {previewResponse.summary.count}</p>
         </article>

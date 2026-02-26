@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:29:57 UTC
+- Time (UTC): 00:47:29 UTC
 - By: @openai-codex
-- Scope: Added deterministic structured markdown intake mode for report-ir parsing (headings/checklists/dependencies/tokens) with hierarchical epic/feature/task extraction and HTTP contract coverage for stable output.
+- Scope: Fixed Plan Intake UI test assertion compatibility for Vitest/Chai by replacing unsupported toBeDisabled matcher with a deterministic HTMLButtonElement.disabled boolean assertion.
 
 
 ---
