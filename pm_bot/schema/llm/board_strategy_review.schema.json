@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pm_bot/schema/llm/board_strategy_review.schema.json",
+  "title": "board_strategy_review capability output",
+  "type": "object",
+  "required": ["summary", "recommendations"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": { "type": "string" },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1", "P2", "P3", "Triage"] },
+          "rationale": { "type": "string" }
+        }
+      }
+    }
+  }
+}

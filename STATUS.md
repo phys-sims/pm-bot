@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 01:12:05 UTC
+- Time (UTC): 01:48:07 UTC
 - By: @openai-codex
-- Scope: Added a unified server LLM capability module (`pm_bot/server/llm/`) with registry + provider contracts and switched `/report-ir/intake` to execute `run_capability(report_ir_draft, ...)` via the local deterministic provider path; added tests for capability execution and guardrail enforcement.
+- Scope: Addressed CI formatting feedback by applying repository formatting (`ruff format .`) for HTTP contract tests and re-validated lint + server contract tests.
 
 
 ---

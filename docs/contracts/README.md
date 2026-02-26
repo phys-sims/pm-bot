@@ -22,6 +22,7 @@ If you change a contract, you must:
 - Changesets: [`changesets.md`](changesets.md)
 - AgentRunSpec: [`agent_run_spec.md`](agent_run_spec.md)
 - ContextPack v1: [`context_pack.md`](context_pack.md)
+- LLM Capabilities: [`llm_capabilities.md`](llm_capabilities.md)
 
 
 

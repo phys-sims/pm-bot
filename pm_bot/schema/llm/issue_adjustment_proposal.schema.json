@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pm_bot/schema/llm/issue_adjustment_proposal.schema.json",
+  "title": "issue_adjustment_proposal capability output",
+  "type": "object",
+  "required": ["issue_ref", "adjustments"],
+  "additionalProperties": false,
+  "properties": {
+    "issue_ref": { "type": "string" },
+    "adjustments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "proposed_value", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string" },
+          "proposed_value": {},
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pm_bot.server.llm.capabilities import REPORT_IR_DRAFT
@@ -24,7 +25,7 @@ class LocalLLMProvider(LLMProvider):
             model="deterministic-rule-engine",
             provider=self.name,
             usage={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
-            raw_text="",
+            raw_text=json.dumps(output, sort_keys=True),
         )
 
     def _run_report_ir_draft(self, request: LLMRequest) -> dict[str, Any]:

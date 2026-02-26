@@ -21,7 +21,7 @@ from pm_bot.server.github_auth import (
 from pm_bot.server.github_connector import build_connector_from_env
 from pm_bot.server.graph import GraphService
 from pm_bot.server.llm.capabilities import REPORT_IR_DRAFT
-from pm_bot.server.llm.service import run_capability
+from pm_bot.server.llm.service import CapabilityOutputValidationError, run_capability
 from pm_bot.server.reporting import ReportingService
 from pm_bot.server.report_ir_intake import (
     build_changeset_preview,
@@ -1134,6 +1134,8 @@ class ASGIServer:
             if message.startswith(prefix):
                 reason_code = message[len(prefix) :]
             await self._send_json(send, 403, {"error": message, "reason_code": reason_code})
+        except CapabilityOutputValidationError as exc:
+            await self._send_json(send, 400, exc.as_dict())
         except ValueError as exc:
             await self._send_json(send, 400, {"error": str(exc)})
         except RuntimeError as exc:

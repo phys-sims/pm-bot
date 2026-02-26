@@ -1,8 +1,10 @@
 import asyncio
 import json
 import subprocess
+import pytest
 import sys
 
+import pm_bot.server.app as app_module
 from pm_bot.server.app import ASGIServer, ServerApp
 
 
@@ -532,3 +534,57 @@ def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
     assert bundle_payload["schema_version"] == "incident_bundle/v1"
     assert bundle_payload["chain"]["summary"]["total"] == 2
     assert "retry_storm" in bundle_payload["runbook_hooks"]
+
+
+def test_report_ir_intake_rejects_invalid_capability_output_before_proposal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    called = {"propose": False}
+
+    def _fake_propose(*args, **kwargs):
+        called["propose"] = True
+        raise AssertionError("propose path must not be reached")
+
+    def _fake_run_capability(*args, **kwargs):
+        raise app_module.CapabilityOutputValidationError(
+            "report_ir_draft",
+            errors=[
+                {
+                    "path": "$.draft",
+                    "code": "SCHEMA_REQUIRED",
+                    "message": "'draft' is a required property",
+                }
+            ],
+            warnings=[
+                {"path": "$", "code": "COERCION_DISABLED", "message": "no coercion attempted"}
+            ],
+        )
+
+    monkeypatch.setattr(service, "propose_report_ir_changesets", _fake_propose)
+    monkeypatch.setattr(app_module, "run_capability", _fake_run_capability)
+
+    status, payload = _asgi_request(
+        app,
+        "POST",
+        "/report-ir/intake",
+        body=json.dumps(
+            {
+                "natural_text": "- plan item",
+                "org": "phys-sims",
+                "repos": ["phys-sims/pm-bot"],
+            }
+        ).encode("utf-8"),
+    )
+
+    assert status == 400
+    assert payload["error"] == "capability_output_validation_failed:report_ir_draft"
+    assert payload["validation"]["errors"][0]["code"] == "SCHEMA_REQUIRED"
+    assert payload["validation"]["warnings"][0]["code"] == "COERCION_DISABLED"
+    assert called["propose"] is False
+
+    pending_status, pending_payload = _asgi_request(app, "GET", "/changesets/pending")
+    assert pending_status == 200
+    assert pending_payload["summary"]["count"] == 0
