@@ -238,5 +238,5 @@ test("blocks proposing changesets when dependency preview has validation errors"
 
   expect(await screen.findByText(/Errors \(1\)/)).toBeTruthy();
   expect(await screen.findByText(/references missing parent epic:missing/)).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Propose changesets/ })).toBeDisabled();
+  expect((screen.getByRole("button", { name: /Propose changesets/ }) as HTMLButtonElement).disabled).toBe(true);
 });
