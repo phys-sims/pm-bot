@@ -41,6 +41,8 @@ def test_agent_docs_headings_and_trigger_matrix_are_synchronized() -> None:
     agents_matrix = _subsection_block(agents, "Trigger matrix")
     docs_matrix = _section_block(docs_map, "Trigger matrix")
 
-    agents_lines = [line for line in agents_matrix.splitlines() if not line.startswith("> Sync note:")]
+    agents_lines = [
+        line for line in agents_matrix.splitlines() if not line.startswith("> Sync note:")
+    ]
     docs_lines = [line for line in docs_matrix.splitlines() if not line.startswith("> Sync note:")]
     assert agents_lines == docs_lines

@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 04:18:17 UTC
+- Time (UTC): 04:34:39 UTC
 - By: @openai-codex
-- Scope: Added canonical agent documentation map, simplified agent pointers in top-level docs, synchronized trigger matrices across guidance files, and added docs sync tests to prevent drift.
+- Scope: Fixed CI formatting drift by applying Ruff formatting to the new agent-doc sync test and re-validating lint/tests.
 
 ---
 
