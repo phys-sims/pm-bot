@@ -6,9 +6,8 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 04:48:30 UTC
+- Time (UTC): 05:14:23 UTC
 - By: @openai-codex
-- Scope: Fixed CI formatting drift by applying Ruff formatting to the new agent-doc sync test and re-validating lint/tests.
 
 ---
 
@@ -46,5 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Refined `CHANGELOG.md` `Unreleased` entries to concise release-facing `Added`/`Changed`/`Fixed` notes for user-visible and operator-visible functionality.
-- Revalidated docs hygiene status gates after changelog/status updates to ensure no legacy status-shape regressions.
+- Addressed review feedback by archiving `docs/IMPLEMENTATION_LOG.md` under `docs/archive/` instead of keeping it in active docs root.
+- Removed the `docs/ROADMAP_V4_CHECKLIST.md` mirror; the completed checklist now exists only in `docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md`.
+- Updated docs hygiene checks and docs IA links to reference archived checklist/log locations as authoritative paths.

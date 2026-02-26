@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 STATUS_FILE = ROOT / "STATUS.md"
-CHECKLIST_FILE = DOCS_DIR / "ROADMAP_V4_CHECKLIST.md"
+CHECKLIST_FILE = DOCS_DIR / "archive/roadmaps/ROADMAP_V4_CHECKLIST.md"
 
 _LINK_PATTERN = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 _AUDIENCE_PATTERN = re.compile(r"^> \*\*Audience:\*\* .+")
@@ -61,7 +61,7 @@ def check_contradiction_workflow_docs() -> list[str]:
     for row_number in (11, 12, 13):
         row_match = re.search(rf"^\|\s*{row_number}\s*\|.*$", checklist, flags=re.MULTILINE)
         if row_match is None or "☑ done" not in row_match.group(0):
-            errors.append("docs/ROADMAP_V4_CHECKLIST.md rows 11-13 must be marked ☑ done.")
+            errors.append("docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md rows 11-13 must be marked ☑ done.")
             break
     return errors
 

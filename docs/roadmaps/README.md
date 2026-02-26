@@ -29,3 +29,6 @@ Moved to `docs/implementation/roadmap-prompts/`:
 
 ### Stale/obsolete (deleted)
 - `web-ui-action-plan.md` (superseded by active v6/task-card planning and completed UI execution slices)
+
+
+Historical v1→v4 execution checklist is archived only in `docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md` (no active mirror).

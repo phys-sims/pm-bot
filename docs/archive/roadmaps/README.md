@@ -16,3 +16,4 @@ Archived files:
 - `future-roadmap.md`
 - `human-roadmap.md`
 - `org-scale-roadmap-reconciliation.md`
+- `ROADMAP_V4_CHECKLIST.md`

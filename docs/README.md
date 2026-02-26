@@ -64,6 +64,9 @@ duplicated across multiple docs.
 ## Navigation
 
 - Product behavior anchor: [`docs/spec/product.md`](spec/product.md)
+- API surface index: [`docs/spec/api-surface.md`](spec/api-surface.md)
+- ReportIR route behavior: [`docs/spec/report-ir-api.md`](spec/report-ir-api.md)
+- Board snapshot/replanner behavior: [`docs/spec/board-replanner.md`](spec/board-replanner.md)
 - Contracts index:
   - [`docs/contracts/report_ir_v1.md`](contracts/report_ir_v1.md)
   - [`docs/contracts/workgraph.md`](contracts/workgraph.md)
@@ -75,6 +78,7 @@ duplicated across multiple docs.
   - [`docs/github/tree-and-dependencies.md`](github/tree-and-dependencies.md)
 - Active planning index: [`docs/roadmaps/README.md`](roadmaps/README.md)
 - Archived planning index: [`docs/archive/roadmaps/README.md`](archive/roadmaps/README.md)
+- Archived implementation log: [`docs/archive/IMPLEMENTATION_LOG.md`](archive/IMPLEMENTATION_LOG.md)
 - Operational health: [`STATUS.md`](../STATUS.md)
 
 ## Entry-point boundary rules
