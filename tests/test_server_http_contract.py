@@ -335,6 +335,21 @@ def test_report_ir_intake_confirm_preview_and_propose_routes() -> None:
     assert report_ir["schema_version"] == "report_ir/v1"
     assert intake_payload["validation"]["errors"] == []
 
+    chain_status, chain_payload = _asgi_request(
+        app,
+        "GET",
+        "/audit/chain",
+        query_string=b"run_id=v6-b-flow&event_type=report_ir_draft_generated",
+    )
+    assert chain_status == 200
+    assert chain_payload["summary"]["total"] == 1
+    llm_metadata = chain_payload["items"][0]["payload"]["llm_metadata"]
+    assert llm_metadata["capability_id"] == "report_ir_draft"
+    assert llm_metadata["prompt_version"] == "v1"
+    assert llm_metadata["schema_version"] == "report_ir_draft/v1"
+    assert llm_metadata["run_id"] == "v6-b-flow"
+    assert llm_metadata["input_hash"]
+
     confirm_status, confirm_payload = _asgi_request(
         app,
         "POST",
@@ -500,6 +515,16 @@ def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
             "reason_code": "repo_not_allowlisted",
         },
     )
+    service.db.append_audit_event(
+        "report_ir_draft_generated",
+        {
+            "run_id": "run-audit-1",
+            "llm_metadata": {
+                "capability_id": "report_ir_draft",
+                "prompt_version": "v1",
+            },
+        },
+    )
 
     chain_status, chain_payload = _asgi_request(
         app,
@@ -520,9 +545,12 @@ def test_audit_chain_rollups_and_incident_bundle_routes() -> None:
     )
     assert rollup_status == 200
     assert rollup_payload["schema_version"] == "audit_rollups/v1"
-    assert rollup_payload["summary"]["sample_size"] == 3
+    assert rollup_payload["summary"]["sample_size"] == 4
     assert rollup_payload["summary"]["retry_count"] == 1
     assert rollup_payload["summary"]["denial_count"] == 1
+    assert rollup_payload["capability_concentration"] == [
+        {"capability_id": "report_ir_draft", "count": 1}
+    ]
 
     bundle_status, bundle_payload = _asgi_request(
         app,

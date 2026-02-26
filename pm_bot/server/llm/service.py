@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -197,6 +198,9 @@ def run_capability(
     )
 
     provider = _select_provider(context, provider_map)
+    input_hash = hashlib.sha256(
+        json.dumps(input_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     request = LLMRequest(
         capability_id=capability_id,
         prompt=definition.prompt_template,
@@ -218,9 +222,13 @@ def run_capability(
 
     return {
         "capability_id": capability_id,
+        "prompt_version": definition.prompt_version,
+        "schema_version": definition.schema_version,
         "provider": response.provider,
         "model": response.model,
         "usage": response.usage,
+        "input_hash": input_hash,
+        "run_id": str(context.get("run_id", "")).strip(),
         "output": parsed_output,
         "guardrails": definition.guardrails,
         "output_schema": definition.output_schema,

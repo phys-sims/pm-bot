@@ -1,4 +1,4 @@
-"""Capability registry mapping IDs to prompt templates, schemas, and guardrails."""
+"""Capability registry mapping IDs to prompt versions, schemas, and guardrails."""
 
 from __future__ import annotations
 
@@ -15,12 +15,15 @@ from pm_bot.server.llm.capabilities import (
 
 
 _SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schema" / "llm"
+_PROMPT_DIR = Path(__file__).resolve().parent / "prompts"
 
 
 @dataclass(frozen=True)
 class CapabilityDefinition:
     capability_id: str
     prompt_template: str
+    prompt_version: str
+    schema_version: str
     output_schema: dict[str, Any]
     guardrails: dict[str, Any]
 
@@ -29,13 +32,16 @@ def _load_schema(filename: str) -> dict[str, Any]:
     return json.loads((_SCHEMA_DIR / filename).read_text())
 
 
+def _load_prompt(filename: str) -> str:
+    return (_PROMPT_DIR / filename).read_text().strip()
+
+
 CAPABILITY_REGISTRY: dict[str, CapabilityDefinition] = {
     REPORT_IR_DRAFT: CapabilityDefinition(
         capability_id=REPORT_IR_DRAFT,
-        prompt_template=(
-            "Convert intake text into report_ir/v1 JSON with deterministic stable IDs and "
-            "triage defaults for missing fields. Return JSON object only."
-        ),
+        prompt_template=_load_prompt("report_ir_draft.v1.md"),
+        prompt_version="v1",
+        schema_version="report_ir_draft/v1",
         output_schema=_load_schema("report_ir_draft.schema.json"),
         guardrails={
             "require_org": True,
@@ -45,17 +51,17 @@ CAPABILITY_REGISTRY: dict[str, CapabilityDefinition] = {
     ),
     BOARD_STRATEGY_REVIEW: CapabilityDefinition(
         capability_id=BOARD_STRATEGY_REVIEW,
-        prompt_template=(
-            "Review board strategy and return prioritized recommendations as JSON only."
-        ),
+        prompt_template=_load_prompt("board_strategy_review.v1.md"),
+        prompt_version="v1",
+        schema_version="board_strategy_review/v1",
         output_schema=_load_schema("board_strategy_review.schema.json"),
         guardrails={"read_only": True},
     ),
     ISSUE_ADJUSTMENT_PROPOSAL: CapabilityDefinition(
         capability_id=ISSUE_ADJUSTMENT_PROPOSAL,
-        prompt_template=(
-            "Propose issue adjustments with deterministic fields and return JSON object only."
-        ),
+        prompt_template=_load_prompt("issue_adjustment_proposal.v1.md"),
+        prompt_version="v1",
+        schema_version="issue_adjustment_proposal/v1",
         output_schema=_load_schema("issue_adjustment_proposal.schema.json"),
         guardrails={"read_only": True},
     ),

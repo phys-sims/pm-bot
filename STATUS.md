@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 01:48:07 UTC
+- Time (UTC): 03:05:47 UTC
 - By: @openai-codex
-- Scope: Addressed CI formatting feedback by applying repository formatting (`ruff format .`) for HTTP contract tests and re-validated lint + server contract tests.
+- Scope: Added versioned LLM prompt registry files and persisted capability run metadata (capability/prompt/model-provider/input-hash/schema/run-id) into audit events with audit endpoint exposure for trace/replay.
 
 
 ---
@@ -17,9 +17,9 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-25 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, unified inbox contract/aggregation semantics, and HTTP contract behavior. |
-| Lint | `ruff check .` | ✅ | 2026-02-25 | No lint violations. |
-| Format | `ruff format .` | ✅ | 2026-02-25 | Formatting is stable. |
+| Tests | `pytest -q` | ✅ | 2026-02-26 | Covers v0-v5 behavior including runner lifecycle transitions, queue claim/retry/dead-letter semantics, adapter contract conformance, unified inbox contract/aggregation semantics, and HTTP contract behavior. |
+| Lint | `ruff check .` | ✅ | 2026-02-26 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-26 | Formatting is stable. |
 | Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates` | ✅ | 2026-02-25 | Validates local markdown links, contradiction-check workflow docs presence, and STATUS operability gates. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 | Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | Added CI validation job; local shell in this environment does not include Docker CLI. |

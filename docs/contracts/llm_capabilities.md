@@ -8,14 +8,17 @@ pm-bot capability orchestration is contract-first for all LLM-backed outputs und
 - `board_strategy_review` → `pm_bot/schema/llm/board_strategy_review.schema.json`
 - `issue_adjustment_proposal` → `pm_bot/schema/llm/issue_adjustment_proposal.schema.json`
 
-## Orchestration requirements (normative)
+## Prompt registry and orchestration requirements (normative)
+
+Prompt templates are versioned and file-backed under `pm_bot/server/llm/prompts/` using one file per capability/version (for example `report_ir_draft.v1.md`).
 
 When `run_capability(...)` executes a provider-backed capability, orchestration MUST:
 
-1. Parse model output as **JSON object only**.
-2. Validate parsed payload against the capability schema.
-3. Return structured validation payloads with deterministic `errors` and `warnings` arrays.
-4. Reject non-conforming outputs before any propose/apply write path is entered.
+1. Load prompt text from the prompt registry for the requested capability version.
+2. Parse model output as **JSON object only**.
+3. Validate parsed payload against the capability schema.
+4. Return structured validation payloads with deterministic `errors` and `warnings` arrays.
+5. Reject non-conforming outputs before any propose/apply write path is entered.
 
 Validation errors are deterministic records:
 
@@ -46,3 +49,17 @@ If capability output fails parse/schema validation, orchestration raises
 ```
 
 This contract is validated by capability unit tests and server HTTP contract tests.
+
+
+## Audit metadata contract
+
+For each capability run, audit metadata MUST persist these fields so behavior can be traced/replayed:
+
+- `capability_id`
+- `prompt_version`
+- `model` and `provider` (or normalized `model_provider`)
+- `input_hash`
+- `schema_version`
+- `run_id`
+
+Server audit endpoints (`/audit/chain`, `/audit/rollups`, `/audit/incident-bundle`) expose this metadata via event payloads and rollup concentration slices.

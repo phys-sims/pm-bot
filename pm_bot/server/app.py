@@ -334,10 +334,17 @@ class ServerApp:
                 "run_id": run_id,
                 "requested_by": requested_by,
                 "draft_id": draft_id,
-                "capability": {
-                    "id": capability_result.get("capability_id", ""),
-                    "provider": capability_result.get("provider", ""),
+                "llm_metadata": {
+                    "capability_id": capability_result.get("capability_id", ""),
+                    "prompt_version": capability_result.get("prompt_version", ""),
                     "model": capability_result.get("model", ""),
+                    "provider": capability_result.get("provider", ""),
+                    "model_provider": (
+                        f"{capability_result.get('provider', '')}:{capability_result.get('model', '')}"
+                    ).strip(":"),
+                    "input_hash": capability_result.get("input_hash", ""),
+                    "schema_version": capability_result.get("schema_version", ""),
+                    "run_id": capability_result.get("run_id", run_id),
                 },
                 "input": {"natural_text": natural_text, "mode": mode},
                 "validation": validation,
@@ -621,6 +628,8 @@ class ServerApp:
         reason_counts: dict[str, int] = {}
         repo_counts: dict[str, int] = {}
         queue_ages: list[float] = []
+        capability_counts: dict[str, int] = {}
+        prompt_versions: dict[str, int] = {}
 
         for event in events:
             payload = event.get("payload", {}) if isinstance(event.get("payload"), dict) else {}
@@ -630,6 +639,16 @@ class ServerApp:
                 reason_counts[reason] = reason_counts.get(reason, 0) + 1
             if repo:
                 repo_counts[repo] = repo_counts.get(repo, 0) + 1
+            llm_metadata = payload.get("llm_metadata", {}) if isinstance(payload, dict) else {}
+            if isinstance(llm_metadata, dict):
+                capability_id = str(llm_metadata.get("capability_id", "")).strip()
+                prompt_version = str(llm_metadata.get("prompt_version", "")).strip()
+                if capability_id:
+                    capability_counts[capability_id] = capability_counts.get(capability_id, 0) + 1
+                if capability_id and prompt_version:
+                    key = f"{capability_id}:{prompt_version}"
+                    prompt_versions[key] = prompt_versions.get(key, 0) + 1
+
             if "queue_age_seconds" in payload:
                 try:
                     queue_ages.append(float(payload.get("queue_age_seconds", 0.0)))
@@ -658,6 +677,18 @@ class ServerApp:
                 {"repo": repo_name, "count": count}
                 for repo_name, count in sorted(
                     repo_counts.items(), key=lambda item: (-item[1], item[0])
+                )[:5]
+            ],
+            "capability_concentration": [
+                {"capability_id": capability_id, "count": count}
+                for capability_id, count in sorted(
+                    capability_counts.items(), key=lambda item: (-item[1], item[0])
+                )[:5]
+            ],
+            "prompt_version_concentration": [
+                {"capability_prompt": capability_prompt, "count": count}
+                for capability_prompt, count in sorted(
+                    prompt_versions.items(), key=lambda item: (-item[1], item[0])
                 )[:5]
             ],
         }
