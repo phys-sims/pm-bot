@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:53:12 UTC
+- Time (UTC): 01:02:51 UTC
 - By: @openai-codex
-- Scope: Updated v6 exit gates and status reporting to reflect the shipped observable Plan Intake GUI route (`Plan Intake`) and its currently tested intake → confirm → preview → propose workflow boundaries, including explicit Inbox-approval handoff expectations for full closure.
+- Scope: Fixed Plan Intake frontend test regressions in CI by using deterministic textarea change events for JSON edits and Vitest-compatible status assertions; retained deterministic mocked coverage for intake/confirm/preview/propose and e2e human-gated flow fixtures.
 
 
 ---
