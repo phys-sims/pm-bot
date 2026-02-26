@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 01:02:51 UTC
+- Time (UTC): 01:12:05 UTC
 - By: @openai-codex
-- Scope: Fixed Plan Intake frontend test regressions in CI by using deterministic textarea change events for JSON edits and Vitest-compatible status assertions; retained deterministic mocked coverage for intake/confirm/preview/propose and e2e human-gated flow fixtures.
+- Scope: Added a unified server LLM capability module (`pm_bot/server/llm/`) with registry + provider contracts and switched `/report-ir/intake` to execute `run_capability(report_ir_draft, ...)` via the local deterministic provider path; added tests for capability execution and guardrail enforcement.
 
 
 ---
