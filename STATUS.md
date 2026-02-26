@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:47:29 UTC
+- Time (UTC): 00:53:12 UTC
 - By: @openai-codex
-- Scope: Fixed Plan Intake UI test assertion compatibility for Vitest/Chai by replacing unsupported toBeDisabled matcher with a deterministic HTMLButtonElement.disabled boolean assertion.
+- Scope: Updated v6 exit gates and status reporting to reflect the shipped observable Plan Intake GUI route (`Plan Intake`) and its currently tested intake → confirm → preview → propose workflow boundaries, including explicit Inbox-approval handoff expectations for full closure.
 
 
 ---
@@ -101,10 +101,16 @@
 - [x] N2 / v4 platform reliability complete (`docs/roadmaps/agent-roadmap-v4-platform.md`)
 - [x] N3 / v5 org readiness started (`docs/roadmaps/agent-roadmap-v5-org-readiness.md`)
 - [x] v6 roadmap decomposition published (`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`, `docs/ROADMAP_V6_CHECKLIST.md`)
-- [x] v6 multi-repo orchestration stage complete (Tracks A–D complete in checklist and API/UI surfaces)
+- [~] v6 multi-repo orchestration stage in verification-hardening (Tracks A–D implemented; closure gated on explicit Plan Intake proposal → Inbox approval/apply end-to-end evidence in status/checklist)
 
 ### Future roadmap (long-horizon, non-default)
 - [ ] Future SaaS shape execution intentionally deferred (`docs/roadmaps/future-roadmap.md`)
+
+## Current UI-observable v6 state
+
+- Plan Intake GUI route is present in app navigation (`Plan Intake`) and renders a guided flow for `/report-ir/intake` → confirm → preview → propose with a disabled propose action when preview validation errors exist.
+- Current UI tests verify route visibility and guided progression behavior; they do not yet provide a single end-to-end GUI proof that a Plan Intake proposal is approved/applied via Inbox in the same test journey.
+- Status and roadmap gating now treat intake-route completion as shipped UI functionality while keeping full v6 closure tied to the observable/tested proposal-to-approval handoff.
 
 
 ## v4 ship readiness snapshot
