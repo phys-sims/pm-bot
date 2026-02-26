@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 01:12:05 UTC
+- Time (UTC): 01:32:37 UTC
 - By: @openai-codex
-- Scope: Added a unified server LLM capability module (`pm_bot/server/llm/`) with registry + provider contracts and switched `/report-ir/intake` to execute `run_capability(report_ir_draft, ...)` via the local deterministic provider path; added tests for capability execution and guardrail enforcement.
+- Scope: Added capability output JSON-schema contracts under `pm_bot/schema/llm/`, enforced JSON-only parse + schema validation in LLM orchestration with structured errors/warnings, documented the contract, and added server/unit tests verifying invalid model output is rejected before proposal writes.
 
 
 ---
