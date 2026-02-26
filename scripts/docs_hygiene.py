@@ -65,6 +65,8 @@ def check_contradiction_workflow_docs() -> list[str]:
 
 def check_status_operability_hygiene() -> list[str]:
     errors: list[str] = []
+    readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs_readme_text = (DOCS_DIR / "README.md").read_text(encoding="utf-8")
     status_text = STATUS_FILE.read_text(encoding="utf-8")
 
     required_commands = [
@@ -77,11 +79,34 @@ def check_status_operability_hygiene() -> list[str]:
         if command not in status_text:
             errors.append(f"STATUS.md missing CI/operability command: {command}")
 
-    if "v3 near-term complete" not in status_text:
-        errors.append("STATUS.md must explicitly state that v3 near-term scope is complete.")
+    required_status_headings = [
+        "## CI health checklist",
+        "## Canonical contract status",
+        "## Current-state deltas",
+    ]
+    for heading in required_status_headings:
+        if heading not in status_text:
+            errors.append(f"STATUS.md missing required section: {heading}")
 
-    if re.search(r"v3[^\n]*in progress", status_text, flags=re.IGNORECASE):
-        errors.append("STATUS.md contains stale v3 in-progress references.")
+    forbidden_status_sections = [
+        "Roadmap checklist",
+        "Roadmap deliverables status",
+        "Future roadmap",
+        "Quickstart",
+        "How to navigate",
+    ]
+    for section in forbidden_status_sections:
+        if section in status_text:
+            errors.append(f"STATUS.md contains non-operational guidance section: {section}")
+
+    if "## Documentation precedence (authoritative)" not in docs_readme_text:
+        errors.append("docs/README.md missing authoritative documentation precedence section.")
+
+    if "Documentation precedence" in readme_text:
+        errors.append("README.md must not define documentation precedence; link to docs/README.md instead.")
+
+    if "Roadmap snapshot" in readme_text or "Core concepts" in readme_text:
+        errors.append("README.md must stay concise and avoid deep narrative sections.")
 
     return errors
 
