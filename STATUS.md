@@ -8,6 +8,7 @@
 - Date: 2026-02-26
 - Time (UTC): 04:48:30 UTC
 - By: @openai-codex
+- Scope: Fixed CI formatting drift by applying Ruff formatting to the new agent-doc sync test and re-validating lint/tests.
 
 ---
 

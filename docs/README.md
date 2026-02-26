@@ -55,6 +55,12 @@ Roadmaps are planning aids only and MUST NOT override higher-precedence sources.
 - `docs/qa-matrix.md` — test and CI command mapping.
 - `docs/maintenance.md` — documentation governance and hygiene workflows.
 
+## For agents
+
+Agent-specific intake rules, required first reads, and change-type triggers are
+centralized in [`docs/agents/README.md`](agents/README.md) instead of being
+duplicated across multiple docs.
+
 ## Navigation
 
 - Product behavior anchor: [`docs/spec/product.md`](spec/product.md)
