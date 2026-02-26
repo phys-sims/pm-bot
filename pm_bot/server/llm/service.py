@@ -6,6 +6,7 @@ import hashlib
 import json
 from typing import Any
 
+from pm_bot.server.llm.capabilities import MUTATION_PROPOSAL, READ_ONLY_ADVICE
 from pm_bot.server.llm.providers import LLMProvider, LLMRequest, LocalLLMProvider
 from pm_bot.server.llm.registry import get_capability_definition
 
@@ -34,6 +35,43 @@ class CapabilityOutputValidationError(ValueError):
                 "warnings": self.warnings,
             },
         }
+
+
+def _policy_bool(policy: dict[str, Any], key: str, default: bool = False) -> bool:
+    value = policy.get(key, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _enforce_capability_policy(
+    *,
+    capability_id: str,
+    capability_class: str,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    if _policy_bool(policy, "allow_direct_github_writes", default=False):
+        raise ValueError(f"capability_policy_denied:{capability_id}:direct_github_writes_forbidden")
+
+    if capability_class == READ_ONLY_ADVICE:
+        approval_level = str(policy.get("approval_level", "low")).strip() or "low"
+        return {"capability_class": capability_class, "approval_level": approval_level}
+
+    if capability_class == MUTATION_PROPOSAL:
+        if not _policy_bool(policy, "require_human_approval", default=True):
+            raise ValueError(f"capability_policy_denied:{capability_id}:human_approval_required")
+        if not _policy_bool(policy, "proposal_output_changeset_bundle", default=False):
+            raise ValueError(
+                f"capability_policy_denied:{capability_id}:changeset_bundle_proposal_required"
+            )
+        return {
+            "capability_class": capability_class,
+            "approval_level": "human_required",
+            "requires_human_approval": True,
+            "requires_changeset_bundle": True,
+        }
+
+    raise ValueError(f"capability_policy_denied:{capability_id}:unknown_capability_class")
 
 
 def _select_provider(context: dict[str, Any], providers: dict[str, LLMProvider]) -> LLMProvider:
@@ -177,6 +215,15 @@ def _validate_json_schema(
                 "message": f"value must be one of {enum_values}",
             }
         )
+
+    if "const" in schema and payload != schema.get("const"):
+        errors.append(
+            {
+                "path": path,
+                "code": "SCHEMA_CONST",
+                "message": f"value must equal {schema.get('const')!r}",
+            }
+        )
     return errors, warnings
 
 
@@ -191,6 +238,11 @@ def run_capability(
 
     provider_map = providers or {"local": LocalLLMProvider()}
     definition = get_capability_definition(capability_id)
+    policy_enforcement = _enforce_capability_policy(
+        capability_id=capability_id,
+        capability_class=definition.capability_class,
+        policy=policy,
+    )
     _enforce_guardrails(
         capability_id=capability_id,
         input_payload=input_payload,
@@ -230,6 +282,8 @@ def run_capability(
         "input_hash": input_hash,
         "run_id": str(context.get("run_id", "")).strip(),
         "output": parsed_output,
+        "capability_class": definition.capability_class,
+        "policy_enforcement": policy_enforcement,
         "guardrails": definition.guardrails,
         "output_schema": definition.output_schema,
         "validation": {"errors": errors, "warnings": warnings},

@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 03:05:47 UTC
+- Time (UTC): 03:13:55 UTC
 - By: @openai-codex
-- Scope: Added versioned LLM prompt registry files and persisted capability run metadata (capability/prompt/model-provider/input-hash/schema/run-id) into audit events with audit endpoint exposure for trace/replay.
+- Scope: Added capability-class policy enforcement in orchestration (`read_only_advice` vs `mutation_proposal`), disallowed direct GitHub-write bypass flags, required ChangesetBundle-compatible mutation proposals with mandatory human approval policy, and added negative bypass tests.
 
 
 ---
