@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 import { PlanIntakePage } from "./PlanIntakePage";
@@ -180,8 +180,7 @@ test("confirms using edited report_ir JSON", async () => {
     ...BASE_DRAFT,
     report: { ...BASE_DRAFT.report, title: "Edited plan title" },
   };
-  await userEvent.clear(reportEditor);
-  await userEvent.type(reportEditor, JSON.stringify(editedDraft));
+  fireEvent.change(reportEditor, { target: { value: JSON.stringify(editedDraft) } });
 
   await userEvent.click(screen.getByRole("button", { name: /Confirm report_ir/ }));
   expect(await screen.findByText(/ReportIR confirmed/)).toBeTruthy();
@@ -203,7 +202,7 @@ test("shows propose error when API request fails", async () => {
   await userEvent.click(screen.getByRole("button", { name: /Preview operations/ }));
   await userEvent.click(screen.getByRole("button", { name: /Propose changesets/ }));
 
-  expect(await screen.findByRole("status")).toHaveTextContent(/Error: approval_required/i);
+  expect((await screen.findByRole("status")).textContent).toMatch(/Error: approval_required/i);
 });
 
 test("blocks proposing changesets when dependency preview has validation errors", async () => {

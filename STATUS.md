@@ -6,9 +6,9 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 00:58:58 UTC
+- Time (UTC): 01:02:51 UTC
 - By: @openai-codex
-- Scope: Expanded Plan Intake frontend coverage with deterministic mocked unit/integration tests for intake, editable confirm payloads, preview rendering, and propose success/error handling; added deterministic Playwright e2e coverage for natural-text intake through proposed changesets with Inbox handoff visibility.
+- Scope: Fixed Plan Intake frontend test regressions in CI by using deterministic textarea change events for JSON edits and Vitest-compatible status assertions; retained deterministic mocked coverage for intake/confirm/preview/propose and e2e human-gated flow fixtures.
 
 
 ---
