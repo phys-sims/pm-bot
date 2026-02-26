@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-26
-- Time (UTC): 04:26:27 UTC
+- Time (UTC): 04:48:30 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,5 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Redesigned `STATUS.md` to the four approved sections and removed embedded roadmap/state narrative blocks.
-- Updated docs entrypoint wording so `README.md` and `docs/README.md` no longer imply roadmap detail is tracked in `STATUS.md`.
-- Tightened docs hygiene status gates to detect legacy/superseded status blocks and stale scope-bullet patterns.
+- Refined `CHANGELOG.md` `Unreleased` entries to concise release-facing `Added`/`Changed`/`Fixed` notes for user-visible and operator-visible functionality.
+- Revalidated docs hygiene status gates after changelog/status updates to ensure no legacy status-shape regressions.
