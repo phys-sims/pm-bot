@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 07:13:26 UTC
+- Time (UTC): 07:20:08 UTC
 - By: @openai-codex
 
 ---
@@ -49,6 +49,7 @@
 - Fixed unified-inbox/run-detail follow-up regressions: UI tests now isolate DOM per test to avoid duplicate empty-state assertions, run-detail success messaging persists after approve+refresh, and backend artifact view now resolves artifact root via storage settings (restoring lint + CI front-end test expectations).
 - Fixed interrupt edit resume payload forwarding: Inbox now resumes edited interrupts with the resolved decision payload (`decision.edited_payload`) so LangGraph resume receives user edits instead of `{}` defaults, with UI test coverage asserting the exact resume request body.
 - Stabilized Inbox edit-resume regression test for CI/runtime host differences by asserting resume call via URL suffix matching instead of a hard-coded localhost origin, while preserving strict request-body assertions for `edited_payload` forwarding.
+- Hardened edited-interrupt resume forwarding: when resolved interrupt `decision.payload` is absent, Inbox now deterministically falls back to the interrupt `payload` before calling `/runs/{id}/resume`, with regression coverage for the fallback path.
 - Added local-first onboarding + repo sync dashboard support: UI now guides token mode, repo search/select, and initial sync progress, while backend adds repo search/status and reindex endpoints plus `last_index_at` tracking for dashboard visibility and no-DB-poking setup flows; app default landing remains Inbox for test/runtime compatibility.
 - Added optional retrieval path to `repo_change_proposer/v1`: planner now deterministically decides whether to retrieve, retrieval chunks are budget-bounded (`max_retrieval_tokens`) before insertion into context-pack `retrieved` sections and manifest metadata, and retrieval query/chunk-id provenance is emitted to audit and persisted in run artifacts.
 - Added local RAG bootstrap support: Docker Compose now includes a persistent `qdrant` service (`./data/qdrant`), control-plane retriever abstraction stubs (`embed/upsert/query`), and SQLite metadata tables for `documents`, `chunks`, `embedding_records`, and `ingestion_jobs`.

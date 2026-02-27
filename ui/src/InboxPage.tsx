@@ -49,9 +49,16 @@ export function InboxPage() {
       const resolvedInterrupt = await api.resolveInterrupt(interruptId, action, "ui-user");
       if (action === "approve" || action === "edit") {
         const decision: Record<string, unknown> = { action };
-        const editedPayload = resolvedInterrupt.decision?.payload;
-        if (action === "edit" && editedPayload && typeof editedPayload === "object" && !Array.isArray(editedPayload)) {
-          decision.edited_payload = editedPayload;
+        const decisionPayload = resolvedInterrupt.decision?.payload;
+        const interruptPayload = resolvedInterrupt.payload;
+        const editedPayloadCandidate =
+          decisionPayload && typeof decisionPayload === "object" && !Array.isArray(decisionPayload)
+            ? decisionPayload
+            : interruptPayload && typeof interruptPayload === "object" && !Array.isArray(interruptPayload)
+              ? interruptPayload
+              : null;
+        if (action === "edit" && editedPayloadCandidate) {
+          decision.edited_payload = editedPayloadCandidate;
         }
         await api.resumeRun(runId, decision, "ui-user");
       }

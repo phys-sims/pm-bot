@@ -257,3 +257,93 @@ test("edits interrupt and resumes run execution with edited payload", async () =
   );
   expect(await screen.findByText("No inbox items.")).toBeTruthy();
 });
+
+
+test("edits interrupt and falls back to interrupt payload when decision payload is absent", async () => {
+  mockedFetch
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema_version: "inbox/v1",
+          items: [
+            {
+              source: "pm_bot",
+              item_type: "interrupt",
+              id: "interrupt:int-3",
+              title: "Resolve interrupt",
+              repo: "r",
+              url: "",
+              state: "pending",
+              priority: "",
+              age_hours: 0,
+              action: "resolve",
+              requires_internal_approval: true,
+              stale: false,
+              stale_reason: "",
+              metadata: { interrupt_id: "int-3", run_id: "run-3" },
+            },
+          ],
+          diagnostics: {
+            cache: { hit: false, ttl_seconds: 30, key: "x" },
+            rate_limit: { remaining: 100, reset_at: "", source: "github" },
+            queries: { calls: 1, chunk_size: 5, chunks: [] },
+          },
+          summary: { count: 1, pm_bot_count: 1, github_count: 0 },
+        }),
+        { status: 200 },
+      ),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema_version: "run_interrupt/v1",
+          interrupt_id: "int-3",
+          run_id: "run-3",
+          thread_id: "thread-3",
+          kind: "approval",
+          risk: "medium",
+          payload: { title: "edited-from-payload" },
+          status: "edited",
+          decision: { action: "edit" },
+          decision_actor: "ui-user",
+          decision_action: "edit",
+          created_at: "2026-02-27T00:00:00Z",
+          resolved_at: "2026-02-27T00:00:01Z",
+        }),
+        { status: 200 },
+      ),
+    )
+    .mockResolvedValueOnce(new Response(JSON.stringify({ run_id: "run-3", status: "running" }), { status: 200 }))
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          schema_version: "inbox/v1",
+          items: [],
+          diagnostics: {
+            cache: { hit: true, ttl_seconds: 30, key: "x" },
+            rate_limit: { remaining: 100, reset_at: "", source: "github" },
+            queries: { calls: 0, chunk_size: 5, chunks: [] },
+          },
+          summary: { count: 0, pm_bot_count: 0, github_count: 0 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+  render(<InboxPage />);
+  await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+  const resumeCall = mockedFetch.mock.calls.find(([url]) =>
+    typeof url === "string" && url.endsWith("/runs/run-3/resume"),
+  );
+  expect(resumeCall).toBeTruthy();
+  expect(resumeCall?.[1]).toEqual(
+    expect.objectContaining({
+      body: JSON.stringify({
+        decision: { action: "edit", edited_payload: { title: "edited-from-payload" } },
+        actor: "ui-user",
+      }),
+      method: "POST",
+    }),
+  );
+});
