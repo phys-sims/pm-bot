@@ -1,15 +1,6 @@
-"""Provider adapters for capability execution."""
+"""Compatibility shim for pm_bot.execution_plane.langgraph.tools.llm.providers."""
 
-from pm_bot.server.llm.providers.anthropic import AnthropicProvider
-from pm_bot.server.llm.providers.base import LLMProvider, LLMRequest, LLMResponse
-from pm_bot.server.llm.providers.local import LocalLLMProvider
-from pm_bot.server.llm.providers.openai import OpenAIProvider
+import sys as _sys
+from pm_bot.execution_plane.langgraph.tools.llm import providers as _impl
 
-__all__ = [
-    "AnthropicProvider",
-    "LLMProvider",
-    "LLMRequest",
-    "LLMResponse",
-    "LocalLLMProvider",
-    "OpenAIProvider",
-]
+_sys.modules[__name__] = _impl

@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 03:48:52 UTC
+- Time (UTC): 03:56:37 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Applied repository formatting to `scripts/docs_hygiene.py` to satisfy `ruff format . --check` in CI.
-- Re-ran lint and test suites after formatting-only changes to confirm no behavioral regressions.
-- Kept documentation status gates current with a refreshed runtime `Last updated` timestamp for this follow-up fix.
+- Refactored backend package layout into `pm_bot/control_plane`, `pm_bot/execution_plane/langgraph`, and `pm_bot/shared` while preserving runtime behavior through compatibility shims under `pm_bot/server/*`.
+- Added import-boundary coverage to ensure `pm_bot/control_plane` modules do not directly import `langgraph`/`langchain` package paths.
+- Re-ran linting, formatting, and full test suite after module moves and shim updates to validate endpoint and adapter compatibility.

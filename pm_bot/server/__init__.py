@@ -1,1 +1,1 @@
-"""Server components for v1 roadmap."""
+"""Compatibility package for legacy server imports."""

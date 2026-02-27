@@ -1,5 +1,6 @@
-"""LLM capability orchestration module."""
+"""Compatibility shim for pm_bot.execution_plane.langgraph.tools.llm."""
 
-from pm_bot.server.llm.service import run_capability
+import sys as _sys
+from pm_bot.execution_plane.langgraph.tools import llm as _impl
 
-__all__ = ["run_capability"]
+_sys.modules[__name__] = _impl
