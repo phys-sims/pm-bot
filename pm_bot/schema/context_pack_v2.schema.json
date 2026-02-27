@@ -129,6 +129,15 @@
                         "additionalProperties": false,
                     },
                 },
+                "retrieval": {
+                    "type": "object",
+                    "required": ["query", "chunk_ids"],
+                    "properties": {
+                        "query": {"type": "string"},
+                        "chunk_ids": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "additionalProperties": false,
+                },
             },
             "additionalProperties": false,
         },

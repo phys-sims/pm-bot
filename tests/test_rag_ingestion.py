@@ -88,6 +88,27 @@ def test_rag_http_routes_index_status_and_query(monkeypatch):
     assert row["metadata"]["source_path"].startswith("docs/")
 
 
+def test_rag_query_post_route_supports_filters(monkeypatch):
+    monkeypatch.setenv("PMBOT_RAG_VECTOR_BACKEND", "memory")
+    monkeypatch.setenv("PMBOT_RAG_EMBEDDING_PROVIDER", "local")
+
+    app = ASGIServer(service=ServerApp())
+    _asgi_request(app, "POST", "/rag/index", body=b"{}")
+
+    status, payload = _asgi_request(
+        app,
+        "POST",
+        "/rag/query",
+        body=(
+            b'{"repo_id":0,"query":"github integration","top_k":3,"filters":{"doc_types":["spec","contracts"]}}'
+        ),
+    )
+    assert status == 200
+    assert payload["summary"]["count"] >= 1
+    assert all(row["metadata"]["repo_id"] == 0 for row in payload["items"])
+    assert all(row["metadata"]["doc_type"] in {"spec", "contracts"} for row in payload["items"])
+
+
 def test_rag_query_requires_query_param(monkeypatch):
     monkeypatch.setenv("PMBOT_RAG_VECTOR_BACKEND", "memory")
     app = ASGIServer(service=ServerApp())

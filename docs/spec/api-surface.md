@@ -37,7 +37,14 @@
 ## Reports and context
 
 - `GET /reports/weekly/latest` → latest generated weekly report path and reporting metrics context: [`docs/spec/reporting.md`](reporting.md).
-- `GET /context-pack` → context pack builder surface: [`docs/contracts/context_pack.md`](../contracts/context_pack.md).
+- `GET /context-pack` → context pack builder surface, including optional retrieval augmentation (`retrieval_query`, repo scope, doc_type allowlist): [`docs/contracts/context_pack.md`](../contracts/context_pack.md).
+
+## RAG retrieval
+
+- `POST /rag/index` → index docs corpus for retrieval.
+- `GET /rag/status` → latest indexing status/statistics.
+- `GET /rag/query` → legacy query surface (`q`, `limit`).
+- `POST /rag/query` → retrieval query body (`repo_id`, `query`, `filters.doc_types`, `top_k`) with deterministic ordering by score bucket and chunk id.
 
 ## Agent-run orchestration
 

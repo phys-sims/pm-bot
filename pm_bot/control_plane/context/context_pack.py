@@ -91,7 +91,12 @@ def _redact_content(text: str) -> tuple[str, list[dict[str, str]]]:
     return redacted_text, redactions
 
 
-def _segment_candidates(db: OrchestratorDB, issue_ref: str, profile: str) -> list[dict[str, Any]]:
+def _segment_candidates(
+    db: OrchestratorDB,
+    issue_ref: str,
+    profile: str,
+    retrieved_chunks: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     item = db.get_work_item(issue_ref)
     if item is None:
         raise ValueError(f"Unknown work item: {issue_ref}")
@@ -159,6 +164,46 @@ def _segment_candidates(db: OrchestratorDB, issue_ref: str, profile: str) -> lis
             }
         )
 
+    normalized_retrieved = sorted(
+        retrieved_chunks or [],
+        key=lambda chunk: (
+            int(chunk.get("score_bucket", 0)),
+            str(chunk.get("chunk_id", "")),
+        ),
+        reverse=True,
+    )
+    for chunk in normalized_retrieved:
+        chunk_id = str(chunk.get("chunk_id", "")).strip()
+        if not chunk_id:
+            continue
+        metadata = dict(chunk.get("metadata") or {})
+        score_bucket = int(chunk.get("score_bucket", 0))
+        candidates.append(
+            {
+                "segment_id": f"retrieved.{chunk_id}",
+                "kind": "retrieved",
+                "title": str(metadata.get("source_path") or chunk_id),
+                "provenance": "retrieval",
+                "source": {
+                    "chunk_id": chunk_id,
+                    "source_path": metadata.get("source_path"),
+                    "line_start": metadata.get("line_start"),
+                    "line_end": metadata.get("line_end"),
+                    "doc_type": metadata.get("doc_type"),
+                    "revision_sha": metadata.get("revision_sha"),
+                    "score": chunk.get("score"),
+                },
+                "payload": {
+                    "chunk_id": chunk_id,
+                    "text": chunk.get("text", ""),
+                    "metadata": metadata,
+                    "score": chunk.get("score", 0.0),
+                    "score_bucket": score_bucket,
+                },
+                "rank": (4, f"{(1_000_000 - score_bucket):08d}:{chunk_id}"),
+            }
+        )
+
     return sorted(candidates, key=lambda c: (c["rank"][0], c["rank"][1]))
 
 
@@ -168,6 +213,8 @@ def build_context_pack(
     profile: str = "pm-drafting",
     char_budget: int = 4000,
     schema_version: str = SCHEMA_VERSION_V2,
+    retrieved_chunks: list[dict[str, Any]] | None = None,
+    retrieval_query: str = "",
 ) -> dict[str, Any]:
     if char_budget <= 0:
         raise ValueError("char_budget must be positive")
@@ -204,7 +251,9 @@ def build_context_pack(
     redaction_categories: dict[str, int] = {}
     used_chars = 0
 
-    for candidate in _segment_candidates(db=db, issue_ref=issue_ref, profile=profile):
+    for candidate in _segment_candidates(
+        db=db, issue_ref=issue_ref, profile=profile, retrieved_chunks=retrieved_chunks
+    ):
         redacted_text, redactions = _redact_content(_canonical_json(candidate["payload"]))
         segment = {
             "segment_id": candidate["segment_id"],
@@ -264,6 +313,16 @@ def build_context_pack(
                 "categories": redaction_categories,
             },
             "provenance": provenance,
+            "retrieval": {
+                "query": retrieval_query,
+                "chunk_ids": [
+                    segment["source"]["chunk_id"]
+                    for segment in included
+                    if segment.get("kind") == "retrieved"
+                    and isinstance(segment.get("source"), dict)
+                    and segment["source"].get("chunk_id")
+                ],
+            },
         },
     }
 

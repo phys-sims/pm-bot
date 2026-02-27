@@ -43,7 +43,7 @@ from pm_bot.control_plane.orchestration.runner_adapters import (
     default_runner_adapter_name,
 )
 from pm_bot.shared.settings import get_storage_settings
-from pm_bot.control_plane.rag.ingestion import DocsIngestionService
+from pm_bot.control_plane.rag.ingestion import DocsIngestionService, QueryFilters
 
 
 class ServerApp:
@@ -185,13 +185,41 @@ class ServerApp:
         run_id: str = "",
         requested_by: str = "",
         schema_version: str = "context_pack/v2",
+        retrieval_query: str = "",
+        retrieval_repo_id: int = 0,
+        retrieval_doc_types: tuple[str, ...] = (),
+        retrieval_top_k: int = 3,
     ) -> dict[str, Any]:
+        retrieved_chunks: list[dict[str, Any]] = []
+        if retrieval_query.strip() and schema_version == "context_pack/v2":
+            rag = self.rag or DocsIngestionService(
+                self.db, repo_root=Path(__file__).resolve().parents[3]
+            )
+            self.rag = rag
+            hits = rag.query(
+                query_text=retrieval_query,
+                limit=retrieval_top_k,
+                filters=QueryFilters(repo_id=retrieval_repo_id, doc_types=retrieval_doc_types),
+            )
+            retrieved_chunks = [
+                {
+                    "chunk_id": hit.chunk_id,
+                    "score": hit.score,
+                    "score_bucket": int(hit.score * 1000),
+                    "text": hit.text,
+                    "metadata": hit.metadata,
+                }
+                for hit in hits
+            ]
+
         pack = build_context_pack(
             db=self.db,
             issue_ref=issue_ref,
             profile=profile,
             char_budget=budget,
             schema_version=schema_version,
+            retrieved_chunks=retrieved_chunks,
+            retrieval_query=retrieval_query,
         )
         tenant_context = self._request_tenant_context(
             repo=issue_ref.split("#", 1)[0] if "#" in issue_ref else ""
@@ -1460,6 +1488,56 @@ class ASGIServer:
                 )
                 return
 
+            if method == "POST" and path == "/rag/query":
+                payload = self._parse_json(body) if body else {}
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                query_text = str(payload.get("query", "")).strip()
+                if not query_text:
+                    await self._send_json(send, 400, {"error": "missing_query"})
+                    return
+                repo_id = int(payload.get("repo_id", 0))
+                filters_payload = (
+                    payload.get("filters") if isinstance(payload.get("filters"), dict) else {}
+                )
+                doc_types = tuple(
+                    sorted(
+                        {
+                            str(value).strip()
+                            for value in (filters_payload.get("doc_types") or [])
+                            if str(value).strip()
+                        }
+                    )
+                )
+                limit = int(payload.get("top_k", payload.get("limit", 5)))
+                rag = self.service.rag or DocsIngestionService(
+                    self.service.db, repo_root=Path(__file__).resolve().parents[3]
+                )
+                self.service.rag = rag
+                hits = rag.query(
+                    query_text=query_text,
+                    limit=limit,
+                    filters=QueryFilters(repo_id=repo_id, doc_types=doc_types),
+                )
+                await self._send_json(
+                    send,
+                    200,
+                    {
+                        "items": [
+                            {
+                                "chunk_id": h.chunk_id,
+                                "score": h.score,
+                                "text": h.text,
+                                "metadata": h.metadata,
+                            }
+                            for h in hits
+                        ],
+                        "summary": {"count": len(hits)},
+                    },
+                )
+                return
+
             if method == "GET" and path == "/changesets/pending":
                 await self._send_json(
                     send,
@@ -1616,6 +1694,15 @@ class ASGIServer:
                     await self._send_json(send, 400, {"error": "missing_issue_ref"})
                     return
                 budget = int(query_params.get("budget", "4000"))
+                retrieval_doc_types = tuple(
+                    sorted(
+                        {
+                            part.strip()
+                            for part in query_params.get("retrieval_doc_types", "").split(",")
+                            if part.strip()
+                        }
+                    )
+                )
                 result = self.service.context_pack(
                     issue_ref=issue_ref,
                     profile=query_params.get("profile", "pm-drafting"),
@@ -1623,6 +1710,10 @@ class ASGIServer:
                     schema_version=query_params.get("schema_version", "context_pack/v2"),
                     run_id=query_params.get("run_id", ""),
                     requested_by=query_params.get("requested_by", ""),
+                    retrieval_query=query_params.get("retrieval_query", ""),
+                    retrieval_repo_id=int(query_params.get("retrieval_repo_id", "0")),
+                    retrieval_doc_types=retrieval_doc_types,
+                    retrieval_top_k=int(query_params.get("retrieval_top_k", "3")),
                 )
                 await self._send_json(send, 200, result)
                 return

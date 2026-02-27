@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 06:05:31 UTC
+- Time (UTC): 06:19:54 UTC
 - By: @openai-codex
 
 ---
@@ -47,6 +47,7 @@
 
 - Added local RAG bootstrap support: Docker Compose now includes a persistent `qdrant` service (`./data/qdrant`), control-plane retriever abstraction stubs (`embed/upsert/query`), and SQLite metadata tables for `documents`, `chunks`, `embedding_records`, and `ingestion_jobs`.
 - Added docs-governance RAG ingestion pipeline and APIs: `/rag/index` launches indexing over `docs/spec/*`, `docs/contracts/*`, and `docs/adr/*`; stable chunk IDs now hash source path + revision + line range, chunk provenance (line_start/line_end, source_path, doc_type, revision_sha) is persisted and returned by `/rag/query`, and ingestion status is exposed via `/rag/status` with idempotent upsert behavior across repeated same-revision indexing.
+- Added retrieval usability/auditability upgrades: `POST /rag/query` now supports repo-scoped and doc_type-allowlisted filters with deterministic result ordering (score bucket + chunk_id), ContextPack v2 can include explicit `retrieved` sections with provenance and `manifest.retrieval.chunk_ids`, and a golden-snapshot regression harness validates retrieval outputs against fixed expected chunk IDs.
 - Added LangGraph runner adapter wiring with submit/poll/resume/cancel/fetch behavior, including blocked interrupt polling and resume auditing.
 - Added filesystem+DB checkpoint bridge: checkpoint blobs are persisted under `data/checkpoints/<thread_id>/` and run checkpoint metadata is persisted in `run_checkpoint_metadata`.
 - Added LangGraph policy enforcement (tool allowlist + token/tool/wall budgets) with configurable violation mode (`interrupt` default, `fail` override) and audit emission for model/tool/interrupt events.
