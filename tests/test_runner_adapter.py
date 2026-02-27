@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from pm_bot.server.app import create_app
 from pm_bot.server.runner import RunnerAdapter, RunnerPollResult, RunnerSubmitResult
@@ -49,6 +50,50 @@ def _langgraph_spec(run_id: str, **extra: object) -> dict[str, object]:
             {"type": "model_call", "tokens": 100, "node_id": "draft"},
             {"type": "tool_call", "tool": "github_read", "node_id": "read_repo"},
         ],
+    }
+    spec.update(extra)
+    return spec
+
+
+def _repo_change_proposer_spec(run_id: str, **extra: object) -> dict[str, object]:
+    spec: dict[str, object] = {
+        "schema_version": "agent_run_spec/v2",
+        "run_id": run_id,
+        "goal": "Propose repository changes as a changeset bundle",
+        "inputs": {
+            "context_pack_id": "ctx-repo-change-1",
+            "context_pack": {
+                "schema_version": "context_pack/v2",
+                "root": {"issue_ref": "phys-sims/pm-bot#123"},
+            },
+            "issue_ref": "#123",
+            "diff": {
+                "status_changes": [
+                    {
+                        "issue_ref": "#123",
+                        "before": "Backlog",
+                        "after": "In Progress",
+                    }
+                ],
+                "blocker_changes": [],
+            },
+        },
+        "execution": {
+            "engine": "langgraph",
+            "graph_id": "repo_change_proposer/v1",
+            "thread_id": None,
+            "budget": {
+                "max_total_tokens": 2000,
+                "max_tool_calls": 10,
+                "max_wall_seconds": 300,
+            },
+            "tools_allowed": ["github_read"],
+            "scopes": {"repo": "phys-sims/pm-bot"},
+        },
+        "model": "gpt-5",
+        "intent": "repo_change_proposal",
+        "requires_approval": True,
+        "adapter": "langgraph",
     }
     spec.update(extra)
     return spec
@@ -348,3 +393,69 @@ def test_langgraph_budgets_enforced_for_tokens_and_fail_mode() -> None:
     assert claimed and claimed[0]["run_id"] == "run-langgraph-budget"
     result = app.execute_claimed_agent_run(run_id="run-langgraph-budget", worker_id="w1")
     assert result["status"] == "failed"
+
+
+def test_unapproved_run_cannot_execute_model_or_tool_calls() -> None:
+    app = create_app()
+    app.propose_agent_run(spec=_repo_change_proposer_spec("run-unapproved"), created_by="alice")
+
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed == []
+
+    model_events = app.db.list_audit_events("langgraph_model_call", run_id="run-unapproved")
+    tool_events = app.db.list_audit_events("langgraph_tool_call", run_id="run-unapproved")
+    assert model_events == []
+    assert tool_events == []
+
+
+def test_approved_repo_change_proposer_produces_changeset_bundle_artifact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("PMBOT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("PMBOT_ARTIFACT_DIR", str(tmp_path / "data" / "artifacts"))
+
+    app = create_app()
+
+    write_called = {"count": 0}
+
+    def _unexpected_write(*_args: object, **_kwargs: object) -> dict[str, object]:
+        write_called["count"] += 1
+        raise AssertionError("GitHub writes must not be invoked")
+
+    app.connector.execute_write = _unexpected_write  # type: ignore[method-assign]
+
+    app.propose_agent_run(spec=_repo_change_proposer_spec("run-repo-change"), created_by="alice")
+    app.transition_agent_run(
+        "run-repo-change",
+        to_status="approved",
+        reason_code="human_approved",
+    )
+
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-repo-change"
+
+    completed = None
+    for _ in range(6):
+        completed = app.execute_claimed_agent_run(run_id="run-repo-change", worker_id="w1")
+        if completed["status"] == "completed":
+            break
+
+    assert completed is not None
+    assert completed["status"] == "completed"
+
+    artifacts = app.db.list_run_artifacts("run-repo-change")
+    assert len(artifacts) == 1
+    assert artifacts[0]["uri"].endswith("run-repo-change.changeset_bundle.json")
+
+    artifact_path = Path(artifacts[0]["uri"].replace("file://", ""))
+    assert artifact_path.exists()
+    artifact_contents = artifact_path.read_text(encoding="utf-8")
+    assert '"graph_id": "repo_change_proposer/v1"' in artifact_contents
+    assert '"changeset_bundle"' in artifact_contents
+
+    model_events = app.db.list_audit_events("langgraph_model_call", run_id="run-repo-change")
+    assert model_events
+    assert model_events[-1]["payload"]["run_id"] == "run-repo-change"
+    assert model_events[-1]["payload"]["thread_id"]
+
+    assert write_called["count"] == 0

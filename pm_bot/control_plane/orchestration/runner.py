@@ -202,7 +202,6 @@ class RunnerService:
 
         poll = adapter.poll(run)
         if poll.state == "running":
-            self.db.clear_agent_run_claim(run_id)
             return self.db.get_agent_run(run_id) or {}
 
         if poll.state == "blocked":

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 from pm_bot.execution_plane.langgraph.checkpointer import FsDbCheckpointer
+from pm_bot.execution_plane.llm import ISSUE_REPLANNER, run_capability
+from pm_bot.shared.settings import get_storage_settings
 
 
 @dataclass(frozen=True)
@@ -62,10 +66,15 @@ class _ThreadRuntime:
     tool_calls: int = 0
     last_interrupt_id: str = ""
     pending_interrupt_payload: dict[str, Any] | None = None
+    context_pack: dict[str, Any] | None = None
+    changeset_bundle: dict[str, Any] | None = None
+    artifact_uris: list[str] = field(default_factory=list)
 
 
 class LangGraphRunnerAdapter:
     name = "langgraph"
+    _GRAPH_REPO_CHANGE_PROPOSER_V1 = "repo_change_proposer/v1"
+    _EXPENSIVE_EXTERNAL_ACTIONS = {"repo_checkout", "run_tests"}
 
     def __init__(
         self,
@@ -104,11 +113,16 @@ class LangGraphRunnerAdapter:
         if runtime.status in {"cancelled", "completed", "failed"}:
             return RunnerPollResult(state=runtime.status)
 
-        budget = ((run.get("spec") or {}).get("execution") or {}).get("budget") or {}
+        spec = run.get("spec") or {}
+        budget = (spec.get("execution") or {}).get("budget") or {}
         if self._wall_seconds(runtime) > int(budget.get("max_wall_seconds", 1_000_000)):
             return self._violation(run, runtime, "budget.wall_seconds")
 
-        steps = list((run.get("spec") or {}).get("simulated_steps", []))
+        graph_id = str((spec.get("execution") or {}).get("graph_id", "")).strip()
+        if graph_id == self._GRAPH_REPO_CHANGE_PROPOSER_V1 and not spec.get("simulated_steps"):
+            return self._poll_repo_change_proposer_v1(run, runtime)
+
+        steps = list(spec.get("simulated_steps", []))
         if runtime.step_index >= len(steps):
             runtime.status = "completed"
             runtime.node_id = "done"
@@ -194,7 +208,146 @@ class LangGraphRunnerAdapter:
         return RunnerPollResult(state="cancelled", reason_code="cancelled_by_user")
 
     def fetch_artifacts(self, run: dict[str, Any]) -> list[str]:
+        runtime = self._threads.get(run["run_id"])
+        if runtime is not None and runtime.artifact_uris:
+            return list(runtime.artifact_uris)
         return [entry["uri"] for entry in self._artifacts.list_run_artifacts(run["run_id"])]
+
+    def _poll_repo_change_proposer_v1(
+        self, run: dict[str, Any], runtime: _ThreadRuntime
+    ) -> RunnerPollResult:
+        spec = run.get("spec") or {}
+        if runtime.step_index == 0:
+            runtime.node_id = "load_context_pack"
+            runtime.context_pack = self._load_context_pack(spec=spec)
+            runtime.step_index += 1
+            self._checkpoint(run, runtime)
+            return RunnerPollResult(state="running")
+
+        if runtime.step_index == 1:
+            runtime.node_id = "propose_changeset_bundle"
+            expensive = self._requested_expensive_actions(spec=spec)
+            if expensive and not bool(
+                (spec.get("inputs") or {}).get("allow_expensive_actions", False)
+            ):
+                return self._violation(
+                    run,
+                    runtime,
+                    "policy.expensive_external_action_requires_interrupt",
+                    {"actions": expensive},
+                )
+            runtime.changeset_bundle = self._propose_changeset_bundle(run=run, runtime=runtime)
+            runtime.step_index += 1
+            self._checkpoint(run, runtime)
+            return RunnerPollResult(state="running")
+
+        if runtime.step_index == 2:
+            runtime.node_id = "emit_artifact"
+            if runtime.changeset_bundle is None:
+                return RunnerPollResult(state="failed", reason_code="missing_changeset_bundle")
+            artifact_uri = self._emit_artifact(run=run, runtime=runtime)
+            runtime.artifact_uris = [artifact_uri]
+            runtime.step_index += 1
+            self._checkpoint(run, runtime)
+            return RunnerPollResult(state="running")
+
+        runtime.status = "completed"
+        runtime.node_id = "done"
+        self._checkpoint(run, runtime)
+        return RunnerPollResult(state="completed")
+
+    def _load_context_pack(self, *, spec: dict[str, Any]) -> dict[str, Any]:
+        inputs = spec.get("inputs") or {}
+        context_pack = inputs.get("context_pack")
+        if isinstance(context_pack, dict):
+            return context_pack
+        return {
+            "schema_version": "context_pack/v2",
+            "source": "cache_fallback",
+            "inputs": inputs,
+        }
+
+    def _requested_expensive_actions(self, *, spec: dict[str, Any]) -> list[str]:
+        requested = (spec.get("inputs") or {}).get("external_actions", [])
+        if not isinstance(requested, list):
+            return []
+        normalized = [str(item).strip() for item in requested]
+        return [item for item in normalized if item in self._EXPENSIVE_EXTERNAL_ACTIONS]
+
+    def _propose_changeset_bundle(
+        self,
+        *,
+        run: dict[str, Any],
+        runtime: _ThreadRuntime,
+    ) -> dict[str, Any]:
+        spec = run.get("spec") or {}
+        inputs = spec.get("inputs") or {}
+        execution = spec.get("execution") or {}
+        repo = str((execution.get("scopes") or {}).get("repo", "")).strip()
+        capability_input = {
+            "repo": repo,
+            "current_snapshot_id": str(inputs.get("context_pack_id") or run["run_id"]),
+            "diff": inputs.get("diff")
+            or {
+                "status_changes": [
+                    {
+                        "issue_ref": str(inputs.get("issue_ref") or "#0"),
+                        "before": "unknown",
+                        "after": "planned",
+                    }
+                ],
+                "blocker_changes": [],
+            },
+        }
+        result = run_capability(
+            ISSUE_REPLANNER,
+            input_payload=capability_input,
+            context={"provider": str(inputs.get("llm_provider") or "local")},
+            policy={
+                "require_human_approval": True,
+                "proposal_output_changeset_bundle": True,
+                "allow_direct_github_writes": False,
+            },
+        )
+        usage = result.get("usage") if isinstance(result, dict) else {}
+        self._audit.append_audit_event(
+            "langgraph_model_call",
+            {
+                "run_id": run["run_id"],
+                "thread_id": runtime.thread_id,
+                "node_id": runtime.node_id,
+                "capability_id": ISSUE_REPLANNER,
+                "tokens": int((usage or {}).get("total_tokens", 0)),
+            },
+        )
+        output = result.get("output")
+        if not isinstance(output, dict):
+            raise ValueError("invalid_changeset_bundle_output")
+        return output
+
+    def _emit_artifact(self, *, run: dict[str, Any], runtime: _ThreadRuntime) -> str:
+        settings = get_storage_settings()
+        artifact_path = Path(settings.artifact_dir) / f"{run['run_id']}.changeset_bundle.json"
+        payload = {
+            "run_id": run["run_id"],
+            "thread_id": runtime.thread_id,
+            "graph_id": self._GRAPH_REPO_CHANGE_PROPOSER_V1,
+            "context_pack": runtime.context_pack,
+            "changeset_bundle": runtime.changeset_bundle,
+        }
+        artifact_path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+        artifact_uri = artifact_path.resolve().as_uri()
+        self._audit.append_audit_event(
+            "langgraph_artifact_emitted",
+            {
+                "run_id": run["run_id"],
+                "thread_id": runtime.thread_id,
+                "node_id": runtime.node_id,
+                "kind": "changeset_bundle",
+                "uri": artifact_uri,
+            },
+        )
+        return artifact_uri
 
     def _wall_seconds(self, runtime: _ThreadRuntime) -> int:
         return int(time.monotonic() - runtime.started_monotonic)
