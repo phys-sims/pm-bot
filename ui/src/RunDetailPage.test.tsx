@@ -1,10 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { RunDetailPage } from "./RunDetailPage";
 
 vi.stubGlobal("fetch", vi.fn());
 const mockedFetch = vi.mocked(fetch);
+
+
+afterEach(() => {
+  cleanup();
+});
 
 beforeEach(() => {
   mockedFetch.mockReset();

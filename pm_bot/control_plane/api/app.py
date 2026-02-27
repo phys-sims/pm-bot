@@ -711,7 +711,7 @@ class ServerApp:
             raise ValueError("missing_uri")
         if normalized.startswith("file://"):
             normalized = normalized[len("file://") :]
-        artifact_root = Path(settings.artifact_dir).resolve()
+        artifact_root = Path(get_storage_settings().artifact_dir).resolve()
         candidate = Path(normalized)
         if not candidate.is_absolute():
             candidate = artifact_root / candidate

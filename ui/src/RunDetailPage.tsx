@@ -41,8 +41,8 @@ export function RunDetailPage() {
     }
     try {
       await api.approveChangeset(id, "ui-user");
-      setMessage(`Approved changeset #${id}`);
       await load();
+      setMessage(`Approved changeset #${id}`);
     } catch (error) {
       setMessage(`Error: ${formatApiError(error)}`);
     }
