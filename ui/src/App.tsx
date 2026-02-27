@@ -28,7 +28,7 @@ const ROUTES: RouteConfig[] = [
 ];
 
 export function App() {
-  const [route, setRoute] = useState<RouteKey>("onboarding");
+  const [route, setRoute] = useState<RouteKey>("inbox");
   const activeRoute = ROUTES.find((item) => item.key === route) ?? ROUTES[0];
 
   return (

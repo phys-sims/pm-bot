@@ -91,6 +91,9 @@ beforeEach(() => {
 test("adds onboarding, repo dashboard, and existing routes to app shell", async () => {
   render(<App />);
 
+  expect(await screen.findByRole("heading", { name: "Unified Inbox" })).toBeTruthy();
+
+  await userEvent.click(screen.getByRole("button", { name: "Onboarding" }));
   expect(await screen.findByRole("heading", { name: "Onboarding Wizard" })).toBeTruthy();
 
   await userEvent.click(screen.getByRole("button", { name: "Repo Dashboard" }));
