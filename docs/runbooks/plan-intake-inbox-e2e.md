@@ -1,4 +1,7 @@
 # Runbook: Plan Intake → Inbox Approval/Apply E2E Evidence
+> **Audience:** Contributors validating end-to-end UI evidence for intake-to-approval flow.
+> **Depth:** L1 (execution runbook).
+> **Source of truth:** Reproducible verification steps for `ui/src/App.test.tsx` intake/inbox integration coverage.
 
 ## Purpose
 

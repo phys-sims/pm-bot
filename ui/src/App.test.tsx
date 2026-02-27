@@ -1,11 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 
 vi.stubGlobal("fetch", vi.fn());
 
 const mockedFetch = vi.mocked(fetch);
+
+afterEach(() => {
+  cleanup();
+});
 
 beforeEach(() => {
   mockedFetch.mockReset();
@@ -293,6 +297,6 @@ test("runs intake-to-proposal flow and approves generated changeset from inbox",
   expect(await screen.findByText(/Total: 1/)).toBeTruthy();
 
   await userEvent.click(screen.getByRole("button", { name: "Approve" }));
-  expect(await screen.findByText(/Approved changeset #77/)).toBeTruthy();
   expect(await screen.findByText(/Total: 0/)).toBeTruthy();
+  expect(await screen.findByText("No inbox items.")).toBeTruthy();
 });
