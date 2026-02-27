@@ -252,6 +252,7 @@ class OrchestratorDB:
                 default_branch TEXT NOT NULL DEFAULT 'main',
                 added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 last_sync_at TEXT,
+                last_index_at TEXT,
                 last_error TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
             );
@@ -514,6 +515,7 @@ class OrchestratorDB:
                 "ALTER TABLE task_runs ADD COLUMN last_error_code TEXT NOT NULL DEFAULT ''"
             )
         self.conn.commit()
+        self._ensure_repo_registry_columns()
 
     def _has_column(self, table: str, column: str) -> bool:
         rows = self.conn.execute(f"PRAGMA table_info({table})").fetchall()
@@ -890,6 +892,7 @@ class OrchestratorDB:
             "default_branch": str(row["default_branch"]),
             "added_at": str(row["added_at"]),
             "last_sync_at": str(row["last_sync_at"] or ""),
+            "last_index_at": str(row["last_index_at"] or ""),
             "last_error": str(row["last_error"] or ""),
         }
 
@@ -904,6 +907,7 @@ class OrchestratorDB:
             "default_branch": str(row["default_branch"]),
             "added_at": str(row["added_at"]),
             "last_sync_at": str(row["last_sync_at"] or ""),
+            "last_index_at": str(row["last_index_at"] or ""),
             "last_error": str(row["last_error"] or ""),
         }
 
@@ -917,10 +921,27 @@ class OrchestratorDB:
                 "default_branch": str(row["default_branch"]),
                 "added_at": str(row["added_at"]),
                 "last_sync_at": str(row["last_sync_at"] or ""),
+                "last_index_at": str(row["last_index_at"] or ""),
                 "last_error": str(row["last_error"] or ""),
             }
             for row in rows
         ]
+
+    def update_repo_registry_index_status(self, *, repo_id: int, last_index_at: str) -> None:
+        self.conn.execute(
+            "UPDATE repo_registry SET last_index_at = ? WHERE id = ?",
+            (last_index_at or None, repo_id),
+        )
+        self.conn.commit()
+
+    def _ensure_repo_registry_columns(self) -> None:
+        columns = {
+            str(row["name"])
+            for row in self.conn.execute("PRAGMA table_info(repo_registry)").fetchall()
+        }
+        if "last_index_at" not in columns:
+            self.conn.execute("ALTER TABLE repo_registry ADD COLUMN last_index_at TEXT")
+            self.conn.commit()
 
     def update_repo_registry_sync_status(
         self, *, repo_id: int, last_sync_at: str, last_error: str
@@ -954,6 +975,20 @@ class OrchestratorDB:
             (repo_id, issue_number, state, title, updated_at, json.dumps(raw_json, sort_keys=True)),
         )
         self.conn.commit()
+
+    def count_issue_cache(self, *, repo_id: int) -> int:
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS count FROM issue_cache WHERE repo_id = ?",
+            (repo_id,),
+        ).fetchone()
+        return int(row["count"] if row is not None else 0)
+
+    def count_pr_cache(self, *, repo_id: int) -> int:
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS count FROM pr_cache WHERE repo_id = ?",
+            (repo_id,),
+        ).fetchone()
+        return int(row["count"] if row is not None else 0)
 
     def list_issue_cache(self, *, repo_id: int) -> list[dict[str, Any]]:
         rows = self.conn.execute(

@@ -80,7 +80,11 @@ Authoritative route semantics: [`docs/spec/report-ir-api.md`](report-ir-api.md).
 
 - `POST /repos/add` → register repo and trigger initial cache import (issues + PRs).
 - `POST /repos/{id}/sync` → manual incremental refresh for one repo.
-- `GET /repos` → list registered repos + sync status/error fields.
+- `GET /repos` → list registered repos + sync/index status/error fields.
+- `GET /repos/search?q=<text>` → search/select candidate repos from connector allowlist and show already-added state.
+- `GET /repos/{id}/status` → sync/index timestamps + cached issue/PR counts for progress UI.
+- `POST /repos/reindex-docs` → trigger docs reindex (optionally repo-scoped with `repo_id`).
+- `POST /repos/{id}/reindex` → trigger repo reindex shortcut for dashboard action.
 - `GET /repos/{id}/issues` → cached issue rows for repo.
 - `GET /repos/{id}/prs` → cached PR rows for repo.
 

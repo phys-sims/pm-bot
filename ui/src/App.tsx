@@ -5,8 +5,10 @@ import { ContextPackPage } from "./ContextPackPage";
 import { InboxPage } from "./InboxPage";
 import { PlanIntakePage } from "./PlanIntakePage";
 import { TreePage } from "./TreePage";
+import { OnboardingPage } from "./OnboardingPage";
+import { RepoDashboardPage } from "./RepoDashboardPage";
 
-type RouteKey = "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps" | "planIntake";
+type RouteKey = "onboarding" | "repos" | "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps" | "planIntake";
 
 type RouteConfig = {
   key: RouteKey;
@@ -15,6 +17,8 @@ type RouteConfig = {
 };
 
 const ROUTES: RouteConfig[] = [
+  { key: "onboarding", label: "Onboarding", render: () => <OnboardingPage /> },
+  { key: "repos", label: "Repo Dashboard", render: () => <RepoDashboardPage /> },
   { key: "inbox", label: "Inbox", render: () => <InboxPage /> },
   { key: "tree", label: "Tree", render: () => <TreePage /> },
   { key: "agentRuns", label: "Agent Runs", render: () => <AgentRunsPage /> },
@@ -24,7 +28,7 @@ const ROUTES: RouteConfig[] = [
 ];
 
 export function App() {
-  const [route, setRoute] = useState<RouteKey>("inbox");
+  const [route, setRoute] = useState<RouteKey>("onboarding");
   const activeRoute = ROUTES.find((item) => item.key === route) ?? ROUTES[0];
 
   return (
