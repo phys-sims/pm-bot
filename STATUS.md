@@ -5,8 +5,8 @@
 > **Date integrity rule:** Populate dates/times with runtime commands (for example `date -u`); never guess dates.
 
 ## Last updated
-- Date: 2026-02-26
-- Time (UTC): 05:14:23 UTC
+- Date: 2026-02-27
+- Time (UTC): 03:44:05 UTC
 - By: @openai-codex
 
 ---
@@ -15,10 +15,10 @@
 
 | Check | Command | Status | Last run | Notes |
 | --- | --- | --- | --- | --- |
-| Tests | `pytest -q` | ✅ | 2026-02-26 | Core suites cover parser/rendering, server behavior, contracts, and docs hygiene. |
-| Lint | `ruff check .` | ✅ | 2026-02-26 | No lint violations. |
-| Format | `ruff format .` | ✅ | 2026-02-26 | Formatting is stable. |
-| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat` | ✅ | 2026-02-26 | Validates markdown links, docs-governance workflow references, status-shape gates, and L0/depth metadata limits. |
+| Tests | `pytest -q` | ✅ | 2026-02-27 | Core suites cover parser/rendering, server behavior, contracts, and docs hygiene. |
+| Lint | `ruff check .` | ✅ | 2026-02-27 | No lint violations. |
+| Format | `ruff format .` | ✅ | 2026-02-27 | Formatting is stable. |
+| Docs hygiene | `python scripts/docs_hygiene.py --check-links --check-contradictions --check-status-gates --check-depth-metadata --check-l0-bloat` | ✅ | 2026-02-27 | Validates markdown links, docs-governance workflow references, status-shape gates, and L0/depth metadata limits. |
 | Package install | `pip install -e ".[dev]"` | ⬜ | — | Validate in clean environment if needed. |
 | Docker Compose config | `docker compose config` | ✅ (CI) / ⚠️ (local env) | 2026-02-25 | CI validates compose; local shell in this environment may not include Docker CLI. |
 
@@ -45,6 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Addressed review feedback by archiving `docs/IMPLEMENTATION_LOG.md` under `docs/archive/` instead of keeping it in active docs root.
-- Removed the `docs/ROADMAP_V4_CHECKLIST.md` mirror; the completed checklist now exists only in `docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md`.
-- Updated docs hygiene checks and docs IA links to reference archived checklist/log locations as authoritative paths.
+- Added missing doc metadata headers to newly added `docs/spec/data-model.md`, `docs/spec/storage-and-deployment.md`, and `docs/contracts/agent_run_spec_v2.md` so docs hygiene depth checks pass.
+- Updated docs indexes/entrypoints to reference newly added roadmap stages (`v7` through `v11`) and the new AgentRunSpec v2 contract.
+- Revalidated docs and repo health checks (`ruff`, docs hygiene, and full `pytest -q`) after documentation updates.

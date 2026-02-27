@@ -23,7 +23,8 @@ Primary links:
 ## Roadmap (active planning only)
 
 - Active roadmap index: [`docs/roadmaps/README.md`](docs/roadmaps/README.md)
-- Active stage plan: [`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`](docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md)
+- Foundational multi-repo stage: [`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`](docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md)
+- Current stage set: `docs/roadmaps/v7_local_first_langgraph_foundation.md` → `docs/roadmaps/v11_gui_rebuild.md`
 - Execution task cards: [`docs/roadmaps/org-scale-execution-task-cards.md`](docs/roadmaps/org-scale-execution-task-cards.md)
 
 ## Install

@@ -1,4 +1,7 @@
 # Contract: AgentRunSpec/v2
+> **Audience:** Contributors implementing or reviewing next-gen agent-run orchestration contracts.
+> **Depth:** L3 (normative contract).
+> **Source of truth:** Authoritative v2 contract semantics for execution configuration, gating, and durable runtime correlation.
 
 This document defines **AgentRunSpec/v2**, the input specification for launching an agent run in pm-bot.
 
