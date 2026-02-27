@@ -61,6 +61,15 @@
 
 Authoritative route semantics: [`docs/spec/report-ir-api.md`](report-ir-api.md).
 
+
+## Repo registry and cache sync
+
+- `POST /repos/add` → register repo and trigger initial cache import (issues + PRs).
+- `POST /repos/{id}/sync` → manual incremental refresh for one repo.
+- `GET /repos` → list registered repos + sync status/error fields.
+- `GET /repos/{id}/issues` → cached issue rows for repo.
+- `GET /repos/{id}/prs` → cached PR rows for repo.
+
 ## Internal flow reference (non-HTTP)
 
 - Board snapshot + replanner orchestration behavior: [`docs/spec/board-replanner.md`](board-replanner.md).

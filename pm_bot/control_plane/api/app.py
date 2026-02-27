@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
 from typing import Any
 
@@ -19,6 +19,7 @@ from pm_bot.control_plane.github.github_auth import (
     validate_org_and_installation_context,
 )
 from pm_bot.control_plane.github.github_connector import build_connector_from_env
+from pm_bot.control_plane.github.sync_service import GitHubCacheSyncService
 from pm_bot.control_plane.orchestration.graph import GraphService
 from pm_bot.execution_plane.llm import (
     ISSUE_REPLANNER,
@@ -46,6 +47,7 @@ class ServerApp:
         self.db = OrchestratorDB(db_path)
         self.tenant = load_tenant_context_from_env(os.environ)
         self.connector = build_connector_from_env()
+        self.sync_service = GitHubCacheSyncService(db=self.db, connector=self.connector)
         self.changesets = ChangesetService(db=self.db, connector=self.connector)
         self.estimator = EstimatorService(db=self.db)
         self.graph = GraphService(db=self.db)
@@ -60,6 +62,18 @@ class ServerApp:
                 adapters=runner_adapters,
             ),
         )
+        self._poll_interval_minutes = max(1, int(os.environ.get("PM_BOT_SYNC_POLL_MINUTES", "5")))
+        self._next_poll_at = datetime.now(timezone.utc)
+
+    def maybe_refresh_repo_cache(self) -> None:
+        now = datetime.now(timezone.utc)
+        if now < self._next_poll_at:
+            return
+        try:
+            self.sync_service.refresh_all_repos()
+        except Exception:
+            pass
+        self._next_poll_at = now + timedelta(minutes=self._poll_interval_minutes)
 
     def _request_tenant_context(
         self,
@@ -194,7 +208,43 @@ class ServerApp:
         return self.connector.fetch_issue(repo=repo, issue_ref=issue_ref)
 
     def list_issues(self, repo: str, **filters: str) -> list[dict[str, Any]]:
+        for entry in self.db.list_repo_registry_entries():
+            if entry["full_name"] == repo:
+                return [
+                    dict(row["raw_json"])
+                    for row in self.db.list_issue_cache(repo_id=int(entry["id"]))
+                ]
         return self.connector.list_issues(repo=repo, **filters)
+
+    def list_pull_requests(self, repo: str, **filters: str) -> list[dict[str, Any]]:
+        for entry in self.db.list_repo_registry_entries():
+            if entry["full_name"] == repo:
+                return [
+                    dict(row["raw_json"]) for row in self.db.list_pr_cache(repo_id=int(entry["id"]))
+                ]
+        return self.connector.list_pull_requests(repo=repo, **filters)
+
+    def add_repo(self, full_name: str, since_days: int | None = None) -> dict[str, Any]:
+        return self.sync_service.add_repo(full_name=full_name, since_days=since_days)
+
+    def sync_repo(self, repo_id: int) -> dict[str, Any]:
+        result = self.sync_service.sync_repo(repo_id=repo_id, initial_import=False)
+        return {
+            "repo_id": result.repo_id,
+            "full_name": result.full_name,
+            "issues_upserted": result.issues_upserted,
+            "prs_upserted": result.prs_upserted,
+            "last_sync_at": result.last_sync_at,
+        }
+
+    def list_repos(self) -> list[dict[str, Any]]:
+        return self.db.list_repo_registry_entries()
+
+    def repo_issues(self, repo_id: int) -> list[dict[str, Any]]:
+        return self.db.list_issue_cache(repo_id=repo_id)
+
+    def repo_prs(self, repo_id: int) -> list[dict[str, Any]]:
+        return self.db.list_pr_cache(repo_id=repo_id)
 
     def ingest_webhook(
         self, event_type: str, payload: dict[str, Any], run_id: str = ""
@@ -1018,6 +1068,7 @@ class ASGIServer:
         body = await self._read_body(receive)
 
         try:
+            self.service.maybe_refresh_repo_cache()
             if method == "GET" and path == "/health":
                 await self._send_json(send, 200, {"status": "ok"})
                 return
@@ -1444,6 +1495,60 @@ class ASGIServer:
                 )
                 return
 
+            if method == "POST" and path == "/repos/add":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                full_name = str(payload.get("full_name", "")).strip()
+                if not full_name:
+                    await self._send_json(send, 400, {"error": "missing_full_name"})
+                    return
+                since_days = payload.get("since_days")
+                if since_days is not None:
+                    try:
+                        since_days = int(since_days)
+                    except (TypeError, ValueError):
+                        await self._send_json(send, 400, {"error": "invalid_since_days"})
+                        return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.add_repo(full_name=full_name, since_days=since_days),
+                )
+                return
+
+            if method == "POST" and path.startswith("/repos/") and path.endswith("/sync"):
+                repo_id = self._parse_repo_path(path, "sync")
+                if repo_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(send, 200, self.service.sync_repo(repo_id=repo_id))
+                return
+
+            if method == "GET" and path == "/repos":
+                repos = self.service.list_repos()
+                await self._send_json(send, 200, {"items": repos, "summary": {"count": len(repos)}})
+                return
+
+            if method == "GET" and path.startswith("/repos/") and path.endswith("/issues"):
+                repo_id = self._parse_repo_path(path, "issues")
+                if repo_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                items = self.service.repo_issues(repo_id=repo_id)
+                await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
+                return
+
+            if method == "GET" and path.startswith("/repos/") and path.endswith("/prs"):
+                repo_id = self._parse_repo_path(path, "prs")
+                if repo_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                items = self.service.repo_prs(repo_id=repo_id)
+                await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
+                return
+
             await self._send_json(send, 404, {"error": "not_found"})
         except PermissionError as exc:
             reason_code = "unknown"
@@ -1522,6 +1627,15 @@ class ASGIServer:
     def _parse_changeset_approve_path(self, path: str) -> int | None:
         parts = [part for part in path.split("/") if part]
         if len(parts) != 3 or parts[0] != "changesets" or parts[2] != "approve":
+            return None
+        try:
+            return int(parts[1])
+        except ValueError:
+            return None
+
+    def _parse_repo_path(self, path: str, suffix: str) -> int | None:
+        parts = [part for part in path.split("/") if part]
+        if len(parts) != 3 or parts[0] != "repos" or parts[2] != suffix:
             return None
         try:
             return int(parts[1])

@@ -171,6 +171,56 @@ class OrchestratorDB:
                 FOREIGN KEY(previous_snapshot_id) REFERENCES board_snapshots(id),
                 FOREIGN KEY(current_snapshot_id) REFERENCES board_snapshots(id)
             );
+            
+            CREATE TABLE IF NOT EXISTS workspaces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS repo_registry (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workspace_id INTEGER NOT NULL,
+                full_name TEXT NOT NULL UNIQUE,
+                default_branch TEXT NOT NULL DEFAULT 'main',
+                added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_sync_at TEXT,
+                last_error TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS issue_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_id INTEGER NOT NULL,
+                issue_number INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                title TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                raw_json TEXT NOT NULL,
+                FOREIGN KEY(repo_id) REFERENCES repo_registry(id),
+                UNIQUE(repo_id, issue_number)
+            );
+
+            CREATE TABLE IF NOT EXISTS pr_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_id INTEGER NOT NULL,
+                pr_number INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                title TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                raw_json TEXT NOT NULL,
+                FOREIGN KEY(repo_id) REFERENCES repo_registry(id),
+                UNIQUE(repo_id, pr_number)
+            );
+
+            CREATE TABLE IF NOT EXISTS sync_cursors (
+                repo_id INTEGER PRIMARY KEY,
+                last_issues_sync TEXT,
+                last_prs_sync TEXT,
+                issues_etag TEXT,
+                prs_etag TEXT,
+                FOREIGN KEY(repo_id) REFERENCES repo_registry(id)
+            );
             """
         )
         self.conn.execute(
@@ -243,6 +293,16 @@ class OrchestratorDB:
             self.conn.execute(
                 "ALTER TABLE agent_runs ADD COLUMN artifact_paths_json TEXT DEFAULT '[]'"
             )
+        self.conn.execute("INSERT OR IGNORE INTO workspaces (id, name) VALUES (1, 'default')")
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_repo_registry_workspace ON repo_registry(workspace_id, full_name)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_issue_cache_repo_updated ON issue_cache(repo_id, updated_at)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pr_cache_repo_updated ON pr_cache(repo_id, updated_at)"
+        )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"
         )
@@ -603,6 +663,202 @@ class OrchestratorDB:
             "SELECT id, payload_json FROM work_items ORDER BY id ASC"
         ).fetchall()
         return [{"id": int(row["id"]), "payload": json.loads(row["payload_json"])} for row in rows]
+
+    def add_repo_registry_entry(
+        self,
+        *,
+        full_name: str,
+        workspace_id: int = 1,
+        default_branch: str = "main",
+    ) -> dict[str, Any]:
+        self.conn.execute(
+            """
+            INSERT OR IGNORE INTO repo_registry (workspace_id, full_name, default_branch)
+            VALUES (?, ?, ?)
+            """,
+            (workspace_id, full_name, default_branch),
+        )
+        self.conn.commit()
+        row = self.conn.execute(
+            "SELECT * FROM repo_registry WHERE full_name = ?",
+            (full_name,),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("repo_registry_insert_failed")
+        return {
+            "id": int(row["id"]),
+            "workspace_id": int(row["workspace_id"]),
+            "full_name": str(row["full_name"]),
+            "default_branch": str(row["default_branch"]),
+            "added_at": str(row["added_at"]),
+            "last_sync_at": str(row["last_sync_at"] or ""),
+            "last_error": str(row["last_error"] or ""),
+        }
+
+    def get_repo_registry_entry(self, repo_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM repo_registry WHERE id = ?", (repo_id,)).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "workspace_id": int(row["workspace_id"]),
+            "full_name": str(row["full_name"]),
+            "default_branch": str(row["default_branch"]),
+            "added_at": str(row["added_at"]),
+            "last_sync_at": str(row["last_sync_at"] or ""),
+            "last_error": str(row["last_error"] or ""),
+        }
+
+    def list_repo_registry_entries(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute("SELECT * FROM repo_registry ORDER BY id ASC").fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "workspace_id": int(row["workspace_id"]),
+                "full_name": str(row["full_name"]),
+                "default_branch": str(row["default_branch"]),
+                "added_at": str(row["added_at"]),
+                "last_sync_at": str(row["last_sync_at"] or ""),
+                "last_error": str(row["last_error"] or ""),
+            }
+            for row in rows
+        ]
+
+    def update_repo_registry_sync_status(
+        self, *, repo_id: int, last_sync_at: str, last_error: str
+    ) -> None:
+        self.conn.execute(
+            "UPDATE repo_registry SET last_sync_at = ?, last_error = ? WHERE id = ?",
+            (last_sync_at or None, last_error, repo_id),
+        )
+        self.conn.commit()
+
+    def upsert_issue_cache(
+        self,
+        *,
+        repo_id: int,
+        issue_number: int,
+        state: str,
+        title: str,
+        updated_at: str,
+        raw_json: dict[str, Any],
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO issue_cache (repo_id, issue_number, state, title, updated_at, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(repo_id, issue_number) DO UPDATE SET
+              state=excluded.state,
+              title=excluded.title,
+              updated_at=excluded.updated_at,
+              raw_json=excluded.raw_json
+            """,
+            (repo_id, issue_number, state, title, updated_at, json.dumps(raw_json, sort_keys=True)),
+        )
+        self.conn.commit()
+
+    def list_issue_cache(self, *, repo_id: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT issue_number, state, title, updated_at, raw_json
+            FROM issue_cache
+            WHERE repo_id = ?
+            ORDER BY issue_number ASC
+            """,
+            (repo_id,),
+        ).fetchall()
+        return [
+            {
+                "issue_number": int(row["issue_number"]),
+                "state": str(row["state"]),
+                "title": str(row["title"]),
+                "updated_at": str(row["updated_at"]),
+                "raw_json": json.loads(row["raw_json"]),
+            }
+            for row in rows
+        ]
+
+    def upsert_pr_cache(
+        self,
+        *,
+        repo_id: int,
+        pr_number: int,
+        state: str,
+        title: str,
+        updated_at: str,
+        raw_json: dict[str, Any],
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO pr_cache (repo_id, pr_number, state, title, updated_at, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(repo_id, pr_number) DO UPDATE SET
+              state=excluded.state,
+              title=excluded.title,
+              updated_at=excluded.updated_at,
+              raw_json=excluded.raw_json
+            """,
+            (repo_id, pr_number, state, title, updated_at, json.dumps(raw_json, sort_keys=True)),
+        )
+        self.conn.commit()
+
+    def list_pr_cache(self, *, repo_id: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT pr_number, state, title, updated_at, raw_json
+            FROM pr_cache
+            WHERE repo_id = ?
+            ORDER BY pr_number ASC
+            """,
+            (repo_id,),
+        ).fetchall()
+        return [
+            {
+                "pr_number": int(row["pr_number"]),
+                "state": str(row["state"]),
+                "title": str(row["title"]),
+                "updated_at": str(row["updated_at"]),
+                "raw_json": json.loads(row["raw_json"]),
+            }
+            for row in rows
+        ]
+
+    def upsert_sync_cursor(
+        self,
+        *,
+        repo_id: int,
+        last_issues_sync: str,
+        last_prs_sync: str,
+        issues_etag: str | None = None,
+        prs_etag: str | None = None,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO sync_cursors (repo_id, last_issues_sync, last_prs_sync, issues_etag, prs_etag)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(repo_id) DO UPDATE SET
+              last_issues_sync=excluded.last_issues_sync,
+              last_prs_sync=excluded.last_prs_sync,
+              issues_etag=excluded.issues_etag,
+              prs_etag=excluded.prs_etag
+            """,
+            (repo_id, last_issues_sync or None, last_prs_sync or None, issues_etag, prs_etag),
+        )
+        self.conn.commit()
+
+    def get_sync_cursor(self, repo_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT * FROM sync_cursors WHERE repo_id = ?", (repo_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "repo_id": int(row["repo_id"]),
+            "last_issues_sync": str(row["last_issues_sync"] or ""),
+            "last_prs_sync": str(row["last_prs_sync"] or ""),
+            "issues_etag": str(row["issues_etag"] or ""),
+            "prs_etag": str(row["prs_etag"] or ""),
+        }
 
     def _normalize_tenant_context(self, tenant_context: dict[str, Any] | None) -> dict[str, Any]:
         context = dict(tenant_context or {})

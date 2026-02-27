@@ -88,6 +88,21 @@ class InMemoryGitHubConnector:
                 matched.append(issue)
         return matched
 
+    def list_pull_requests(self, repo: str, **filters: str) -> list[dict[str, Any]]:
+        prs = [
+            issue
+            for (issue_repo, _), issue in self.issues.items()
+            if issue_repo == repo and bool(issue.get("is_pr"))
+        ]
+        if not filters:
+            return prs
+
+        matched: list[dict[str, Any]] = []
+        for pr in prs:
+            if all(str(pr.get(key, "")) == value for key, value in filters.items()):
+                matched.append(pr)
+        return matched
+
     def list_sub_issues(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
         rows = self.sub_issues.get((repo, issue_ref), [])
         return [dict(row) for row in rows]
