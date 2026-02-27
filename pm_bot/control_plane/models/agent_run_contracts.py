@@ -13,6 +13,7 @@ class RunBudgetV1(BaseModel):
     max_total_tokens: int = Field(ge=1)
     max_tool_calls: int = Field(ge=1)
     max_wall_seconds: int = Field(ge=1)
+    max_retrieval_tokens: int | None = Field(default=None, ge=1)
 
 
 class RunScopesV1(BaseModel):

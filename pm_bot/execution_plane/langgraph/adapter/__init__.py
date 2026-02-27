@@ -67,6 +67,7 @@ class _ThreadRuntime:
     last_interrupt_id: str = ""
     pending_interrupt_payload: dict[str, Any] | None = None
     context_pack: dict[str, Any] | None = None
+    retrieval: dict[str, Any] | None = None
     changeset_bundle: dict[str, Any] | None = None
     artifact_uris: list[str] = field(default_factory=list)
 
@@ -225,6 +226,35 @@ class LangGraphRunnerAdapter:
             return RunnerPollResult(state="running")
 
         if runtime.step_index == 1:
+            runtime.node_id = "planner_decide_retrieval"
+            should_retrieve = self._planner_should_retrieve(spec=spec)
+            runtime.retrieval = {
+                "enabled": should_retrieve,
+                "query": str((spec.get("inputs") or {}).get("retrieval_query") or ""),
+                "results": [],
+                "chunk_ids": [],
+                "token_usage": 0,
+                "budget_tokens": int(
+                    (
+                        ((spec.get("execution") or {}).get("budget") or {}).get(
+                            "max_retrieval_tokens", 0
+                        )
+                    )
+                    or 0
+                ),
+            }
+            runtime.step_index += 1
+            self._checkpoint(run, runtime)
+            return RunnerPollResult(state="running")
+
+        if runtime.step_index == 2:
+            runtime.node_id = "retrieve_context"
+            runtime.retrieval = self._retrieve_context(run=run, runtime=runtime)
+            runtime.step_index += 1
+            self._checkpoint(run, runtime)
+            return RunnerPollResult(state="running")
+
+        if runtime.step_index == 3:
             runtime.node_id = "propose_changeset_bundle"
             expensive = self._requested_expensive_actions(spec=spec)
             if expensive and not bool(
@@ -241,7 +271,7 @@ class LangGraphRunnerAdapter:
             self._checkpoint(run, runtime)
             return RunnerPollResult(state="running")
 
-        if runtime.step_index == 2:
+        if runtime.step_index == 4:
             runtime.node_id = "emit_artifact"
             if runtime.changeset_bundle is None:
                 return RunnerPollResult(state="failed", reason_code="missing_changeset_bundle")
@@ -265,6 +295,108 @@ class LangGraphRunnerAdapter:
             "schema_version": "context_pack/v2",
             "source": "cache_fallback",
             "inputs": inputs,
+        }
+
+    def _planner_should_retrieve(self, *, spec: dict[str, Any]) -> bool:
+        query = str((spec.get("inputs") or {}).get("retrieval_query") or "").strip()
+        return bool(query)
+
+    def _retrieve_context(self, *, run: dict[str, Any], runtime: _ThreadRuntime) -> dict[str, Any]:
+        retrieval = dict(runtime.retrieval or {})
+        if not retrieval.get("enabled"):
+            return retrieval
+
+        spec = run.get("spec") or {}
+        inputs = spec.get("inputs") or {}
+        budget = (spec.get("execution") or {}).get("budget") or {}
+        configured_cap = int(retrieval.get("budget_tokens") or 0)
+        default_cap = max(0, int(budget.get("max_total_tokens", 0)) - runtime.tokens_used)
+        token_cap = configured_cap if configured_cap > 0 else default_cap
+        retrieval["budget_tokens"] = token_cap
+
+        chunks = inputs.get("retrieval_chunks")
+        if not isinstance(chunks, list):
+            chunks = []
+
+        used = 0
+        selected: list[dict[str, Any]] = []
+        chunk_ids: list[str] = []
+        for raw in chunks:
+            if not isinstance(raw, dict):
+                continue
+            chunk_id = str(raw.get("chunk_id") or "").strip()
+            if not chunk_id:
+                continue
+            text = str(raw.get("text") or "")
+            estimated_tokens = max(1, len(text) // 4)
+            if used + estimated_tokens > token_cap:
+                continue
+            used += estimated_tokens
+            selected.append(
+                {
+                    "chunk_id": chunk_id,
+                    "text": text,
+                    "source_path": raw.get("source_path"),
+                    "line_start": raw.get("line_start"),
+                    "line_end": raw.get("line_end"),
+                    "doc_type": raw.get("doc_type"),
+                    "revision_sha": raw.get("revision_sha"),
+                    "score": raw.get("score"),
+                }
+            )
+            chunk_ids.append(chunk_id)
+
+        retrieval["results"] = selected
+        retrieval["chunk_ids"] = chunk_ids
+        retrieval["token_usage"] = used
+        if isinstance(runtime.context_pack, dict):
+            self._attach_retrieval_to_context_pack(runtime.context_pack, retrieval)
+        self._audit.append_audit_event(
+            "langgraph_retrieval_query",
+            {
+                "run_id": run["run_id"],
+                "thread_id": runtime.thread_id,
+                "node_id": runtime.node_id,
+                "query": retrieval.get("query") or "",
+                "chunk_ids": chunk_ids,
+                "token_usage": used,
+                "budget_tokens": token_cap,
+            },
+        )
+        return retrieval
+
+    def _attach_retrieval_to_context_pack(
+        self, context_pack: dict[str, Any], retrieval: dict[str, Any]
+    ) -> None:
+        sections = context_pack.get("sections")
+        if not isinstance(sections, list):
+            sections = []
+            context_pack["sections"] = sections
+        for result in retrieval.get("results", []):
+            sections.append(
+                {
+                    "id": f"retrieved:{result.get('chunk_id')}",
+                    "kind": "retrieved",
+                    "content": result.get("text", ""),
+                    "provenance": {
+                        "chunk_id": result.get("chunk_id"),
+                        "source_path": result.get("source_path"),
+                        "line_start": result.get("line_start"),
+                        "line_end": result.get("line_end"),
+                        "doc_type": result.get("doc_type"),
+                        "revision_sha": result.get("revision_sha"),
+                        "score": result.get("score"),
+                    },
+                }
+            )
+
+        manifest = context_pack.get("manifest")
+        if not isinstance(manifest, dict):
+            manifest = {}
+            context_pack["manifest"] = manifest
+        manifest["retrieval"] = {
+            "query": retrieval.get("query") or "",
+            "chunk_ids": list(retrieval.get("chunk_ids") or []),
         }
 
     def _requested_expensive_actions(self, *, spec: dict[str, Any]) -> list[str]:
@@ -333,6 +465,7 @@ class LangGraphRunnerAdapter:
             "thread_id": runtime.thread_id,
             "graph_id": self._GRAPH_REPO_CHANGE_PROPOSER_V1,
             "context_pack": runtime.context_pack,
+            "retrieval": runtime.retrieval,
             "changeset_bundle": runtime.changeset_bundle,
         }
         artifact_path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
