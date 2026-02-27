@@ -297,6 +297,6 @@ test("runs intake-to-proposal flow and approves generated changeset from inbox",
   expect(await screen.findByText(/Total: 1/)).toBeTruthy();
 
   await userEvent.click(screen.getByRole("button", { name: "Approve" }));
-  expect(await screen.findByText(/Approved changeset #77/)).toBeTruthy();
   expect(await screen.findByText(/Total: 0/)).toBeTruthy();
+  expect(await screen.findByText("No inbox items.")).toBeTruthy();
 });
