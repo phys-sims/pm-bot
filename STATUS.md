@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:07:59 UTC
+- Time (UTC): 04:22:18 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Implemented local-first storage defaults via `pm_bot/shared/settings.py` with env-driven paths rooted at `./data` and automatic creation of data/control_plane, artifacts, checkpoints, and repos directories.
-- Updated API startup and SQLite initialization so the default ASGI service uses disk-backed DB at configured path and applies WAL + busy timeout + safe connection pragmas for concurrent readers.
-- Updated docker compose and env examples to mount `./data` into API container and wire PMBOT_* storage variables to `/data` paths without requiring a committed `.env`; added local-first runbook documenting durability and artifact/checkpoint policy.
+- Added SQLite-backed repo registry/cache schema (`workspaces`, `repo_registry`, `issue_cache`, `pr_cache`, `sync_cursors`) with indexed fields and idempotent upsert/read helpers for local GitHub issue/PR caching.
+- Added `GitHubCacheSyncService` for initial imports and incremental cursor-based refreshes, then integrated periodic polling (`PM_BOT_SYNC_POLL_MINUTES`) and manual sync into the ASGI backend.
+- Added cache-first repo endpoints (`POST /repos/add`, `POST /repos/{id}/sync`, `GET /repos`, `GET /repos/{id}/issues`, `GET /repos/{id}/prs`) plus an integration test with mocked GitHub API responses to verify initial import + incremental updates.

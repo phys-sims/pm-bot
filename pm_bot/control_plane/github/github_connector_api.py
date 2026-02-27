@@ -111,6 +111,15 @@ class GitHubAPIConnector:
             return response
         return []
 
+    def list_pull_requests(self, repo: str, **filters: str) -> list[dict[str, Any]]:
+        params = {key: value for key, value in filters.items() if value != ""}
+        response = self._request(
+            "GET", f"/repos/{repo}/pulls", token=self.auth.read_token, params=params
+        )
+        if isinstance(response, list):
+            return response
+        return []
+
     def list_sub_issues(self, repo: str, issue_ref: str) -> list[dict[str, Any]]:
         number = _issue_number_from_ref(issue_ref)
         response = self._request(
