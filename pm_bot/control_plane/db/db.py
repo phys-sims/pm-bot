@@ -288,6 +288,51 @@ class OrchestratorDB:
                 prs_etag TEXT,
                 FOREIGN KEY(repo_id) REFERENCES repo_registry(id)
             );
+
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_type TEXT NOT NULL,
+                source_path_or_url TEXT NOT NULL,
+                repo_id INTEGER,
+                revision_sha TEXT NOT NULL DEFAULT '',
+                content_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(repo_id) REFERENCES repo_registry(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chunk_id TEXT NOT NULL UNIQUE,
+                doc_id INTEGER NOT NULL,
+                offset_start INTEGER NOT NULL,
+                offset_end INTEGER NOT NULL,
+                text_hash TEXT NOT NULL,
+                token_count INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(doc_id) REFERENCES documents(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS embedding_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chunk_id TEXT NOT NULL,
+                qdrant_point_id TEXT NOT NULL,
+                embedding_model TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(chunk_id) REFERENCES chunks(chunk_id),
+                UNIQUE(chunk_id, embedding_model)
+            );
+
+            CREATE TABLE IF NOT EXISTS ingestion_jobs (
+                job_id TEXT PRIMARY KEY,
+                repo_id INTEGER,
+                scope_json TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL,
+                stats_json TEXT NOT NULL DEFAULT '{}',
+                error_text TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(repo_id) REFERENCES repo_registry(id)
+            );
             """
         )
         self.conn.execute(
@@ -379,6 +424,18 @@ class OrchestratorDB:
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_pr_cache_repo_updated ON pr_cache(repo_id, updated_at)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_documents_repo_source ON documents(repo_id, source_type)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id, chunk_id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_embedding_records_chunk_model ON embedding_records(chunk_id, embedding_model)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_repo_status ON ingestion_jobs(repo_id, status)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_graph_edges_source_type ON graph_edges(source, edge_type)"

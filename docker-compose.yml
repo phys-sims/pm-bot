@@ -1,4 +1,11 @@
 services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+
   api:
     build:
       context: .
@@ -16,6 +23,8 @@ services:
       # Optional for local iteration: remove this mount to run from the immutable image.
       - .:/app
       - ./data:/data
+    depends_on:
+      - qdrant
 
   ui:
     build:

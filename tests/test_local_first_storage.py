@@ -30,3 +30,17 @@ def test_sqlite_connection_uses_wal_and_busy_timeout(tmp_path: Path) -> None:
 
     assert str(journal_mode).lower() == "wal"
     assert int(busy_timeout) == 5000
+
+
+def test_rag_metadata_tables_exist(tmp_path: Path) -> None:
+    db = OrchestratorDB(tmp_path / "control_plane" / "pm_bot.sqlite")
+
+    table_names = {
+        row[0]
+        for row in db.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    }
+
+    assert "documents" in table_names
+    assert "chunks" in table_names
+    assert "embedding_records" in table_names
+    assert "ingestion_jobs" in table_names

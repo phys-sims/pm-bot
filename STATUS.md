@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 05:48:46 UTC
+- Time (UTC): 05:54:22 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,7 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
+- Added local RAG bootstrap support: Docker Compose now includes a persistent `qdrant` service (`./data/qdrant`), control-plane retriever abstraction stubs (`embed/upsert/query`), and SQLite metadata tables for `documents`, `chunks`, `embedding_records`, and `ingestion_jobs`.
 - Added LangGraph runner adapter wiring with submit/poll/resume/cancel/fetch behavior, including blocked interrupt polling and resume auditing.
 - Added filesystem+DB checkpoint bridge: checkpoint blobs are persisted under `data/checkpoints/<thread_id>/` and run checkpoint metadata is persisted in `run_checkpoint_metadata`.
 - Added LangGraph policy enforcement (tool allowlist + token/tool/wall budgets) with configurable violation mode (`interrupt` default, `fail` override) and audit emission for model/tool/interrupt events.
