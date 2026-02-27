@@ -11,7 +11,7 @@ This roadmap turns the M0–M3 execution plan into a repo-native v6 stage focuse
 
 This v6 plan is intentionally additive and preserves existing safety/determinism invariants.
 
-> **Implementation status note (2026-02-26):** Plan Intake GUI route and guided intake/confirm/preview/propose interactions are shipped and route-tested. Full closure remains contingent on explicit end-to-end GUI evidence that links Plan Intake proposal output to Inbox approval/apply outcomes.
+> **Implementation status note (2026-02-27):** Plan Intake GUI route and guided intake/confirm/preview/propose interactions are shipped and route-tested. Explicit E2E closure evidence now exists via `ui/src/App.test.tsx` (`runs intake-to-proposal flow and approves generated changeset from inbox`) and runbook `docs/runbooks/plan-intake-inbox-e2e.md`.
 
 ---
 
