@@ -102,6 +102,9 @@ test("adds onboarding, repo dashboard, and existing routes to app shell", async 
   await userEvent.click(screen.getByRole("button", { name: "Inbox" }));
   expect(await screen.findByRole("heading", { name: "Unified Inbox" })).toBeTruthy();
 
+  await userEvent.click(screen.getByRole("button", { name: "Run Detail" }));
+  expect(await screen.findByRole("heading", { name: "Run Detail" })).toBeTruthy();
+
   await userEvent.click(screen.getByRole("button", { name: "Agent Runs" }));
   expect(await screen.findByRole("heading", { name: "Agent Runs" })).toBeTruthy();
 
@@ -323,7 +326,7 @@ test("runs intake-to-proposal flow and approves generated changeset from inbox",
   expect(await screen.findByRole("heading", { name: "Unified Inbox" })).toBeTruthy();
   expect(await screen.findByText(/Total: 1/)).toBeTruthy();
 
-  await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+  await userEvent.click(screen.getByRole("button", { name: "Approve changeset" }));
   expect(await screen.findByText(/Total: 0/)).toBeTruthy();
   expect(await screen.findByText("No inbox items.")).toBeTruthy();
 });

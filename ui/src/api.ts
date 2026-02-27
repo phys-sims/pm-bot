@@ -18,7 +18,7 @@ export type InboxItem = {
   state: string;
   priority: string;
   age_hours: number;
-  action: "approve" | "review" | "triage";
+  action: "approve" | "resolve" | "review" | "triage";
   requires_internal_approval: boolean;
   stale: boolean;
   stale_reason: string;
@@ -95,6 +95,48 @@ export type AgentRunRecord = {
   last_error: string;
   job_id: string;
   artifact_paths: string[];
+};
+
+
+
+export type RunArtifact = {
+  schema_version: string;
+  artifact_id: string;
+  run_id: string;
+  kind: string;
+  uri: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type RunInterrupt = {
+  schema_version: string;
+  interrupt_id: string;
+  run_id: string;
+  thread_id: string;
+  kind: string;
+  risk: string;
+  payload: Record<string, unknown>;
+  status: string;
+  decision: Record<string, unknown>;
+  decision_actor: string;
+  decision_action: string;
+  created_at: string;
+  resolved_at: string;
+};
+
+export type RunDetailsResponse = AgentRunRecord & {
+  budgets: Record<string, number>;
+  artifacts: RunArtifact[];
+  interrupts: RunInterrupt[];
+};
+
+export type ArtifactViewResponse = {
+  schema_version: "artifact_view/v1";
+  uri: string;
+  view_type: string;
+  size_bytes: number;
+  content: string;
 };
 
 export type AgentRunTransition = {
@@ -361,6 +403,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ approved_by: approvedBy }),
     }),
+  resolveInterrupt: (interruptId: string, action: "approve" | "edit" | "reject", actor: string, editedPayload?: Record<string, unknown>) =>
+    httpJson<RunInterrupt>(`/interrupts/${encodeURIComponent(interruptId)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ action, actor, edited_payload: editedPayload }),
+    }),
+  runDetails: (runId: string) => httpJson<RunDetailsResponse>(`/runs/${encodeURIComponent(runId)}`),
+  resumeRun: (runId: string, decision: Record<string, unknown>, actor: string) =>
+    httpJson<AgentRunRecord>(`/runs/${encodeURIComponent(runId)}/resume`, {
+      method: "POST",
+      body: JSON.stringify({ decision, actor }),
+    }),
+  artifactView: (uri: string) => httpJson<ArtifactViewResponse>(`/artifacts/view?uri=${encodeURIComponent(uri)}`),
   graphTree: (root: string) => httpJson<GraphTreeResponse>(`/graph/tree?root=${encodeURIComponent(root)}`),
   graphDeps: () => httpJson<GraphDepsResponse>("/graph/deps"),
   contextPack: (params: {
