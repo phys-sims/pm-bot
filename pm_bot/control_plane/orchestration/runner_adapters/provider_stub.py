@@ -47,5 +47,11 @@ class ProviderStubRunnerAdapter:
     def fetch_artifacts(self, run: dict[str, Any]) -> list[str]:
         return [default_artifact_uri(run["run_id"], suffix=".json")]
 
+    def resume(self, run: dict[str, Any], decision: dict[str, Any]) -> RunnerPollResult:
+        action = str(decision.get("action", "approve"))
+        if action == "reject":
+            return RunnerPollResult(state="failed", reason_code="provider_interrupt_rejected")
+        return RunnerPollResult(state="running")
+
     def cancel(self, run: dict[str, Any]) -> RunnerPollResult:
         return RunnerPollResult(state="cancelled", reason_code="provider_cancelled")

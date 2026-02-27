@@ -32,6 +32,8 @@ class RunnerSubmitResult:
 class RunnerPollResult:
     state: str
     reason_code: str = ""
+    interrupt_id: str = ""
+    interrupt_payload: dict[str, Any] | None = None
 
 
 class RunnerAdapter(Protocol):
@@ -44,6 +46,8 @@ class RunnerAdapter(Protocol):
     def fetch_artifacts(self, run: dict[str, Any]) -> list[str]: ...
 
     def cancel(self, run: dict[str, Any]) -> RunnerPollResult: ...
+
+    def resume(self, run: dict[str, Any], decision: dict[str, Any]) -> RunnerPollResult: ...
 
 
 _FORBIDDEN_CONTEXT_KEYS = {
@@ -201,6 +205,19 @@ class RunnerService:
             self.db.clear_agent_run_claim(run_id)
             return self.db.get_agent_run(run_id) or {}
 
+        if poll.state == "blocked":
+            self.db.clear_agent_run_claim(run_id)
+            self.db.append_audit_event(
+                "agent_run_blocked",
+                {
+                    "run_id": run_id,
+                    "interrupt_id": poll.interrupt_id,
+                    "interrupt_payload": poll.interrupt_payload or {},
+                    "worker_id": worker_id,
+                },
+            )
+            return self.db.get_agent_run(run_id) or {}
+
         if poll.state == "completed":
             artifacts = adapter.fetch_artifacts(run)
             self.db.set_agent_run_artifacts(run_id, artifacts)
@@ -267,3 +284,24 @@ class RunnerService:
         return self.transition(
             run_id, "cancelled", reason_code=result.reason_code or "cancelled", actor=actor
         )
+
+    def resume(self, run_id: str, decision: dict[str, Any], actor: str = "") -> dict[str, Any]:
+        run = self.db.get_agent_run(run_id)
+        if run is None:
+            raise ValueError("unknown_run")
+        adapter_name = run.get("adapter_name") or self.default_adapter_name
+        adapter = self.adapters.get(adapter_name)
+        if adapter is None:
+            raise ValueError("unknown_adapter")
+        result = adapter.resume(run, decision)
+        self.db.append_audit_event(
+            "agent_run_resumed",
+            {
+                "run_id": run_id,
+                "actor": actor,
+                "decision": decision,
+                "state": result.state,
+                "reason_code": result.reason_code,
+            },
+        )
+        return self.db.get_agent_run(run_id) or {}
