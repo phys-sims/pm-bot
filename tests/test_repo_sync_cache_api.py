@@ -164,3 +164,43 @@ def test_repo_registry_sync_cache_end_to_end_with_incremental_cursor() -> None:
     assert session.calls[1]["url"].endswith("/pulls")
     assert "since" in session.calls[2]["params"]
     assert "since" in session.calls[3]["params"]
+
+
+def test_repo_search_status_and_reindex_endpoint(monkeypatch) -> None:
+    monkeypatch.setenv("PMBOT_RAG_VECTOR_BACKEND", "memory")
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    add_status, add_payload = _asgi_request(
+        app,
+        "POST",
+        "/repos/add",
+        body=json.dumps({"full_name": "phys-sims/phys-pipeline"}).encode("utf-8"),
+    )
+    assert add_status == 200
+    repo_id = int(add_payload["id"])
+
+    search_status, search_payload = _asgi_request(
+        app, "GET", "/repos/search", query_string=b"q=phys-sims"
+    )
+    assert search_status == 200
+    assert any(item["full_name"] == "phys-sims/phys-pipeline" for item in search_payload["items"])
+
+    status_code, status_payload = _asgi_request(app, "GET", f"/repos/{repo_id}/status")
+    assert status_code == 200
+    assert status_payload["repo_id"] == repo_id
+    assert "issues_cached" in status_payload
+    assert "prs_cached" in status_payload
+
+    reindex_code, reindex_payload = _asgi_request(
+        app,
+        "POST",
+        "/repos/reindex-docs",
+        body=json.dumps({"repo_id": repo_id, "chunk_lines": 120}).encode("utf-8"),
+    )
+    assert reindex_code == 200
+    assert reindex_payload["status"] == "completed"
+
+    status_code2, status_payload2 = _asgi_request(app, "GET", f"/repos/{repo_id}/status")
+    assert status_code2 == 200
+    assert status_payload2["last_index_at"]

@@ -253,6 +253,39 @@ export type ReportIrProposalResponse = {
   summary: { count: number };
 };
 
+
+
+export type OnboardingReadinessResponse = {
+  readiness_state: string;
+  updated_at: string;
+};
+
+export type RepoRegistryEntry = {
+  id: number;
+  workspace_id: number;
+  full_name: string;
+  default_branch: string;
+  added_at: string;
+  last_sync_at: string;
+  last_index_at: string;
+  last_error: string;
+};
+
+export type RepoSearchResult = {
+  full_name: string;
+  already_added: boolean;
+};
+
+export type RepoSyncStatusResponse = {
+  repo_id: number;
+  full_name: string;
+  last_sync_at: string;
+  last_index_at: string;
+  last_error: string;
+  issues_cached: number;
+  prs_cached: number;
+};
+
 export class ApiError extends Error {
   readonly status: number;
   readonly reasonCode: string;
@@ -288,6 +321,32 @@ export function formatApiError(error: unknown): string {
 }
 
 export const api = {
+
+  onboardingReadiness: () => httpJson<OnboardingReadinessResponse>("/onboarding/readiness"),
+  onboardingDryRun: () =>
+    httpJson<{ readiness_state: string; reason_code: string; checks: Record<string, boolean> }>("/onboarding/dry-run", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  listRepos: () => httpJson<{ items: RepoRegistryEntry[]; summary: { count: number } }>("/repos"),
+  searchRepos: (query: string) =>
+    httpJson<{ items: RepoSearchResult[]; summary: { count: number } }>(`/repos/search?q=${encodeURIComponent(query)}`),
+  addRepo: (params: { full_name: string; since_days?: number }) =>
+    httpJson<RepoRegistryEntry>("/repos/add", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
+  syncRepo: (repoId: number) => httpJson<{ issues_upserted: number; prs_upserted: number }>(`/repos/${repoId}/sync`, { method: "POST" }),
+  repoSyncStatus: (repoId: number) => httpJson<RepoSyncStatusResponse>(`/repos/${repoId}/status`),
+  reindexDocs: (repoId = 0) =>
+    httpJson<{ status: string; documents_indexed: number; chunks_upserted: number }>("/repos/reindex-docs", {
+      method: "POST",
+      body: JSON.stringify({ repo_id: repoId }),
+    }),
+  reindexRepo: (repoId: number) =>
+    httpJson<{ status: string; documents_indexed: number; chunks_upserted: number }>(`/repos/${repoId}/reindex`, {
+      method: "POST",
+    }),
   pendingChangesets: () => httpJson<PendingChangesetsResponse>("/changesets/pending"),
   unifiedInbox: (params: { actor?: string; labels?: string[]; repos?: string[] } = {}) => {
     const q = new URLSearchParams();

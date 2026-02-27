@@ -177,6 +177,13 @@ class ServerApp:
     def get_work_item(self, issue_ref: str) -> dict[str, Any] | None:
         return self.db.get_work_item(issue_ref)
 
+    def _get_rag_service(self) -> DocsIngestionService:
+        rag = self.rag or DocsIngestionService(
+            self.db, repo_root=Path(__file__).resolve().parents[3]
+        )
+        self.rag = rag
+        return rag
+
     def context_pack(
         self,
         issue_ref: str,
@@ -192,10 +199,7 @@ class ServerApp:
     ) -> dict[str, Any]:
         retrieved_chunks: list[dict[str, Any]] = []
         if retrieval_query.strip() and schema_version == "context_pack/v2":
-            rag = self.rag or DocsIngestionService(
-                self.db, repo_root=Path(__file__).resolve().parents[3]
-            )
-            self.rag = rag
+            rag = self._get_rag_service()
             hits = rag.query(
                 query_text=retrieval_query,
                 limit=retrieval_top_k,
@@ -274,6 +278,44 @@ class ServerApp:
 
     def list_repos(self) -> list[dict[str, Any]]:
         return self.db.list_repo_registry_entries()
+
+    def search_repos(self, query: str = "") -> list[dict[str, Any]]:
+        normalized = query.strip().lower()
+        registered = {row["full_name"] for row in self.db.list_repo_registry_entries()}
+        allowed = sorted(getattr(self.connector, "allowed_repos", set()))
+        results: list[dict[str, Any]] = []
+        for full_name in allowed:
+            if normalized and normalized not in full_name.lower():
+                continue
+            results.append({"full_name": full_name, "already_added": full_name in registered})
+        return results
+
+    def repo_sync_status(self, repo_id: int) -> dict[str, Any]:
+        repo = self.db.get_repo_registry_entry(repo_id)
+        if repo is None:
+            raise ValueError("repo_not_found")
+        return {
+            "repo_id": repo_id,
+            "full_name": repo["full_name"],
+            "last_sync_at": repo.get("last_sync_at", ""),
+            "last_index_at": repo.get("last_index_at", ""),
+            "last_error": repo.get("last_error", ""),
+            "issues_cached": self.db.count_issue_cache(repo_id=repo_id),
+            "prs_cached": self.db.count_pr_cache(repo_id=repo_id),
+        }
+
+    def reindex_docs(self, repo_id: int = 0, chunk_lines: int = 80) -> dict[str, Any]:
+        rag = self._get_rag_service()
+        result = rag.index_docs(repo_id=repo_id, chunk_lines=chunk_lines)
+        if repo_id > 0:
+            self.db.update_repo_registry_index_status(
+                repo_id=repo_id,
+                last_index_at=datetime.now(timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z"),
+            )
+        return result
 
     def repo_issues(self, repo_id: int) -> list[dict[str, Any]]:
         return self.db.list_issue_cache(repo_id=repo_id)
@@ -2141,9 +2183,42 @@ class ASGIServer:
                 await self._send_json(send, 200, self.service.sync_repo(repo_id=repo_id))
                 return
 
+            if method == "GET" and path == "/repos/search":
+                query = query_params.get("q", "")
+                items = self.service.search_repos(query=query)
+                await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
+                return
+
             if method == "GET" and path == "/repos":
                 repos = self.service.list_repos()
                 await self._send_json(send, 200, {"items": repos, "summary": {"count": len(repos)}})
+                return
+
+            if method == "GET" and path.startswith("/repos/") and path.endswith("/status"):
+                repo_id = self._parse_repo_path(path, "status")
+                if repo_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(send, 200, self.service.repo_sync_status(repo_id=repo_id))
+                return
+
+            if method == "POST" and path == "/repos/reindex-docs":
+                payload = self._parse_json(body)
+                if payload is None:
+                    payload = {}
+                repo_id = int(payload.get("repo_id", 0) or 0)
+                chunk_lines = int(payload.get("chunk_lines", 80) or 80)
+                await self._send_json(
+                    send, 200, self.service.reindex_docs(repo_id=repo_id, chunk_lines=chunk_lines)
+                )
+                return
+
+            if method == "POST" and path.startswith("/repos/") and path.endswith("/reindex"):
+                repo_id = self._parse_repo_path(path, "reindex")
+                if repo_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(send, 200, self.service.reindex_docs(repo_id=repo_id))
                 return
 
             if method == "GET" and path.startswith("/repos/") and path.endswith("/issues"):

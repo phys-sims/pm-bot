@@ -16,6 +16,24 @@ beforeEach(() => {
   vi.stubGlobal("confirm", vi.fn(() => true));
   mockedFetch.mockImplementation(async (input) => {
     const url = String(input);
+    if (url.includes("/repos/search")) {
+      return new Response(JSON.stringify({ items: [{ full_name: "phys-sims/pm-bot", already_added: false }], summary: { count: 1 } }), { status: 200 });
+    }
+    if (url.includes("/repos/add")) {
+      return new Response(JSON.stringify({ id: 1, workspace_id: 1, full_name: "phys-sims/pm-bot", default_branch: "main", added_at: "", last_sync_at: "", last_index_at: "", last_error: "" }), { status: 200 });
+    }
+    if (url.includes("/repos/1/sync")) {
+      return new Response(JSON.stringify({ issues_upserted: 2, prs_upserted: 1 }), { status: 200 });
+    }
+    if (url.includes("/repos/1/status")) {
+      return new Response(JSON.stringify({ repo_id: 1, full_name: "phys-sims/pm-bot", last_sync_at: "", last_index_at: "", last_error: "", issues_cached: 2, prs_cached: 1 }), { status: 200 });
+    }
+    if (url.endsWith("/repos")) {
+      return new Response(JSON.stringify({ items: [], summary: { count: 0 } }), { status: 200 });
+    }
+    if (url.includes("/repos/reindex-docs") || url.includes("/reindex")) {
+      return new Response(JSON.stringify({ status: "completed", documents_indexed: 1, chunks_upserted: 1 }), { status: 200 });
+    }
     if (url.includes("/inbox")) {
       return new Response(
         JSON.stringify({
@@ -70,9 +88,18 @@ beforeEach(() => {
   });
 });
 
-test("adds agent-runs, context-pack, and audit routes to app shell", async () => {
+test("adds onboarding, repo dashboard, and existing routes to app shell", async () => {
   render(<App />);
 
+  expect(await screen.findByRole("heading", { name: "Unified Inbox" })).toBeTruthy();
+
+  await userEvent.click(screen.getByRole("button", { name: "Onboarding" }));
+  expect(await screen.findByRole("heading", { name: "Onboarding Wizard" })).toBeTruthy();
+
+  await userEvent.click(screen.getByRole("button", { name: "Repo Dashboard" }));
+  expect(await screen.findByRole("heading", { name: "Repo Dashboard" })).toBeTruthy();
+
+  await userEvent.click(screen.getByRole("button", { name: "Inbox" }));
   expect(await screen.findByRole("heading", { name: "Unified Inbox" })).toBeTruthy();
 
   await userEvent.click(screen.getByRole("button", { name: "Agent Runs" }));
