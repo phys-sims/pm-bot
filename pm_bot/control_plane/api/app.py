@@ -2218,6 +2218,12 @@ class ASGIServer:
                 await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
                 return
 
+            if method == "GET" and path == "/repos/search":
+                query = query_params.get("q", "")
+                items = self.service.search_repos(query=query)
+                await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
+                return
+
             if method == "GET" and path == "/repos":
                 repos = self.service.list_repos()
                 await self._send_json(send, 200, {"items": repos, "summary": {"count": len(repos)}})
