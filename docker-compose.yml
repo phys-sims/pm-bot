@@ -5,10 +5,17 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      PMBOT_DATA_DIR: ${PMBOT_DATA_DIR:-/data}
+      PMBOT_SQLITE_PATH: ${PMBOT_SQLITE_PATH:-/data/control_plane/pm_bot.sqlite}
+      PMBOT_ARTIFACT_DIR: ${PMBOT_ARTIFACT_DIR:-/data/artifacts}
+      PMBOT_CHECKPOINT_DIR: ${PMBOT_CHECKPOINT_DIR:-/data/checkpoints}
+      PMBOT_REPOS_DIR: ${PMBOT_REPOS_DIR:-/data/repos}
     command: uvicorn pm_bot.server.app:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       # Optional for local iteration: remove this mount to run from the immutable image.
       - .:/app
+      - ./data:/data
 
   ui:
     build:

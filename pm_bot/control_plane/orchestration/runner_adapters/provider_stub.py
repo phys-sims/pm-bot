@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pm_bot.control_plane.orchestration.runner import RunnerPollResult, RunnerSubmitResult
+from pm_bot.shared.settings import default_artifact_uri
 
 _NORMALIZED_FAILURE_CODES: dict[str, str] = {
     "timeout": "provider_timeout",
@@ -44,7 +45,7 @@ class ProviderStubRunnerAdapter:
         return RunnerPollResult(state=state)
 
     def fetch_artifacts(self, run: dict[str, Any]) -> list[str]:
-        return [f"provider-artifacts/{run['run_id']}.json"]
+        return [default_artifact_uri(run["run_id"], suffix=".json")]
 
     def cancel(self, run: dict[str, Any]) -> RunnerPollResult:
         return RunnerPollResult(state="cancelled", reason_code="provider_cancelled")

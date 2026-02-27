@@ -13,9 +13,21 @@ class OrchestratorDB:
 
     def __init__(self, db_path: Path | str = ":memory:") -> None:
         self.db_path = str(db_path)
+        if self.db_path != ":memory:":
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._configure_connection()
         self._init_schema()
+
+    def _configure_connection(self) -> None:
+        """Apply local-first SQLite settings for durability and concurrent reads."""
+
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=5000")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
+        self.conn.execute("PRAGMA foreign_keys=ON")
+        self.conn.execute("PRAGMA temp_store=MEMORY")
 
     def _init_schema(self) -> None:
         self.conn.executescript(

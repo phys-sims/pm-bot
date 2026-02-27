@@ -36,6 +36,7 @@ from pm_bot.control_plane.orchestration.runner_adapters import (
     build_runner_adapters_from_env,
     default_runner_adapter_name,
 )
+from pm_bot.shared.settings import get_storage_settings
 
 
 class ServerApp:
@@ -1004,7 +1005,7 @@ class ASGIServer:
     """Minimal ASGI adapter exposing a safe subset of ServerApp methods."""
 
     def __init__(self, service: ServerApp | None = None) -> None:
-        self.service = service or create_app()
+        self.service = service or create_app(db_path=get_storage_settings().sqlite_path)
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope.get("type") != "http":

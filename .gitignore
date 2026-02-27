@@ -11,3 +11,6 @@ ui/node_modules/
 ui/test-results/
 ui/playwright-report/
 .vscode
+
+# Local-first runtime state
+data/
