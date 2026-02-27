@@ -705,6 +705,38 @@ class ServerApp:
         run["interrupts"] = self.db.list_run_interrupts(run_id=run_id)
         return run
 
+    def artifact_view(self, uri: str) -> dict[str, Any]:
+        normalized = uri.strip()
+        if not normalized:
+            raise ValueError("missing_uri")
+        if normalized.startswith("file://"):
+            normalized = normalized[len("file://") :]
+        artifact_root = Path(settings.artifact_dir).resolve()
+        candidate = Path(normalized)
+        if not candidate.is_absolute():
+            candidate = artifact_root / candidate
+        resolved = candidate.resolve()
+        if artifact_root not in resolved.parents and resolved != artifact_root:
+            raise ValueError("artifact_outside_root")
+        if not resolved.exists() or not resolved.is_file():
+            raise FileNotFoundError("artifact_not_found")
+        suffix = resolved.suffix.lower()
+        view_type = "text"
+        if suffix in {".diff", ".patch"}:
+            view_type = "diff"
+        elif suffix in {".log", ".txt"}:
+            view_type = "log"
+        elif suffix == ".json":
+            view_type = "json"
+        content = resolved.read_text(encoding="utf-8")
+        return {
+            "schema_version": "artifact_view/v1",
+            "uri": str(resolved),
+            "view_type": view_type,
+            "size_bytes": resolved.stat().st_size,
+            "content": content,
+        }
+
     def transition_agent_run(
         self,
         run_id: str,
@@ -1832,6 +1864,37 @@ class ASGIServer:
                     await self._send_json(send, 404, {"error": "not_found"})
                     return
                 await self._send_json(send, 200, details)
+                return
+
+            if method == "POST" and path.startswith("/runs/") and path.endswith("/resume"):
+                run_id = path[len("/runs/") : -len("/resume")].strip("/")
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                decision = payload.get("decision")
+                if not isinstance(decision, dict):
+                    await self._send_json(send, 400, {"error": "missing_decision"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.resume_run(
+                        run_id=run_id,
+                        decision=decision,
+                        actor=str(payload.get("actor", "")),
+                    ),
+                )
+                return
+
+            if method == "GET" and path == "/artifacts/view":
+                uri = query_params.get("uri", "")
+                try:
+                    await self._send_json(send, 200, self.service.artifact_view(uri))
+                except ValueError as exc:
+                    await self._send_json(send, 400, {"error": str(exc)})
+                except FileNotFoundError as exc:
+                    await self._send_json(send, 404, {"error": str(exc)})
                 return
 
             if method == "POST" and path == "/agent-runs/propose":

@@ -8,6 +8,7 @@ export function InboxPage() {
   const [message, setMessage] = useState("");
   const [selectedSource, setSelectedSource] = useState<SourceTab>("all");
   const [selectedAction, setSelectedAction] = useState<string>("all");
+  const [pendingItemId, setPendingItemId] = useState("");
   const [diagnostics, setDiagnostics] = useState<{
     cache: { hit: boolean; ttl_seconds: number; key: string };
     rate_limit: { remaining: number; reset_at: string; source: string };
@@ -29,17 +30,32 @@ export function InboxPage() {
     void load();
   }, []);
 
-  const approve = async (id: number) => {
-    const confirmed = window.confirm(`Approve changeset #${id}?`);
-    if (!confirmed) {
-      return;
-    }
+  const approveChangeset = async (id: number) => {
     try {
+      setPendingItemId(`changeset:${id}`);
       await api.approveChangeset(id, "ui-user");
       setMessage(`Approved changeset #${id}`);
       await load();
     } catch (error) {
       setMessage(`Error: ${formatApiError(error)}`);
+    } finally {
+      setPendingItemId("");
+    }
+  };
+
+  const resolveInterrupt = async (interruptId: string, runId: string, action: "approve" | "edit" | "reject") => {
+    try {
+      setPendingItemId(`interrupt:${interruptId}`);
+      await api.resolveInterrupt(interruptId, action, "ui-user");
+      if (action === "approve" || action === "edit") {
+        await api.resumeRun(runId, { action }, "ui-user");
+      }
+      setMessage(`Resolved interrupt ${interruptId} with ${action}.`);
+      await load();
+    } catch (error) {
+      setMessage(`Error: ${formatApiError(error)}`);
+    } finally {
+      setPendingItemId("");
     }
   };
 
@@ -70,6 +86,7 @@ export function InboxPage() {
           <select value={selectedAction} onChange={(event) => setSelectedAction(event.target.value)}>
             <option value="all">all</option>
             <option value="approve">approve</option>
+            <option value="resolve">resolve</option>
             <option value="review">review</option>
             <option value="triage">triage</option>
           </select>
@@ -87,16 +104,35 @@ export function InboxPage() {
         <ul>
           {filtered.map((item) => {
             const changesetId = Number(item.metadata.changeset_id ?? 0);
+            const interruptId = String(item.metadata.interrupt_id ?? "");
+            const runId = String(item.metadata.run_id ?? "");
+            const isPending = pendingItemId === item.id;
             return (
               <li key={item.id}>
-                <strong>{item.source}</strong> {item.title} ({item.action}) {item.stale ? `[stale: ${item.stale_reason}]` : ""}{" "}
-                {item.requires_internal_approval ? (
-                  <button onClick={() => void approve(changesetId)}>Approve</button>
-                ) : (
+                <strong>{item.source}</strong> {item.title} ({item.action})
+                {item.requires_internal_approval && item.action === "approve" ? (
+                  <button disabled={isPending} onClick={() => void approveChangeset(changesetId)}>
+                    {isPending ? "Approving..." : "Approve changeset"}
+                  </button>
+                ) : null}
+                {item.requires_internal_approval && item.action === "resolve" ? (
+                  <>
+                    <button disabled={isPending} onClick={() => void resolveInterrupt(interruptId, runId, "approve")}>
+                      {isPending ? "Applying..." : "Approve interrupt"}
+                    </button>
+                    <button disabled={isPending} onClick={() => void resolveInterrupt(interruptId, runId, "edit")}>
+                      Edit
+                    </button>
+                    <button disabled={isPending} onClick={() => void resolveInterrupt(interruptId, runId, "reject")}>
+                      Reject
+                    </button>
+                  </>
+                ) : null}
+                {!item.requires_internal_approval ? (
                   <a href={item.url} target="_blank" rel="noreferrer">
                     Open in GitHub
                   </a>
-                )}
+                ) : null}
               </li>
             );
           })}

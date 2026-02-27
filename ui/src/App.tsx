@@ -7,8 +7,9 @@ import { PlanIntakePage } from "./PlanIntakePage";
 import { TreePage } from "./TreePage";
 import { OnboardingPage } from "./OnboardingPage";
 import { RepoDashboardPage } from "./RepoDashboardPage";
+import { RunDetailPage } from "./RunDetailPage";
 
-type RouteKey = "onboarding" | "repos" | "inbox" | "tree" | "agentRuns" | "contextPack" | "auditOps" | "planIntake";
+type RouteKey = "onboarding" | "repos" | "inbox" | "runDetail" | "tree" | "agentRuns" | "contextPack" | "auditOps" | "planIntake";
 
 type RouteConfig = {
   key: RouteKey;
@@ -20,6 +21,7 @@ const ROUTES: RouteConfig[] = [
   { key: "onboarding", label: "Onboarding", render: () => <OnboardingPage /> },
   { key: "repos", label: "Repo Dashboard", render: () => <RepoDashboardPage /> },
   { key: "inbox", label: "Inbox", render: () => <InboxPage /> },
+  { key: "runDetail", label: "Run Detail", render: () => <RunDetailPage /> },
   { key: "tree", label: "Tree", render: () => <TreePage /> },
   { key: "agentRuns", label: "Agent Runs", render: () => <AgentRunsPage /> },
   { key: "contextPack", label: "Context Pack", render: () => <ContextPackPage /> },
