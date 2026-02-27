@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 05:13:32 UTC
+- Time (UTC): 05:23:23 UTC
 - By: @openai-codex
 
 ---
@@ -52,3 +52,4 @@
 - Added policy interrupt before expensive external actions (`repo_checkout`, `run_tests`) unless explicitly allowed in run inputs; graph remains no-GitHub-write.
 - Expanded runner tests to assert unapproved runs execute no model/tool calls, approved repo-change runs emit ChangesetBundle artifacts, audit logs include `run_id` + `thread_id` for model calls, and GitHub write endpoints are not invoked.
 - Added orchestration planning contracts (`orchestration_plan/v1`, `task_spec/v1`, `task_run/v1`), deterministic plan expansion, storage tables (`orchestration_plan`, `task_runs`, `task_edges`), and `/plans/<id>/expand` + `/plans/<id>/dag` APIs with deterministic snapshot coverage.
+- Added a lease-based TaskRun scheduler loop with dependency-aware runnable selection, per-repo/tool/provider concurrency quotas, deterministic retries (`retries` + `next_attempt_at`), and task-level reason-code/audit correlation (`task_run_id` + `run_id` + `thread_id`).
