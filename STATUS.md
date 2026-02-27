@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 03:44:05 UTC
+- Time (UTC): 03:48:52 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Added missing doc metadata headers to newly added `docs/spec/data-model.md`, `docs/spec/storage-and-deployment.md`, and `docs/contracts/agent_run_spec_v2.md` so docs hygiene depth checks pass.
-- Updated docs indexes/entrypoints to reference newly added roadmap stages (`v7` through `v11`) and the new AgentRunSpec v2 contract.
-- Revalidated docs and repo health checks (`ruff`, docs hygiene, and full `pytest -q`) after documentation updates.
+- Applied repository formatting to `scripts/docs_hygiene.py` to satisfy `ruff format . --check` in CI.
+- Re-ran lint and test suites after formatting-only changes to confirm no behavioral regressions.
+- Kept documentation status gates current with a refreshed runtime `Last updated` timestamp for this follow-up fix.
