@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pm_bot.control_plane.orchestration.runner import RunnerPollResult, RunnerSubmitResult
+from pm_bot.shared.settings import default_artifact_uri
 
 
 class ManualRunnerAdapter:
@@ -25,7 +26,7 @@ class ManualRunnerAdapter:
         explicit = (run.get("spec") or {}).get("artifact_paths")
         if isinstance(explicit, list):
             return [str(path) for path in explicit]
-        return [f"artifacts/{run['run_id']}.txt"]
+        return [default_artifact_uri(run["run_id"], suffix=".txt")]
 
     def cancel(self, run: dict[str, Any]) -> RunnerPollResult:
         return RunnerPollResult(state="cancelled", reason_code="cancelled_by_user")

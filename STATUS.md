@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 03:56:37 UTC
+- Time (UTC): 04:02:51 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,6 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Refactored backend package layout into `pm_bot/control_plane`, `pm_bot/execution_plane/langgraph`, and `pm_bot/shared` while preserving runtime behavior through compatibility shims under `pm_bot/server/*`.
-- Added import-boundary coverage to ensure `pm_bot/control_plane` modules do not directly import `langgraph`/`langchain` package paths.
-- Re-ran linting, formatting, and full test suite after module moves and shim updates to validate endpoint and adapter compatibility.
+- Implemented local-first storage defaults via `pm_bot/shared/settings.py` with env-driven paths rooted at `./data` and automatic creation of data/control_plane, artifacts, checkpoints, and repos directories.
+- Updated API startup and SQLite initialization so the default ASGI service uses disk-backed DB at configured path and applies WAL + busy timeout + safe connection pragmas for concurrent readers.
+- Updated docker compose and env examples to mount `./data` into API container and wire PMBOT_* storage variables to `/data` paths; added local-first runbook documenting durability and artifact/checkpoint policy.

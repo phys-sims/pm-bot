@@ -242,7 +242,9 @@ def test_agent_run_routes_cover_propose_transition_claim_execute():
     )
     assert execute_status == 200
     assert execute_payload["status"] == "completed"
-    assert execute_payload["artifact_paths"] == ["artifacts/http-run-1.txt"]
+    assert len(execute_payload["artifact_paths"]) == 1
+    assert execute_payload["artifact_paths"][0].startswith("file://")
+    assert execute_payload["artifact_paths"][0].endswith("/http-run-1.txt")
 
     transitions_status, transitions_payload = _asgi_request(
         app,
