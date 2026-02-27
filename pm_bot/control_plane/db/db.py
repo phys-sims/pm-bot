@@ -201,6 +201,39 @@ class OrchestratorDB:
                 FOREIGN KEY(previous_snapshot_id) REFERENCES board_snapshots(id),
                 FOREIGN KEY(current_snapshot_id) REFERENCES board_snapshots(id)
             );
+
+            CREATE TABLE IF NOT EXISTS orchestration_plan (
+                plan_id TEXT PRIMARY KEY,
+                repo_id INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'expanded',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS task_runs (
+                task_run_id TEXT PRIMARY KEY,
+                plan_id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                deps_json TEXT NOT NULL DEFAULT '[]',
+                run_id TEXT NOT NULL DEFAULT '',
+                thread_id TEXT NOT NULL DEFAULT '',
+                retries INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(plan_id) REFERENCES orchestration_plan(plan_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS task_edges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_id TEXT NOT NULL,
+                from_task TEXT NOT NULL,
+                to_task TEXT NOT NULL,
+                UNIQUE(plan_id, from_task, to_task),
+                FOREIGN KEY(plan_id) REFERENCES orchestration_plan(plan_id)
+            );
             
             CREATE TABLE IF NOT EXISTS workspaces (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -399,6 +432,12 @@ class OrchestratorDB:
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_kind ON run_artifacts(run_id, kind, id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_task_runs_plan_status ON task_runs(plan_id, status, task_id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_task_edges_plan ON task_edges(plan_id, from_task, to_task)"
         )
         self.conn.commit()
 
@@ -952,6 +991,119 @@ class OrchestratorDB:
         context["org"] = str(context.get("org", "")).strip()
         context["installation_id"] = str(context.get("installation_id", "")).strip()
         return context
+
+    def upsert_orchestration_plan(
+        self,
+        *,
+        plan_id: str,
+        repo_id: int,
+        source: str,
+        payload: dict[str, Any],
+        status: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO orchestration_plan (plan_id, repo_id, source, payload_json, status)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(plan_id) DO UPDATE SET
+              repo_id=excluded.repo_id,
+              source=excluded.source,
+              payload_json=excluded.payload_json,
+              status=excluded.status,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (plan_id, repo_id, source, json.dumps(payload, sort_keys=True), status),
+        )
+        self.conn.commit()
+
+    def replace_task_graph(
+        self,
+        *,
+        plan_id: str,
+        task_runs: list[dict[str, Any]],
+        edges: list[dict[str, str]],
+    ) -> None:
+        self.conn.execute("DELETE FROM task_runs WHERE plan_id = ?", (plan_id,))
+        self.conn.execute("DELETE FROM task_edges WHERE plan_id = ?", (plan_id,))
+        for task_run in task_runs:
+            self.conn.execute(
+                """
+                INSERT INTO task_runs (
+                  task_run_id, plan_id, task_id, status, deps_json, run_id, thread_id, retries
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(task_run["task_run_id"]),
+                    plan_id,
+                    str(task_run["task_id"]),
+                    str(task_run.get("status", "pending")),
+                    json.dumps(task_run.get("deps", []), sort_keys=True),
+                    str(task_run.get("run_id", "")),
+                    str(task_run.get("thread_id", "")),
+                    int(task_run.get("retries", 0)),
+                ),
+            )
+        for edge in edges:
+            self.conn.execute(
+                """
+                INSERT OR IGNORE INTO task_edges (plan_id, from_task, to_task)
+                VALUES (?, ?, ?)
+                """,
+                (plan_id, edge["from_task"], edge["to_task"]),
+            )
+        self.conn.commit()
+
+    def get_orchestration_plan(self, plan_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT plan_id, repo_id, source, payload_json, status FROM orchestration_plan WHERE plan_id = ?",
+            (plan_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "plan_id": str(row["plan_id"]),
+            "repo_id": int(row["repo_id"]),
+            "source": str(row["source"]),
+            "payload": json.loads(row["payload_json"]),
+            "status": str(row["status"]),
+        }
+
+    def list_task_runs(self, plan_id: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT task_run_id, task_id, status, deps_json, run_id, thread_id, retries
+            FROM task_runs
+            WHERE plan_id = ?
+            ORDER BY task_id ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+        return [
+            {
+                "task_run_id": str(row["task_run_id"]),
+                "task_id": str(row["task_id"]),
+                "status": str(row["status"]),
+                "deps": json.loads(row["deps_json"]),
+                "run_id": str(row["run_id"] or ""),
+                "thread_id": str(row["thread_id"] or ""),
+                "retries": int(row["retries"]),
+            }
+            for row in rows
+        ]
+
+    def list_task_edges(self, plan_id: str) -> list[dict[str, str]]:
+        rows = self.conn.execute(
+            """
+            SELECT from_task, to_task FROM task_edges
+            WHERE plan_id = ?
+            ORDER BY from_task ASC, to_task ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+        return [
+            {"from_task": str(row["from_task"]), "to_task": str(row["to_task"])} for row in rows
+        ]
 
     def get_onboarding_state(self) -> dict[str, Any]:
         row = self.conn.execute(

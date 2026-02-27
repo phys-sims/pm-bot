@@ -33,6 +33,10 @@ from pm_bot.control_plane.models.report_ir_intake import (
     validate_report_ir,
 )
 from pm_bot.control_plane.models.agent_run_contracts import AgentRunSpecV2
+from pm_bot.control_plane.models.orchestration_contracts import (
+    TaskRunV1,
+    expand_plan_payload,
+)
 from pm_bot.control_plane.orchestration.runner import RunnerService
 from pm_bot.control_plane.orchestration.runner_adapters import (
     build_runner_adapters_from_env,
@@ -315,6 +319,59 @@ class ServerApp:
 
     def ingest_graph(self, repo: str) -> dict[str, Any]:
         return self.graph.ingest_repo_graph(repo=repo, connector=self.connector)
+
+    def expand_plan(
+        self,
+        *,
+        plan_id: str,
+        payload: dict[str, Any],
+        repo_id: int = 0,
+        source: str = "api",
+    ) -> dict[str, Any]:
+        expanded = expand_plan_payload(
+            plan_id=plan_id,
+            repo_id=repo_id,
+            source=source,
+            payload=payload,
+        )
+        deps_map: dict[str, list[str]] = {task.task_id: [] for task in expanded.tasks}
+        for edge in expanded.edges:
+            deps_map.setdefault(edge["to_task"], []).append(edge["from_task"])
+        task_runs = [
+            TaskRunV1(
+                task_run_id=f"{plan_id}:{task.task_id}",
+                plan_id=plan_id,
+                task_id=task.task_id,
+                deps=sorted(set(deps_map.get(task.task_id, []))),
+            ).model_dump(mode="json")
+            for task in expanded.tasks
+        ]
+        self.db.upsert_orchestration_plan(
+            plan_id=plan_id,
+            repo_id=repo_id,
+            source=source,
+            payload=expanded.model_dump(mode="json"),
+            status=expanded.status,
+        )
+        self.db.replace_task_graph(plan_id=plan_id, task_runs=task_runs, edges=expanded.edges)
+        stored = self.db.get_orchestration_plan(plan_id)
+        if stored is None:
+            raise RuntimeError("plan_persist_failed")
+        stored["tasks"] = [task.model_dump(mode="json") for task in expanded.tasks]
+        stored["edges"] = expanded.edges
+        return stored
+
+    def plan_dag(self, plan_id: str) -> dict[str, Any] | None:
+        plan = self.db.get_orchestration_plan(plan_id)
+        if plan is None:
+            return None
+        return {
+            "schema_version": "orchestration_dag/v1",
+            "plan_id": plan_id,
+            "status": plan.get("status", ""),
+            "tasks": self.db.list_task_runs(plan_id),
+            "edges": self.db.list_task_edges(plan_id),
+        }
 
     def generate_weekly_report(
         self, report_name: str = "weekly.md", run_id: str = ""
@@ -1661,6 +1718,49 @@ class ASGIServer:
                 )
                 return
 
+            if method == "POST" and path.startswith("/plans/") and path.endswith("/expand"):
+                plan_id = self._parse_plan_path(path, "expand")
+                if plan_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                plan_payload = (
+                    payload.get("plan") if isinstance(payload.get("plan"), dict) else payload
+                )
+                repo_id = payload.get("repo_id", 0)
+                try:
+                    repo_id = int(repo_id)
+                except (TypeError, ValueError):
+                    await self._send_json(send, 400, {"error": "invalid_repo_id"})
+                    return
+                source = str(payload.get("source", "api")).strip() or "api"
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.expand_plan(
+                        plan_id=plan_id,
+                        payload=plan_payload if isinstance(plan_payload, dict) else {},
+                        repo_id=repo_id,
+                        source=source,
+                    ),
+                )
+                return
+
+            if method == "GET" and path.startswith("/plans/") and path.endswith("/dag"):
+                plan_id = self._parse_plan_path(path, "dag")
+                if plan_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                dag = self.service.plan_dag(plan_id)
+                if dag is None:
+                    await self._send_json(send, 404, {"error": "plan_not_found"})
+                    return
+                await self._send_json(send, 200, dag)
+                return
+
             if method == "POST" and path == "/repos/add":
                 payload = self._parse_json(body)
                 if payload is None:
@@ -1798,6 +1898,15 @@ class ASGIServer:
             return int(parts[1])
         except ValueError:
             return None
+
+    def _parse_plan_path(self, path: str, suffix: str) -> str | None:
+        expected_prefix = "/plans/"
+        expected_suffix = f"/{suffix}"
+        if not path.startswith(expected_prefix) or not path.endswith(expected_suffix):
+            return None
+        value = path[len(expected_prefix) : -len(expected_suffix)]
+        plan_id = value.strip()
+        return plan_id or None
 
     def _parse_repo_path(self, path: str, suffix: str) -> int | None:
         parts = [part for part in path.split("/") if part]
