@@ -17,3 +17,5 @@ Archived files:
 - `human-roadmap.md`
 - `org-scale-roadmap-reconciliation.md`
 - `ROADMAP_V4_CHECKLIST.md`
+- `v7_local_first_langgraph_foundation.md`
+- `org-scale-execution-task-cards.md`

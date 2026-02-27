@@ -6,12 +6,10 @@ This folder contains only active operational planning artifacts.
 
 ### Active operational planning (keep)
 - `docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`
-- `docs/roadmaps/v7_local_first_langgraph_foundation.md`
 - `docs/roadmaps/v8_langgraph_runtime_hitl.md`
 - `docs/roadmaps/v9_orchestration_concurrency.md`
 - `docs/roadmaps/v10_rag_vector_db_local_qdrant.md`
 - `docs/roadmaps/v11_gui_rebuild.md`
-- `docs/roadmaps/org-scale-execution-task-cards.md`
 
 ### Historical reference (archive)
 Moved to `docs/archive/roadmaps/`:
@@ -24,6 +22,8 @@ Moved to `docs/archive/roadmaps/`:
 - `future-roadmap.md`
 - `human-roadmap.md`
 - `org-scale-roadmap-reconciliation.md`
+- `v7_local_first_langgraph_foundation.md`
+- `org-scale-execution-task-cards.md`
 
 ### Prompt/meta-generation artifacts (moved to internal tooling docs)
 Moved to `docs/implementation/roadmap-prompts/`:

@@ -207,5 +207,5 @@ Use this task card format for each PR slice in Tracks A–D.
 
 The execution cards were moved to a dedicated agent-editable file to keep this reconciliation document stable as the source of truth.
 
-- Editable execution cards: `docs/roadmaps/org-scale-execution-task-cards.md`
+- Archived execution cards: `docs/archive/roadmaps/org-scale-execution-task-cards.md`
 - Rule: update task progress/cards in the execution file, and only update this reconciliation doc when Track definitions or source-of-truth mapping changes.
