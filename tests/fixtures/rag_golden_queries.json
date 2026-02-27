@@ -1,0 +1,28 @@
+{
+  "repo_id": 0,
+  "corpus": [
+    {
+      "path": "docs/spec/retrieval.md",
+      "content": "# Retrieval Spec\nrepo scoped retrieval behavior\ndeterministic ordering"
+    },
+    {
+      "path": "docs/contracts/retrieval.md",
+      "content": "# Retrieval Contract\ndoc_type allowlist filter\nrepo scope is required"
+    },
+    {
+      "path": "docs/adr/ADR-retrieval.md",
+      "content": "# ADR Retrieval\nprovenance is explicit\ncontext pack manifest stores chunk ids"
+    }
+  ],
+  "queries": [
+    {
+      "query": "retrieval",
+      "filters": {"doc_types": ["contracts", "spec"]},
+      "top_k": 5,
+      "expected_chunk_ids": [
+        "4dce44e895092344cf914d90adc69c192f60ecdae883de9c5260bfb15ed83c19",
+        "9efae9a5f52dc04d971a34bbc2d84cfc931b469f0df388011a977fa1d9f6dd3f"
+      ]
+    }
+  ]
+}

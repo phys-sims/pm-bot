@@ -34,6 +34,12 @@ class QueryResult:
     metadata: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class QueryFilters:
+    repo_id: int
+    doc_types: tuple[str, ...] = ()
+
+
 class LocalEmbeddingProvider:
     model = "local-hash"
     version = "v1"
@@ -211,19 +217,31 @@ class DocsIngestionService:
             "chunks_upserted": 0,
         }
 
-    def query(self, query_text: str, limit: int = 5) -> list[QueryResult]:
+    def query(
+        self,
+        query_text: str,
+        limit: int = 5,
+        filters: QueryFilters | None = None,
+    ) -> list[QueryResult]:
+        resolved_filters = filters or QueryFilters(repo_id=0)
         vector = self.embedding_provider.embed(query_text)
-        points = self.index.query(vector=vector, limit=limit)
+        points = self.index.query(vector=vector, limit=max(limit * 4, limit))
         results: list[QueryResult] = []
         for point in points:
             payload = point.get("payload", {})
+            point_repo_id = int(payload.get("repo_id", 0) or 0)
+            if resolved_filters.repo_id and point_repo_id != resolved_filters.repo_id:
+                continue
+            point_doc_type = str(payload.get("doc_type", ""))
+            if resolved_filters.doc_types and point_doc_type not in resolved_filters.doc_types:
+                continue
             results.append(
                 QueryResult(
                     chunk_id=str(payload.get("chunk_id", point.get("id", ""))),
                     score=float(point.get("score", 0.0)),
                     text=str(payload.get("text", "")),
                     metadata={
-                        "repo_id": payload.get("repo_id"),
+                        "repo_id": point_repo_id,
                         "source_path": payload.get("source_path"),
                         "revision_sha": payload.get("revision_sha"),
                         "line_start": payload.get("line_start"),
@@ -232,7 +250,7 @@ class DocsIngestionService:
                     },
                 )
             )
-        return results
+        return self._stable_order_results(results)[:limit]
 
     def _iter_sources(self) -> list[Path]:
         files: list[Path] = []
@@ -248,7 +266,7 @@ class DocsIngestionService:
         chunk_lines: int,
     ) -> list[ChunkRecord]:
         lines = source_path.read_text(encoding="utf-8").splitlines()
-        doc_type = source_path.parts[1] if len(source_path.parts) > 1 else "unknown"
+        doc_type = self._doc_type_for_source(normalized_source_path)
         chunks: list[ChunkRecord] = []
         for idx in range(0, len(lines), chunk_lines):
             start_line = idx + 1
@@ -290,3 +308,15 @@ class DocsIngestionService:
             if ref_path.exists():
                 return ref_path.read_text(encoding="utf-8").strip()
         return head
+
+    def _doc_type_for_source(self, normalized_source_path: str) -> str:
+        parts = normalized_source_path.split("/")
+        if len(parts) >= 2 and parts[0] == "docs":
+            return parts[1]
+        return "unknown"
+
+    def _stable_order_results(self, results: list[QueryResult]) -> list[QueryResult]:
+        def _score_bucket(score: float) -> int:
+            return int(score * 1000)
+
+        return sorted(results, key=lambda row: (-_score_bucket(row.score), row.chunk_id))

@@ -87,3 +87,14 @@ For compatibility workflows that ingest historic v1 payloads, a mapper to v2 sem
 JSON Schema for v2 is tracked at:
 
 - `pm_bot/schema/context_pack_v2.schema.json`
+
+
+## Retrieval-augmented sections (v2)
+
+When retrieval inputs are provided, builders MAY append `retrieved` sections.
+
+- Each retrieved section MUST include explicit provenance (`chunk_id`, `source_path`, `line_start`, `line_end`, `doc_type`, `revision_sha`, score metadata).
+- Manifest MUST include retrieval metadata under `manifest.retrieval` with:
+  - `query` (string),
+  - `chunk_ids[]` in deterministic inclusion order.
+- Retrieval chunk ordering MUST be deterministic: score bucket first, then `chunk_id`.

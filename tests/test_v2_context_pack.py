@@ -84,6 +84,32 @@ def test_context_pack_v1_compatibility_path() -> None:
     assert v1["content"]["fields"]["Goal"] == "Keep v1"
 
 
+def test_context_pack_v2_can_include_retrieved_sections(monkeypatch) -> None:
+    monkeypatch.setenv("PMBOT_RAG_VECTOR_BACKEND", "memory")
+    monkeypatch.setenv("PMBOT_RAG_EMBEDDING_PROVIDER", "local")
+
+    service = ServerApp()
+    asgi = ASGIServer(service=service)
+    draft = service.draft(item_type="task", title="Route", body_fields={"Goal": "Test"})
+    _asgi_request(asgi, "POST", "/rag/index", body=b"{}")
+
+    status, payload = _asgi_request(
+        asgi,
+        "GET",
+        "/context-pack",
+        query_string=(
+            f"issue_ref={draft['issue_ref']}&budget=8000&retrieval_query=integration&retrieval_repo_id=0&retrieval_doc_types=contracts,spec&retrieval_top_k=2".encode(
+                "utf-8"
+            )
+        ),
+    )
+    assert status == 200
+    retrieved = [section for section in payload["sections"] if section["kind"] == "retrieved"]
+    assert retrieved
+    assert payload["manifest"]["retrieval"]["query"] == "integration"
+    assert payload["manifest"]["retrieval"]["chunk_ids"]
+
+
 def test_context_pack_http_route_and_audit_run_filtering() -> None:
     service = ServerApp()
     asgi = ASGIServer(service=service)
