@@ -263,11 +263,34 @@ class ServerApp:
                 ]
         return self.connector.list_pull_requests(repo=repo, **filters)
 
-    def add_repo(self, full_name: str, since_days: int | None = None) -> dict[str, Any]:
-        return self.sync_service.add_repo(full_name=full_name, since_days=since_days)
+    def _connector_for_token(self, github_token: str = ""):
+        token = github_token.strip()
+        if not token:
+            return self.connector
+        env = dict(os.environ)
+        env["PM_BOT_GITHUB_TOKEN"] = token
+        env["PM_BOT_GITHUB_READ_TOKEN"] = token
+        env["PM_BOT_GITHUB_WRITE_TOKEN"] = token
+        return build_connector_from_env(
+            env=env, allowed_repos=getattr(self.connector, "allowed_repos", set())
+        )
 
-    def sync_repo(self, repo_id: int) -> dict[str, Any]:
-        result = self.sync_service.sync_repo(repo_id=repo_id, initial_import=False)
+    def _sync_service_for_token(self, github_token: str = "") -> GitHubCacheSyncService:
+        token = github_token.strip()
+        if not token:
+            return self.sync_service
+        connector = self._connector_for_token(token)
+        return GitHubCacheSyncService(db=self.db, connector=connector)
+
+    def add_repo(
+        self, full_name: str, since_days: int | None = None, github_token: str = ""
+    ) -> dict[str, Any]:
+        sync_service = self._sync_service_for_token(github_token)
+        return sync_service.add_repo(full_name=full_name, since_days=since_days)
+
+    def sync_repo(self, repo_id: int, github_token: str = "") -> dict[str, Any]:
+        sync_service = self._sync_service_for_token(github_token)
+        result = sync_service.sync_repo(repo_id=repo_id, initial_import=False)
         return {
             "repo_id": result.repo_id,
             "full_name": result.full_name,
@@ -279,10 +302,11 @@ class ServerApp:
     def list_repos(self) -> list[dict[str, Any]]:
         return self.db.list_repo_registry_entries()
 
-    def search_repos(self, query: str = "") -> list[dict[str, Any]]:
+    def search_repos(self, query: str = "", github_token: str = "") -> list[dict[str, Any]]:
         normalized = query.strip().lower()
         registered = {row["full_name"] for row in self.db.list_repo_registry_entries()}
-        allowed = sorted(getattr(self.connector, "allowed_repos", set()))
+        connector = self._connector_for_token(github_token)
+        allowed = sorted(getattr(connector, "allowed_repos", set()))
         results: list[dict[str, Any]] = []
         for full_name in allowed:
             if normalized and normalized not in full_name.lower():
@@ -290,7 +314,7 @@ class ServerApp:
             results.append({"full_name": full_name, "already_added": full_name in registered})
         return results
 
-    def repo_sync_status(self, repo_id: int) -> dict[str, Any]:
+    def repo_sync_status(self, repo_id: int, github_token: str = "") -> dict[str, Any]:
         repo = self.db.get_repo_registry_entry(repo_id)
         if repo is None:
             raise ValueError("repo_not_found")
@@ -1467,6 +1491,7 @@ class ASGIServer:
         method = scope.get("method", "GET")
         path = scope.get("path", "")
         query_params = self._parse_query_params(scope.get("query_string", b""))
+        github_token = self._extract_github_token(scope)
         body = await self._read_body(receive)
 
         try:
@@ -2171,7 +2196,9 @@ class ASGIServer:
                 await self._send_json(
                     send,
                     200,
-                    self.service.add_repo(full_name=full_name, since_days=since_days),
+                    self.service.add_repo(
+                        full_name=full_name, since_days=since_days, github_token=github_token
+                    ),
                 )
                 return
 
@@ -2180,12 +2207,14 @@ class ASGIServer:
                 if repo_id is None:
                     await self._send_json(send, 404, {"error": "not_found"})
                     return
-                await self._send_json(send, 200, self.service.sync_repo(repo_id=repo_id))
+                await self._send_json(
+                    send, 200, self.service.sync_repo(repo_id=repo_id, github_token=github_token)
+                )
                 return
 
             if method == "GET" and path == "/repos/search":
                 query = query_params.get("q", "")
-                items = self.service.search_repos(query=query)
+                items = self.service.search_repos(query=query, github_token=github_token)
                 await self._send_json(send, 200, {"items": items, "summary": {"count": len(items)}})
                 return
 
@@ -2199,7 +2228,11 @@ class ASGIServer:
                 if repo_id is None:
                     await self._send_json(send, 404, {"error": "not_found"})
                     return
-                await self._send_json(send, 200, self.service.repo_sync_status(repo_id=repo_id))
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.repo_sync_status(repo_id=repo_id, github_token=github_token),
+                )
                 return
 
             if method == "POST" and path == "/repos/reindex-docs":
@@ -2296,6 +2329,13 @@ class ASGIServer:
             {"error": "request_context_denied", "reason_code": reason_code},
         )
         return False, tenant_context
+
+    def _extract_github_token(self, scope: dict[str, Any]) -> str:
+        headers = scope.get("headers") or []
+        for key, value in headers:
+            if key.decode("latin-1").lower() == "x-pm-bot-github-token":
+                return value.decode("latin-1").strip()
+        return ""
 
     async def _read_body(self, receive: Any) -> bytes:
         chunks: list[bytes] = []

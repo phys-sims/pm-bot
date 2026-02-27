@@ -118,6 +118,29 @@ test("adds onboarding, repo dashboard, and existing routes to app shell", async 
   expect(await screen.findByRole("heading", { name: "Tree and Dependencies" })).toBeTruthy();
 });
 
+
+
+test("uses manual onboarding token for repo API calls", async () => {
+  render(<App />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Onboarding" }));
+  await userEvent.click(screen.getByRole("radio", { name: /Paste token/i }));
+  await userEvent.type(screen.getByPlaceholderText("ghp_..."), "ghp_manual_token");
+  await userEvent.click(screen.getByRole("button", { name: "Continue to repo selection" }));
+  await userEvent.click(screen.getByRole("button", { name: "Add + initial sync" }));
+  expect(await screen.findByText(/Onboarding complete/i)).toBeTruthy();
+
+  const addCall = mockedFetch.mock.calls.find(([input]) => String(input).includes("/repos/add"));
+  const syncCall = mockedFetch.mock.calls.find(([input]) => String(input).includes("/repos/1/sync"));
+  expect(addCall).toBeTruthy();
+  expect(syncCall).toBeTruthy();
+
+  const addHeaders = new Headers((addCall?.[1] as RequestInit | undefined)?.headers);
+  const syncHeaders = new Headers((syncCall?.[1] as RequestInit | undefined)?.headers);
+  expect(addHeaders.get("X-PM-BOT-GITHUB-TOKEN")).toBe("ghp_manual_token");
+  expect(syncHeaders.get("X-PM-BOT-GITHUB-TOKEN")).toBe("ghp_manual_token");
+});
+
 test("runs intake-to-proposal flow and approves generated changeset from inbox", async () => {
   const workflowState = {
     proposed: false,

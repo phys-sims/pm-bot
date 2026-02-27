@@ -300,9 +300,25 @@ export class ApiError extends Error {
 
 const baseUrl = (import.meta.env.VITE_PM_BOT_API_BASE as string | undefined) ?? "http://127.0.0.1:8000";
 
-async function httpJson<T>(path: string, init?: RequestInit): Promise<T> {
+let sessionGitHubToken = "";
+
+export function setSessionGitHubToken(token: string): void {
+  sessionGitHubToken = token.trim();
+}
+
+export function clearSessionGitHubToken(): void {
+  sessionGitHubToken = "";
+}
+
+async function httpJson<T>(path: string, init?: RequestInit & { githubToken?: string }): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Type", "application/json");
+  const effectiveToken = init?.githubToken?.trim() || sessionGitHubToken;
+  if (effectiveToken) {
+    headers.set("X-PM-BOT-GITHUB-TOKEN", effectiveToken);
+  }
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...init,
   });
   const payload = await response.json();
@@ -329,15 +345,17 @@ export const api = {
       body: JSON.stringify({}),
     }),
   listRepos: () => httpJson<{ items: RepoRegistryEntry[]; summary: { count: number } }>("/repos"),
-  searchRepos: (query: string) =>
-    httpJson<{ items: RepoSearchResult[]; summary: { count: number } }>(`/repos/search?q=${encodeURIComponent(query)}`),
-  addRepo: (params: { full_name: string; since_days?: number }) =>
+  searchRepos: (query: string, githubToken = "") =>
+    httpJson<{ items: RepoSearchResult[]; summary: { count: number } }>(`/repos/search?q=${encodeURIComponent(query)}`, { githubToken }),
+  addRepo: (params: { full_name: string; since_days?: number }, githubToken = "") =>
     httpJson<RepoRegistryEntry>("/repos/add", {
       method: "POST",
       body: JSON.stringify(params),
+      githubToken,
     }),
-  syncRepo: (repoId: number) => httpJson<{ issues_upserted: number; prs_upserted: number }>(`/repos/${repoId}/sync`, { method: "POST" }),
-  repoSyncStatus: (repoId: number) => httpJson<RepoSyncStatusResponse>(`/repos/${repoId}/status`),
+  syncRepo: (repoId: number, githubToken = "") =>
+    httpJson<{ issues_upserted: number; prs_upserted: number }>(`/repos/${repoId}/sync`, { method: "POST", githubToken }),
+  repoSyncStatus: (repoId: number, githubToken = "") => httpJson<RepoSyncStatusResponse>(`/repos/${repoId}/status`, { githubToken }),
   reindexDocs: (repoId = 0) =>
     httpJson<{ status: string; documents_indexed: number; chunks_upserted: number }>("/repos/reindex-docs", {
       method: "POST",

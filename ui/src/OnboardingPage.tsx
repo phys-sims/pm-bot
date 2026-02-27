@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, formatApiError, type RepoSearchResult } from "./api";
+import { api, clearSessionGitHubToken, formatApiError, setSessionGitHubToken, type RepoSearchResult } from "./api";
 
 type ProgressStep = "token" | "repos" | "sync";
 
@@ -27,7 +27,7 @@ export function OnboardingPage() {
 
   const searchRepos = async () => {
     try {
-      const response = await api.searchRepos(query);
+      const response = await api.searchRepos(query, tokenMode === "manual" ? tokenInput : "");
       setResults(response.items);
       if (!selectedRepo && response.items.length > 0) {
         const first = response.items.find((item) => !item.already_added) ?? response.items[0];
@@ -44,6 +44,11 @@ export function OnboardingPage() {
       setMessage("Set a token or choose env token mode.");
       return;
     }
+    if (tokenMode === "manual") {
+      setSessionGitHubToken(tokenInput);
+    } else {
+      clearSessionGitHubToken();
+    }
     setStep("repos");
     setMessage(tokenMode === "env" ? "Using PM_BOT_GITHUB_* env token(s)." : "Token saved in browser session for this flow.");
   };
@@ -56,11 +61,12 @@ export function OnboardingPage() {
     try {
       setStep("sync");
       setSyncLog([`Adding ${selectedRepo}...`]);
-      const added = await api.addRepo({ full_name: selectedRepo, since_days: 30 });
+      const manualToken = tokenMode === "manual" ? tokenInput : "";
+      const added = await api.addRepo({ full_name: selectedRepo, since_days: 30 }, manualToken);
       setSyncLog((prev) => [...prev, `Added repo #${added.id}. Triggering sync...`]);
-      const sync = await api.syncRepo(added.id);
+      const sync = await api.syncRepo(added.id, manualToken);
       setSyncLog((prev) => [...prev, `Sync complete: ${sync.issues_upserted} issues, ${sync.prs_upserted} PRs.`]);
-      const status = await api.repoSyncStatus(added.id);
+      const status = await api.repoSyncStatus(added.id, manualToken);
       setSyncLog((prev) => [...prev, `Cache status: ${status.issues_cached} issues, ${status.prs_cached} PRs.`]);
       setMessage("Onboarding complete. Open Repo Dashboard for ongoing sync/reindex actions.");
     } catch (error) {
