@@ -54,7 +54,7 @@ class ServerApp:
         self.graph = GraphService(db=self.db)
         self.reporting = ReportingService(db=self.db)
         self._sync_onboarding_readiness()
-        runner_adapters = build_runner_adapters_from_env(os.environ)
+        runner_adapters = build_runner_adapters_from_env(os.environ, db=self.db)
         self.runner = RunnerService(
             db=self.db,
             adapters=runner_adapters,
@@ -364,6 +364,14 @@ class ServerApp:
             reason_code="run_start_approved",
             actor=actor,
         )
+
+    def resume_run(
+        self,
+        run_id: str,
+        decision: dict[str, Any],
+        actor: str = "",
+    ) -> dict[str, Any]:
+        return self.runner.resume(run_id=run_id, decision=decision, actor=actor)
 
     def resolve_interrupt(
         self,

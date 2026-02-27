@@ -23,6 +23,37 @@ def _minimal_spec(run_id: str, **extra: object) -> dict[str, object]:
     return spec
 
 
+def _langgraph_spec(run_id: str, **extra: object) -> dict[str, object]:
+    spec: dict[str, object] = {
+        "schema_version": "agent_run_spec/v2",
+        "run_id": run_id,
+        "goal": "Test langgraph execution",
+        "inputs": {"context_pack_id": "ctx-1"},
+        "execution": {
+            "engine": "langgraph",
+            "graph_id": "repo_change_proposer/v1",
+            "thread_id": None,
+            "budget": {
+                "max_total_tokens": 2000,
+                "max_tool_calls": 10,
+                "max_wall_seconds": 300,
+            },
+            "tools_allowed": ["github_read", "pytest"],
+            "scopes": {"repo": "phys-sims/pm-bot"},
+        },
+        "model": "gpt-5",
+        "intent": "langgraph test",
+        "requires_approval": True,
+        "adapter": "langgraph",
+        "simulated_steps": [
+            {"type": "model_call", "tokens": 100, "node_id": "draft"},
+            {"type": "tool_call", "tool": "github_read", "node_id": "read_repo"},
+        ],
+    }
+    spec.update(extra)
+    return spec
+
+
 @pytest.mark.parametrize(
     ("provider_reason", "expected"),
     [
@@ -223,3 +254,97 @@ def test_provider_adapter_not_enabled_by_default() -> None:
             spec=_minimal_spec("run-provider-disabled", adapter=ProviderStubRunnerAdapter.name),
             created_by="alice",
         )
+
+
+def test_langgraph_adapter_submit_poll_complete_with_thread_and_checkpoint() -> None:
+    app = create_app()
+    app.propose_agent_run(spec=_langgraph_spec("run-langgraph-ok"), created_by="alice")
+    app.transition_agent_run("run-langgraph-ok", to_status="approved", reason_code="human_approved")
+
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-langgraph-ok"
+
+    first = app.execute_claimed_agent_run(run_id="run-langgraph-ok", worker_id="w1")
+    assert first["status"] == "running"
+    assert first["thread_id"]
+
+    metadata = app.db.get_checkpoint_metadata("run-langgraph-ok")
+    assert metadata is not None
+    assert metadata["thread_id"] == first["thread_id"]
+
+    adapter = app.runner.adapters["langgraph"]
+    persisted = app.db.get_agent_run("run-langgraph-ok")
+    assert persisted is not None
+    assert adapter.poll(persisted).state == "running"
+    assert adapter.poll(persisted).state == "completed"
+
+
+def test_langgraph_policy_violation_creates_interrupt_and_resume_is_audited() -> None:
+    app = create_app()
+    app.propose_agent_run(
+        spec=_langgraph_spec(
+            "run-langgraph-block",
+            simulated_steps=[{"type": "tool_call", "tool": "dangerous_tool", "node_id": "tool"}],
+        ),
+        created_by="alice",
+    )
+    app.transition_agent_run(
+        "run-langgraph-block",
+        to_status="approved",
+        reason_code="human_approved",
+    )
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-langgraph-block"
+    running = app.execute_claimed_agent_run(run_id="run-langgraph-block", worker_id="w1")
+    assert running["status"] == "running"
+
+    adapter = app.runner.adapters["langgraph"]
+    persisted = app.db.get_agent_run("run-langgraph-block")
+    assert persisted is not None
+    blocked_poll = adapter.poll(persisted)
+    assert blocked_poll.state == "blocked"
+
+    interrupts = app.db.list_run_interrupts(run_id="run-langgraph-block")
+    assert interrupts
+    interrupt_id = interrupts[-1]["interrupt_id"]
+    assert interrupts[-1]["status"] == "pending"
+
+    app.resolve_interrupt(interrupt_id=interrupt_id, action="approve", actor="reviewer")
+    app.resume_run("run-langgraph-block", decision={"action": "approve"}, actor="reviewer")
+
+    resumed_events = app.db.list_audit_events("agent_run_resumed")
+    assert resumed_events[-1]["payload"]["run_id"] == "run-langgraph-block"
+
+
+def test_langgraph_budgets_enforced_for_tokens_and_fail_mode() -> None:
+    app = create_app()
+    app.propose_agent_run(
+        spec=_langgraph_spec(
+            "run-langgraph-budget",
+            policy_violation_mode="fail",
+            execution={
+                "engine": "langgraph",
+                "graph_id": "repo_change_proposer/v1",
+                "thread_id": None,
+                "budget": {
+                    "max_total_tokens": 10,
+                    "max_tool_calls": 10,
+                    "max_wall_seconds": 300,
+                },
+                "tools_allowed": ["github_read"],
+                "scopes": {"repo": "phys-sims/pm-bot"},
+            },
+            simulated_steps=[{"type": "model_call", "tokens": 20, "node_id": "draft"}],
+            max_retries=0,
+        ),
+        created_by="alice",
+    )
+    app.transition_agent_run(
+        "run-langgraph-budget",
+        to_status="approved",
+        reason_code="human_approved",
+    )
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-langgraph-budget"
+    result = app.execute_claimed_agent_run(run_id="run-langgraph-budget", worker_id="w1")
+    assert result["status"] == "failed"

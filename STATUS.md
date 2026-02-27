@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:35:20 UTC
+- Time (UTC): 04:43:31 UTC
 - By: @openai-codex
 
 ---
@@ -45,5 +45,7 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Added AgentRunSpec v2 validation/model coverage for LangGraph execution fields (`engine`, `graph_id`, `thread_id`, budgets, tool allowlist, and repo scope), plus RunInterrupt v1 and RunArtifact v1 contracts.
-- Extended control-plane persistence and API routes for runs/interrupts/artifacts (`POST /runs`, `POST /runs/{id}/approve`, `POST /interrupts/{id}/resolve`, `GET /runs/{id}`), and updated inbox summary to include interrupt counts.
+- Added LangGraph runner adapter wiring with submit/poll/resume/cancel/fetch behavior, including blocked interrupt polling and resume auditing.
+- Added filesystem+DB checkpoint bridge: checkpoint blobs are persisted under `data/checkpoints/<thread_id>/` and run checkpoint metadata is persisted in `run_checkpoint_metadata`.
+- Added LangGraph policy enforcement (tool allowlist + token/tool/wall budgets) with configurable violation mode (`interrupt` default, `fail` override) and audit emission for model/tool/interrupt events.
+- Expanded runner tests to cover LangGraph running/blocked/completed lifecycle, resume auditing, checkpoint metadata updates, and budgets/allowlist enforcement.

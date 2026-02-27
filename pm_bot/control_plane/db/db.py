@@ -384,6 +384,17 @@ class OrchestratorDB:
             ")"
         )
         self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS run_checkpoint_metadata ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "run_id TEXT NOT NULL UNIQUE,"
+            "thread_id TEXT NOT NULL,"
+            "status TEXT NOT NULL,"
+            "current_node_id TEXT NOT NULL DEFAULT '',"
+            "checkpoint_path TEXT NOT NULL DEFAULT '',"
+            "last_checkpoint_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+        self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_run_interrupts_run_status ON run_interrupts(run_id, status, id)"
         )
         self.conn.execute(
@@ -1414,6 +1425,7 @@ class OrchestratorDB:
         retry_count: int | None = None,
         next_attempt_seconds: int | None = None,
         last_error: str = "",
+        thread_id: str = "",
     ) -> None:
         if retry_count is not None:
             self.conn.execute(
@@ -1432,7 +1444,55 @@ class OrchestratorDB:
                 "UPDATE agent_runs SET last_error = ? WHERE run_id = ?",
                 (last_error, run_id),
             )
+        if thread_id:
+            self.conn.execute(
+                "UPDATE agent_runs SET thread_id = ? WHERE run_id = ?",
+                (thread_id, run_id),
+            )
         self.conn.commit()
+
+    def upsert_checkpoint_metadata(
+        self,
+        run_id: str,
+        thread_id: str,
+        status: str,
+        current_node_id: str,
+        checkpoint_path: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO run_checkpoint_metadata
+              (run_id, thread_id, status, current_node_id, checkpoint_path, last_checkpoint_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(run_id) DO UPDATE SET
+              thread_id = excluded.thread_id,
+              status = excluded.status,
+              current_node_id = excluded.current_node_id,
+              checkpoint_path = excluded.checkpoint_path,
+              last_checkpoint_at = CURRENT_TIMESTAMP
+            """,
+            (run_id, thread_id, status, current_node_id, checkpoint_path),
+        )
+        self.conn.commit()
+
+    def get_checkpoint_metadata(self, run_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT run_id, thread_id, status, current_node_id, checkpoint_path, last_checkpoint_at
+            FROM run_checkpoint_metadata WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "run_id": str(row["run_id"]),
+            "thread_id": str(row["thread_id"]),
+            "status": str(row["status"]),
+            "current_node_id": str(row["current_node_id"]),
+            "checkpoint_path": str(row["checkpoint_path"]),
+            "last_checkpoint_at": str(row["last_checkpoint_at"]),
+        }
 
     def set_agent_run_artifacts(self, run_id: str, artifact_paths: list[str]) -> None:
         normalized = [str(path) for path in artifact_paths]
