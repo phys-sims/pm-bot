@@ -1,4 +1,8 @@
 # Data model
+> **Audience:** Contributors implementing storage schemas, sync caches, and runtime state transitions.
+> **Depth:** L2 (behavior spec).
+> **Source of truth:** Normative behavioral data-model guidance for local-first control-plane persistence and orchestration state.
+
 
 This spec defines a **local-first**, **single-human**, **multi-repo** data model for pm-bot.
 
