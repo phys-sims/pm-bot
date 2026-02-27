@@ -404,7 +404,7 @@ export const api = {
       body: JSON.stringify({ approved_by: approvedBy }),
     }),
   resolveInterrupt: (interruptId: string, action: "approve" | "edit" | "reject", actor: string, editedPayload?: Record<string, unknown>) =>
-    httpJson<{ status: string }>(`/interrupts/${encodeURIComponent(interruptId)}/resolve`, {
+    httpJson<RunInterrupt>(`/interrupts/${encodeURIComponent(interruptId)}/resolve`, {
       method: "POST",
       body: JSON.stringify({ action, actor, edited_payload: editedPayload }),
     }),

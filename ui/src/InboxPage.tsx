@@ -46,9 +46,14 @@ export function InboxPage() {
   const resolveInterrupt = async (interruptId: string, runId: string, action: "approve" | "edit" | "reject") => {
     try {
       setPendingItemId(`interrupt:${interruptId}`);
-      await api.resolveInterrupt(interruptId, action, "ui-user");
+      const resolvedInterrupt = await api.resolveInterrupt(interruptId, action, "ui-user");
       if (action === "approve" || action === "edit") {
-        await api.resumeRun(runId, { action }, "ui-user");
+        const decision: Record<string, unknown> = { action };
+        const editedPayload = resolvedInterrupt.decision?.payload;
+        if (action === "edit" && editedPayload && typeof editedPayload === "object" && !Array.isArray(editedPayload)) {
+          decision.edited_payload = editedPayload;
+        }
+        await api.resumeRun(runId, decision, "ui-user");
       }
       setMessage(`Resolved interrupt ${interruptId} with ${action}.`);
       await load();
