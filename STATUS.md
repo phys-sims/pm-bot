@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:28:44 UTC
+- Time (UTC): 04:35:20 UTC
 - By: @openai-codex
 
 ---
@@ -45,5 +45,5 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Marked v7 roadmap as completed by archiving `v7_local_first_langgraph_foundation.md` and moving stale execution cards to `docs/archive/roadmaps/` to keep active plans current.
-- Updated roadmap-facing READMEs and archived-roadmap indices so active planning now starts at v8 and historical artifacts remain discoverable.
+- Added AgentRunSpec v2 validation/model coverage for LangGraph execution fields (`engine`, `graph_id`, `thread_id`, budgets, tool allowlist, and repo scope), plus RunInterrupt v1 and RunArtifact v1 contracts.
+- Extended control-plane persistence and API routes for runs/interrupts/artifacts (`POST /runs`, `POST /runs/{id}/approve`, `POST /interrupts/{id}/resolve`, `GET /runs/{id}`), and updated inbox summary to include interrupt counts.

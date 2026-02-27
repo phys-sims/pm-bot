@@ -32,6 +32,7 @@ from pm_bot.control_plane.models.report_ir_intake import (
     build_changeset_preview,
     validate_report_ir,
 )
+from pm_bot.control_plane.models.agent_run_contracts import AgentRunSpecV2
 from pm_bot.control_plane.orchestration.runner import RunnerService
 from pm_bot.control_plane.orchestration.runner_adapters import (
     build_runner_adapters_from_env,
@@ -328,6 +329,63 @@ class ServerApp:
 
     def propose_agent_run(self, spec: dict[str, Any], created_by: str) -> dict[str, Any]:
         return self.runner.create_run(spec=spec, created_by=created_by)
+
+    def create_run(
+        self, goal: str, repo: str, graph_id: str, created_by: str = "human"
+    ) -> dict[str, Any]:
+        run_id = f"run-{abs(hash((goal, repo, graph_id, created_by))) % 10**12}"
+        spec = AgentRunSpecV2(
+            run_id=run_id,
+            goal=goal,
+            inputs={"repo": repo},
+            execution={
+                "engine": "langgraph",
+                "graph_id": graph_id,
+                "thread_id": None,
+                "budget": {
+                    "max_total_tokens": 200000,
+                    "max_tool_calls": 50,
+                    "max_wall_seconds": 1800,
+                },
+                "tools_allowed": ["github_read"],
+                "scopes": {"repo": repo},
+            },
+        ).model_dump(mode="json")
+        spec["model"] = "gpt-5"
+        spec["intent"] = goal
+        spec["requires_approval"] = True
+        spec["adapter"] = "manual"
+        return self.propose_agent_run(spec=spec, created_by=created_by)
+
+    def approve_run(self, run_id: str, actor: str) -> dict[str, Any]:
+        return self.transition_agent_run(
+            run_id=run_id,
+            to_status="approved",
+            reason_code="run_start_approved",
+            actor=actor,
+        )
+
+    def resolve_interrupt(
+        self,
+        interrupt_id: str,
+        action: str,
+        actor: str,
+        edited_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        return self.db.resolve_run_interrupt(
+            interrupt_id=interrupt_id,
+            action=action,
+            actor=actor,
+            edited_payload=edited_payload,
+        )
+
+    def run_details(self, run_id: str) -> dict[str, Any] | None:
+        run = self.db.get_agent_run(run_id)
+        if run is None:
+            return None
+        run["artifacts"] = self.db.list_run_artifacts(run_id)
+        run["interrupts"] = self.db.list_run_interrupts(run_id=run_id)
+        return run
 
     def transition_agent_run(
         self,
@@ -830,6 +888,31 @@ class ServerApp:
                 }
             )
 
+        interrupts = self.db.list_run_interrupts()
+        for interrupt in interrupts:
+            internal_items.append(
+                {
+                    "source": "pm_bot",
+                    "item_type": "interrupt",
+                    "id": f"interrupt:{interrupt['interrupt_id']}",
+                    "title": f"Resolve interrupt {interrupt['kind']} for {interrupt['run_id']}",
+                    "repo": "",
+                    "url": "",
+                    "state": interrupt.get("status", "pending"),
+                    "priority": interrupt.get("risk", ""),
+                    "age_hours": 0.0,
+                    "action": "resolve",
+                    "requires_internal_approval": True,
+                    "stale": False,
+                    "stale_reason": "",
+                    "metadata": {
+                        "interrupt_id": interrupt["interrupt_id"],
+                        "run_id": interrupt["run_id"],
+                        "thread_id": interrupt["thread_id"],
+                    },
+                }
+            )
+
         github_items, diagnostics = self.connector.list_inbox_items(
             actor=actor, labels=labels or [], repos=repos or []
         )
@@ -854,6 +937,7 @@ class ServerApp:
                 "count": len(items),
                 "pm_bot_count": len(internal_items),
                 "github_count": len(github_items),
+                "interrupt_count": len(interrupts),
             },
         }
 
@@ -1238,6 +1322,80 @@ class ASGIServer:
                     requested_by=query_params.get("requested_by", ""),
                 )
                 await self._send_json(send, 200, result)
+                return
+
+            if method == "POST" and path == "/runs":
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                goal = str(payload.get("goal", "")).strip()
+                repo = str(payload.get("repo", "")).strip()
+                graph_id = str(payload.get("graph_id", "")).strip()
+                if not goal or not repo or not graph_id:
+                    await self._send_json(send, 400, {"error": "missing_required_fields"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.create_run(
+                        goal=goal,
+                        repo=repo,
+                        graph_id=graph_id,
+                        created_by=str(payload.get("created_by", "human")),
+                    ),
+                )
+                return
+
+            if method == "POST" and path.startswith("/runs/") and path.endswith("/approve"):
+                run_id = path[len("/runs/") : -len("/approve")].strip("/")
+                payload = self._parse_json(body) or {}
+                if not run_id:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.approve_run(
+                        run_id=run_id, actor=str(payload.get("actor", "human"))
+                    ),
+                )
+                return
+
+            if method == "POST" and path.startswith("/interrupts/") and path.endswith("/resolve"):
+                interrupt_id = path[len("/interrupts/") : -len("/resolve")].strip("/")
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                action = str(payload.get("action", "")).strip()
+                if action not in {"approve", "reject", "edit"}:
+                    await self._send_json(send, 400, {"error": "invalid_action"})
+                    return
+                resolved = self.service.resolve_interrupt(
+                    interrupt_id=interrupt_id,
+                    action=action,
+                    actor=str(payload.get("actor", "human")),
+                    edited_payload=payload.get("edited_payload")
+                    if isinstance(payload.get("edited_payload"), dict)
+                    else None,
+                )
+                if resolved is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(send, 200, resolved)
+                return
+
+            if method == "GET" and path.startswith("/runs/"):
+                run_id = path[len("/runs/") :].strip("/")
+                if not run_id:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                details = self.service.run_details(run_id=run_id)
+                if details is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                await self._send_json(send, 200, details)
                 return
 
             if method == "POST" and path == "/agent-runs/propose":
