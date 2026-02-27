@@ -43,6 +43,7 @@ from pm_bot.control_plane.orchestration.runner_adapters import (
     default_runner_adapter_name,
 )
 from pm_bot.shared.settings import get_storage_settings
+from pm_bot.control_plane.rag.ingestion import DocsIngestionService
 
 
 class ServerApp:
@@ -69,6 +70,7 @@ class ServerApp:
         )
         self._poll_interval_minutes = max(1, int(os.environ.get("PM_BOT_SYNC_POLL_MINUTES", "5")))
         self._next_poll_at = datetime.now(timezone.utc)
+        self.rag: DocsIngestionService | None = None
 
     def maybe_refresh_repo_cache(self) -> None:
         now = datetime.now(timezone.utc)
@@ -1401,6 +1403,61 @@ class ASGIServer:
             self.service.maybe_refresh_repo_cache()
             if method == "GET" and path == "/health":
                 await self._send_json(send, 200, {"status": "ok"})
+                return
+
+            if method == "POST" and path == "/rag/index":
+                payload = self._parse_json(body) if body else {}
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                repo_id = int(payload.get("repo_id", 0))
+                chunk_lines = int(payload.get("chunk_lines", 80))
+                rag = self.service.rag or DocsIngestionService(
+                    self.service.db, repo_root=Path(__file__).resolve().parents[3]
+                )
+                self.service.rag = rag
+                await self._send_json(
+                    send,
+                    200,
+                    rag.index_docs(repo_id=repo_id, chunk_lines=chunk_lines),
+                )
+                return
+
+            if method == "GET" and path == "/rag/status":
+                rag = self.service.rag or DocsIngestionService(
+                    self.service.db, repo_root=Path(__file__).resolve().parents[3]
+                )
+                self.service.rag = rag
+                await self._send_json(send, 200, rag.status())
+                return
+
+            if method == "GET" and path == "/rag/query":
+                query_text = str(query_params.get("q", "")).strip()
+                if not query_text:
+                    await self._send_json(send, 400, {"error": "missing_q"})
+                    return
+                limit = int(query_params.get("limit", "5"))
+                rag = self.service.rag or DocsIngestionService(
+                    self.service.db, repo_root=Path(__file__).resolve().parents[3]
+                )
+                self.service.rag = rag
+                hits = rag.query(query_text=query_text, limit=limit)
+                await self._send_json(
+                    send,
+                    200,
+                    {
+                        "items": [
+                            {
+                                "chunk_id": h.chunk_id,
+                                "score": h.score,
+                                "text": h.text,
+                                "metadata": h.metadata,
+                            }
+                            for h in hits
+                        ],
+                        "summary": {"count": len(hits)},
+                    },
+                )
                 return
 
             if method == "GET" and path == "/changesets/pending":

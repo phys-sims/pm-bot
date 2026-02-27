@@ -934,7 +934,7 @@ class OrchestratorDB:
     def upsert_issue_cache(
         self,
         *,
-        repo_id: int,
+        repo_id: int | None,
         issue_number: int,
         state: str,
         title: str,
@@ -1949,3 +1949,125 @@ class OrchestratorDB:
                 "SELECT interrupt_id FROM run_interrupts ORDER BY id ASC"
             ).fetchall()
         return [self.get_run_interrupt(str(row[0])) for row in rows if row is not None]
+
+    def upsert_document(
+        self,
+        *,
+        source_type: str,
+        source_path_or_url: str,
+        repo_id: int,
+        revision_sha: str,
+        content_hash: str,
+    ) -> int:
+        existing = self.conn.execute(
+            """
+            SELECT id FROM documents
+            WHERE source_type = ? AND source_path_or_url = ? AND revision_sha = ? AND content_hash = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (source_type, source_path_or_url, revision_sha, content_hash),
+        ).fetchone()
+        if existing is not None:
+            return int(existing["id"])
+        cursor = self.conn.execute(
+            """
+            INSERT INTO documents (source_type, source_path_or_url, repo_id, revision_sha, content_hash)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (source_type, source_path_or_url, repo_id, revision_sha, content_hash),
+        )
+        self.conn.commit()
+        return int(cursor.lastrowid)
+
+    def upsert_chunk(
+        self,
+        *,
+        chunk_id: str,
+        doc_id: int,
+        line_start: int,
+        line_end: int,
+        text_hash: str,
+        token_count: int,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO chunks (chunk_id, doc_id, offset_start, offset_end, text_hash, token_count)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(chunk_id)
+            DO UPDATE SET
+                doc_id = excluded.doc_id,
+                offset_start = excluded.offset_start,
+                offset_end = excluded.offset_end,
+                text_hash = excluded.text_hash,
+                token_count = excluded.token_count
+            """,
+            (chunk_id, doc_id, line_start, line_end, text_hash, token_count),
+        )
+        self.conn.commit()
+
+    def upsert_embedding_record(
+        self, *, chunk_id: str, qdrant_point_id: str, embedding_model: str
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO embedding_records (chunk_id, qdrant_point_id, embedding_model)
+            VALUES (?, ?, ?)
+            ON CONFLICT(chunk_id, embedding_model)
+            DO UPDATE SET qdrant_point_id = excluded.qdrant_point_id
+            """,
+            (chunk_id, qdrant_point_id, embedding_model),
+        )
+        self.conn.commit()
+
+    def create_ingestion_job(
+        self, *, job_id: str, repo_id: int | None, scope: dict[str, Any], status: str = "running"
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO ingestion_jobs (job_id, repo_id, scope_json, status, stats_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                repo_id,
+                json.dumps(scope, sort_keys=True),
+                status,
+                json.dumps({}, sort_keys=True),
+            ),
+        )
+        self.conn.commit()
+
+    def update_ingestion_job(self, *, job_id: str, status: str, stats: dict[str, Any]) -> None:
+        self.conn.execute(
+            """
+            UPDATE ingestion_jobs
+            SET status = ?, stats_json = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE job_id = ?
+            """,
+            (status, json.dumps(stats, sort_keys=True), job_id),
+        )
+        self.conn.commit()
+
+    def latest_ingestion_job(self) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT job_id, repo_id, scope_json, status, stats_json, error_text, created_at, updated_at
+            FROM ingestion_jobs
+            ORDER BY created_at DESC, job_id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if row is None:
+            return None
+        stats = json.loads(row["stats_json"] or "{}")
+        return {
+            "job_id": str(row["job_id"]),
+            "repo_id": int(row["repo_id"] or 0),
+            "scope": json.loads(row["scope_json"] or "{}"),
+            "status": str(row["status"]),
+            "stats": stats,
+            **stats,
+            "error_text": str(row["error_text"] or ""),
+            "created_at": str(row["created_at"]),
+            "updated_at": str(row["updated_at"]),
+        }
