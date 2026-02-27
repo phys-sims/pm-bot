@@ -78,7 +78,7 @@ duplicated across multiple docs.
   - [`docs/github/auth-and-tokens.md`](github/auth-and-tokens.md)
   - [`docs/github/tree-and-dependencies.md`](github/tree-and-dependencies.md)
 - Active planning index: [`docs/roadmaps/README.md`](roadmaps/README.md)
-- Active roadmap stages: `docs/roadmaps/v7_*.md` through `docs/roadmaps/v11_*.md`
+- Active roadmap stages: `docs/roadmaps/v8_*.md` through `docs/roadmaps/v11_*.md`
 - Archived planning index: [`docs/archive/roadmaps/README.md`](archive/roadmaps/README.md)
 - Archived implementation log: [`docs/archive/IMPLEMENTATION_LOG.md`](archive/IMPLEMENTATION_LOG.md)
 - Operational health: [`STATUS.md`](../STATUS.md)

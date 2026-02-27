@@ -24,8 +24,8 @@ Primary links:
 
 - Active roadmap index: [`docs/roadmaps/README.md`](docs/roadmaps/README.md)
 - Foundational multi-repo stage: [`docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md`](docs/roadmaps/agent-roadmap-v6-multi-repo-orchestration.md)
-- Current stage set: `docs/roadmaps/v7_local_first_langgraph_foundation.md` → `docs/roadmaps/v11_gui_rebuild.md`
-- Execution task cards: [`docs/roadmaps/org-scale-execution-task-cards.md`](docs/roadmaps/org-scale-execution-task-cards.md)
+- Current stage set: `docs/roadmaps/v8_langgraph_runtime_hitl.md` → `docs/roadmaps/v11_gui_rebuild.md`
+- Archived execution task cards: [`docs/archive/roadmaps/org-scale-execution-task-cards.md`](docs/archive/roadmaps/org-scale-execution-task-cards.md)
 
 ## Install
 

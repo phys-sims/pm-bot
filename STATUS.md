@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:22:18 UTC
+- Time (UTC): 04:28:44 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,5 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
-- Added SQLite-backed repo registry/cache schema (`workspaces`, `repo_registry`, `issue_cache`, `pr_cache`, `sync_cursors`) with indexed fields and idempotent upsert/read helpers for local GitHub issue/PR caching.
-- Added `GitHubCacheSyncService` for initial imports and incremental cursor-based refreshes, then integrated periodic polling (`PM_BOT_SYNC_POLL_MINUTES`) and manual sync into the ASGI backend.
-- Added cache-first repo endpoints (`POST /repos/add`, `POST /repos/{id}/sync`, `GET /repos`, `GET /repos/{id}/issues`, `GET /repos/{id}/prs`) plus an integration test with mocked GitHub API responses to verify initial import + incremental updates.
+- Marked v7 roadmap as completed by archiving `v7_local_first_langgraph_foundation.md` and moving stale execution cards to `docs/archive/roadmaps/` to keep active plans current.
+- Updated roadmap-facing READMEs and archived-roadmap indices so active planning now starts at v8 and historical artifacts remain discoverable.

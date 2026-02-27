@@ -1,6 +1,8 @@
-# Org-scale execution task cards (agent-editable)
+# Org-scale execution task cards (archived)
 
 _Source doc (archived): `docs/archive/roadmaps/org-scale-roadmap-reconciliation.md`_
+
+> Archived status: stale execution-card planning artifact retained for historical context only.
 
 This file is intended for agent/operator updates while the reconciliation roadmap remains stable source-of-truth planning.
 

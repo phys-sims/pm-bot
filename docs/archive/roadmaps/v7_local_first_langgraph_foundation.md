@@ -1,5 +1,7 @@
 # v7 Roadmap — Local-first foundation + repo restructure for LangGraph
 
+> Archived status: completed and moved from `docs/roadmaps/` to `docs/archive/roadmaps/`.
+
 ## Purpose
 Make pm-bot usable as a **local-first, single-operator control plane** that can manage many repos without constant re-scanning, and restructure the codebase so LangGraph can be integrated cleanly.
 
