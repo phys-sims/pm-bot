@@ -14,6 +14,13 @@
 - `GET /health` → process liveness response (`status=ok`).
 - `GET /inbox` → unified inbox contract and ordering rules: [`docs/spec/inbox.md`](inbox.md).
 
+## Runs + interrupts
+
+- `POST /runs` → create a proposed LangGraph run using AgentRunSpec v2 semantics.
+- `POST /runs/{id}/approve` → approve run start (transitions to `approved`).
+- `GET /runs/{id}` → retrieve run status with thread/artifacts/interrupts.
+- `POST /interrupts/{id}/resolve` → resolve pending interrupt (`approve|reject|edit`).
+
 ## Changesets
 
 - `GET /changesets/pending` → pending approval queue summary: [`docs/contracts/changesets.md`](../contracts/changesets.md).

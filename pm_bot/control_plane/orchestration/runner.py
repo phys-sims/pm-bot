@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pm_bot.control_plane.db.db import OrchestratorDB
+from pm_bot.control_plane.models.agent_run_contracts import AgentRunSpecV2
 
 
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "rejected"}
@@ -114,6 +115,8 @@ class RunnerService:
             raise ValueError("invalid_transition:not_allowed")
 
     def create_run(self, spec: dict[str, Any], created_by: str) -> dict[str, Any]:
+        if spec.get("schema_version") == "agent_run_spec/v2" or "execution" in spec:
+            spec = AgentRunSpecV2.model_validate(spec).model_dump(mode="json")
         run_id = str(spec.get("run_id", "")).strip()
         if not run_id:
             raise ValueError("missing_run_id")

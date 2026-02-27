@@ -26,6 +26,8 @@ If you change a contract, you must:
 - Changesets: [`changesets.md`](changesets.md)
 - AgentRunSpec: [`agent_run_spec.md`](agent_run_spec.md)
 - AgentRunSpec v2: [`agent_run_spec_v2.md`](agent_run_spec_v2.md)
+- RunInterrupt v1: [`run_interrupt_v1.md`](run_interrupt_v1.md)
+- RunArtifact v1: [`run_artifact_v1.md`](run_artifact_v1.md)
 - ContextPack v1: [`context_pack.md`](context_pack.md)
 - LLM Capabilities: [`llm_capabilities.md`](llm_capabilities.md)
 

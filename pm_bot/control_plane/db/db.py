@@ -115,6 +115,10 @@ class OrchestratorDB:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 prompt_profile TEXT NOT NULL,
                 model TEXT NOT NULL,
+                graph_id TEXT NOT NULL DEFAULT '',
+                thread_id TEXT,
+                budgets_json TEXT NOT NULL DEFAULT '{}',
+                tools_allowed_json TEXT NOT NULL DEFAULT '[]',
                 started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 completed_at TEXT,
                 artifact_paths_json TEXT NOT NULL DEFAULT "[]"
@@ -126,6 +130,32 @@ class OrchestratorDB:
                 from_status TEXT,
                 to_status TEXT NOT NULL,
                 reason_code TEXT NOT NULL,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS run_interrupts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                interrupt_id TEXT NOT NULL UNIQUE,
+                run_id TEXT NOT NULL,
+                thread_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                risk TEXT NOT NULL,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL DEFAULT 'pending',
+                decision_json TEXT NOT NULL DEFAULT '{}',
+                decision_actor TEXT NOT NULL DEFAULT '',
+                decision_action TEXT NOT NULL DEFAULT '',
+                resolved_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS run_artifacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artifact_id TEXT NOT NULL UNIQUE,
+                run_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                uri TEXT NOT NULL,
                 metadata_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
@@ -293,6 +323,16 @@ class OrchestratorDB:
             self.conn.execute(
                 "ALTER TABLE agent_runs ADD COLUMN artifact_paths_json TEXT DEFAULT '[]'"
             )
+        if not self._has_column("agent_runs", "tools_allowed_json"):
+            self.conn.execute(
+                "ALTER TABLE agent_runs ADD COLUMN tools_allowed_json TEXT DEFAULT '[]'"
+            )
+        if not self._has_column("agent_runs", "budgets_json"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN budgets_json TEXT DEFAULT '{}'")
+        if not self._has_column("agent_runs", "thread_id"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN thread_id TEXT")
+        if not self._has_column("agent_runs", "graph_id"):
+            self.conn.execute("ALTER TABLE agent_runs ADD COLUMN graph_id TEXT DEFAULT ''")
         self.conn.execute("INSERT OR IGNORE INTO workspaces (id, name) VALUES (1, 'default')")
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_repo_registry_workspace ON repo_registry(workspace_id, full_name)"
@@ -314,6 +354,40 @@ class OrchestratorDB:
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_agent_runs_queue ON agent_runs(status, next_attempt_at, id)"
+        )
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS run_interrupts ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "interrupt_id TEXT NOT NULL UNIQUE,"
+            "run_id TEXT NOT NULL,"
+            "thread_id TEXT NOT NULL,"
+            "kind TEXT NOT NULL,"
+            "risk TEXT NOT NULL,"
+            "payload_json TEXT NOT NULL DEFAULT '{}',"
+            "status TEXT NOT NULL DEFAULT 'pending',"
+            "decision_json TEXT NOT NULL DEFAULT '{}',"
+            "decision_actor TEXT NOT NULL DEFAULT '',"
+            "decision_action TEXT NOT NULL DEFAULT '',"
+            "resolved_at TEXT,"
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS run_artifacts ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "artifact_id TEXT NOT NULL UNIQUE,"
+            "run_id TEXT NOT NULL,"
+            "kind TEXT NOT NULL,"
+            "uri TEXT NOT NULL,"
+            "metadata_json TEXT NOT NULL DEFAULT '{}',"
+            "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_run_interrupts_run_status ON run_interrupts(run_id, status, id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_kind ON run_artifacts(run_id, kind, id)"
         )
         self.conn.commit()
 
@@ -1162,19 +1236,29 @@ class OrchestratorDB:
         self.conn.execute(
             """
             INSERT INTO agent_runs (
-              run_id, prompt_profile, model, created_by, status, status_reason,
+              run_id, prompt_profile, model, graph_id, thread_id, budgets_json, tools_allowed_json,
+              created_by, status, status_reason,
               requires_approval, intent, spec_json, adapter_name, max_retries,
               next_attempt_at
             )
-            VALUES (?, ?, ?, ?, 'proposed', 'run_created', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', 'run_created', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (
                 run_id,
                 str(spec.get("prompt_profile", "default")),
                 str(spec.get("model", "")),
+                str(spec.get("execution", {}).get("graph_id", spec.get("graph_id", ""))),
+                spec.get("execution", {}).get("thread_id", spec.get("thread_id")),
+                json.dumps(
+                    spec.get("execution", {}).get("budget", spec.get("budgets", {})), sort_keys=True
+                ),
+                json.dumps(
+                    spec.get("execution", {}).get("tools_allowed", spec.get("tools_allowed", [])),
+                    sort_keys=True,
+                ),
                 created_by,
                 1 if spec.get("requires_approval", True) else 0,
-                str(spec.get("intent", "")),
+                str(spec.get("intent", spec.get("goal", ""))),
                 json.dumps(spec, sort_keys=True),
                 adapter_name,
                 int(max_retries),
@@ -1192,6 +1276,10 @@ class OrchestratorDB:
             "run_id": str(row["run_id"]),
             "prompt_profile": str(row["prompt_profile"]),
             "model": str(row["model"]),
+            "graph_id": str(row["graph_id"] or ""),
+            "thread_id": str(row["thread_id"] or ""),
+            "budgets": json.loads(row["budgets_json"] or "{}"),
+            "tools_allowed": json.loads(row["tools_allowed_json"] or "[]"),
             "created_by": str(row["created_by"]),
             "status": str(row["status"]),
             "status_reason": str(row["status_reason"] or ""),
@@ -1347,8 +1435,135 @@ class OrchestratorDB:
         self.conn.commit()
 
     def set_agent_run_artifacts(self, run_id: str, artifact_paths: list[str]) -> None:
+        normalized = [str(path) for path in artifact_paths]
         self.conn.execute(
             "UPDATE agent_runs SET artifact_paths_json = ? WHERE run_id = ?",
-            (json.dumps([str(path) for path in artifact_paths], sort_keys=True), run_id),
+            (json.dumps(normalized, sort_keys=True), run_id),
+        )
+        for idx, path in enumerate(normalized):
+            self.conn.execute(
+                """
+                INSERT OR REPLACE INTO run_artifacts (artifact_id, run_id, kind, uri, metadata_json)
+                VALUES (?, ?, 'log', ?, '{}')
+                """,
+                (f"{run_id}:artifact:{idx}", run_id, path),
+            )
+        self.conn.commit()
+
+    def list_run_artifacts(self, run_id: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT artifact_id, run_id, kind, uri, metadata_json, created_at
+            FROM run_artifacts WHERE run_id = ? ORDER BY id ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [
+            {
+                "schema_version": "run_artifact/v1",
+                "artifact_id": str(row["artifact_id"]),
+                "run_id": str(row["run_id"]),
+                "kind": str(row["kind"]),
+                "uri": str(row["uri"]),
+                "metadata": json.loads(row["metadata_json"] or "{}"),
+                "created_at": str(row["created_at"]),
+            }
+            for row in rows
+        ]
+
+    def create_run_interrupt(
+        self,
+        interrupt_id: str,
+        run_id: str,
+        thread_id: str,
+        kind: str,
+        risk: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.conn.execute(
+            """
+            INSERT INTO run_interrupts (interrupt_id, run_id, thread_id, kind, risk, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (interrupt_id, run_id, thread_id, kind, risk, json.dumps(payload, sort_keys=True)),
         )
         self.conn.commit()
+        return self.get_run_interrupt(interrupt_id) or {}
+
+    def get_run_interrupt(self, interrupt_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT interrupt_id, run_id, thread_id, kind, risk, payload_json, status,
+                   decision_json, decision_actor, decision_action, created_at, resolved_at
+            FROM run_interrupts WHERE interrupt_id = ?
+            """,
+            (interrupt_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "schema_version": "run_interrupt/v1",
+            "interrupt_id": str(row["interrupt_id"]),
+            "run_id": str(row["run_id"]),
+            "thread_id": str(row["thread_id"]),
+            "kind": str(row["kind"]),
+            "risk": str(row["risk"]),
+            "payload": json.loads(row["payload_json"] or "{}"),
+            "status": str(row["status"]),
+            "decision": json.loads(row["decision_json"] or "{}"),
+            "decision_actor": str(row["decision_actor"] or ""),
+            "decision_action": str(row["decision_action"] or ""),
+            "created_at": str(row["created_at"]),
+            "resolved_at": str(row["resolved_at"] or ""),
+        }
+
+    def resolve_run_interrupt(
+        self,
+        interrupt_id: str,
+        action: str,
+        actor: str,
+        edited_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        interrupt = self.get_run_interrupt(interrupt_id)
+        if interrupt is None:
+            return None
+        next_status = {"approve": "approved", "reject": "rejected", "edit": "edited"}.get(action)
+        if next_status is None:
+            raise ValueError("invalid_interrupt_action")
+        payload = interrupt["payload"]
+        if action == "edit" and isinstance(edited_payload, dict):
+            payload = edited_payload
+            self.conn.execute(
+                "UPDATE run_interrupts SET payload_json = ? WHERE interrupt_id = ?",
+                (json.dumps(edited_payload, sort_keys=True), interrupt_id),
+            )
+        self.conn.execute(
+            """
+            UPDATE run_interrupts
+            SET status = ?, decision_json = ?, decision_actor = ?, decision_action = ?, resolved_at = CURRENT_TIMESTAMP
+            WHERE interrupt_id = ?
+            """,
+            (
+                next_status,
+                json.dumps({"action": action, "payload": payload}, sort_keys=True),
+                actor,
+                action,
+                interrupt_id,
+            ),
+        )
+        self.conn.commit()
+        return self.get_run_interrupt(interrupt_id)
+
+    def list_run_interrupts(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        if run_id:
+            rows = self.conn.execute(
+                """
+                SELECT interrupt_id FROM run_interrupts WHERE run_id = ? ORDER BY id ASC
+                """,
+                (run_id,),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT interrupt_id FROM run_interrupts ORDER BY id ASC"
+            ).fetchall()
+        return [self.get_run_interrupt(str(row[0])) for row in rows if row is not None]

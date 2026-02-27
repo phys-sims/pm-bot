@@ -286,6 +286,7 @@ def test_unified_inbox_route_merges_pm_bot_and_github_items() -> None:
     assert payload["schema_version"] == "inbox/v1"
     assert payload["summary"]["pm_bot_count"] == 1
     assert payload["summary"]["github_count"] == 1
+    assert payload["summary"]["interrupt_count"] == 0
     assert payload["items"][0]["source"] == "pm_bot"
     assert payload["diagnostics"]["cache"]["hit"] is False
 
@@ -618,3 +619,67 @@ def test_report_ir_intake_rejects_invalid_capability_output_before_proposal(
     pending_status, pending_payload = _asgi_request(app, "GET", "/changesets/pending")
     assert pending_status == 200
     assert pending_payload["summary"]["count"] == 0
+
+
+def test_runs_and_interrupt_routes_cover_v2_contract() -> None:
+    service = ServerApp()
+    app = ASGIServer(service=service)
+
+    create_status, create_payload = _asgi_request(
+        app,
+        "POST",
+        "/runs",
+        body=json.dumps(
+            {
+                "goal": "Ship safe LangGraph run",
+                "repo": "phys-sims/pm-bot",
+                "graph_id": "repo_change_proposer/v1",
+                "created_by": "alice",
+            }
+        ).encode("utf-8"),
+    )
+    assert create_status == 200
+    assert create_payload["graph_id"] == "repo_change_proposer/v1"
+
+    approve_status, approve_payload = _asgi_request(
+        app,
+        "POST",
+        f"/runs/{create_payload['run_id']}/approve",
+        body=json.dumps({"actor": "reviewer"}).encode("utf-8"),
+    )
+    assert approve_status == 200
+    assert approve_payload["status"] == "approved"
+
+    interrupt = service.db.create_run_interrupt(
+        interrupt_id="intr-1",
+        run_id=create_payload["run_id"],
+        thread_id="thread-1",
+        kind="approve_tool_call",
+        risk="medium",
+        payload={"tool": "pytest"},
+    )
+    assert interrupt["status"] == "pending"
+
+    inbox_status, inbox_payload = _asgi_request(app, "GET", "/inbox")
+    assert inbox_status == 200
+    assert inbox_payload["summary"]["interrupt_count"] == 1
+
+    resolve_status, resolve_payload = _asgi_request(
+        app,
+        "POST",
+        "/interrupts/intr-1/resolve",
+        body=json.dumps(
+            {"action": "edit", "actor": "reviewer", "edited_payload": {"tool": "ruff check ."}}
+        ).encode("utf-8"),
+    )
+    assert resolve_status == 200
+    assert resolve_payload["status"] == "edited"
+
+    details_status, details_payload = _asgi_request(
+        app,
+        "GET",
+        f"/runs/{create_payload['run_id']}",
+    )
+    assert details_status == 200
+    assert details_payload["thread_id"] == ""
+    assert len(details_payload["interrupts"]) == 1
