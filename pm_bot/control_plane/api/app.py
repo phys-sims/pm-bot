@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse, unquote
 from typing import Any
 
 from pm_bot.control_plane.artifacts.changesets import ChangesetService
@@ -365,13 +365,194 @@ class ServerApp:
         plan = self.db.get_orchestration_plan(plan_id)
         if plan is None:
             return None
-        return {
+        payload = plan.get("payload") if isinstance(plan.get("payload"), dict) else {}
+        dag = {
             "schema_version": "orchestration_dag/v1",
             "plan_id": plan_id,
             "status": plan.get("status", ""),
             "tasks": self.db.list_task_runs(plan_id),
             "edges": self.db.list_task_edges(plan_id),
         }
+        aggregation = (
+            payload.get("aggregation") if isinstance(payload.get("aggregation"), dict) else {}
+        )
+        if aggregation:
+            dag["aggregation"] = aggregation
+        return dag
+
+    def aggregate_plan_task_artifacts(self, plan_id: str, requested_by: str) -> dict[str, Any]:
+        plan = self.db.get_orchestration_plan(plan_id)
+        if plan is None:
+            raise ValueError("plan_not_found")
+        payload = plan.get("payload") if isinstance(plan.get("payload"), dict) else {}
+        task_runs = self.db.list_task_runs(plan_id)
+        bundle_candidates: list[dict[str, Any]] = []
+        artifact_uris: list[str] = []
+
+        for task_run in task_runs:
+            run_id = str(task_run.get("run_id", "")).strip()
+            if not run_id:
+                continue
+            for artifact in self.db.list_run_artifacts(run_id):
+                uri = str(artifact.get("uri", "")).strip()
+                if not uri.endswith(".changeset_bundle.json"):
+                    continue
+                artifact_uris.append(uri)
+                proposal = self._read_changeset_bundle_artifact(uri)
+                if proposal is not None:
+                    bundle_candidates.append(
+                        {
+                            "task_run_id": task_run["task_run_id"],
+                            "task_id": task_run["task_id"],
+                            "run_id": run_id,
+                            "artifact_uri": uri,
+                            "proposal": proposal,
+                        }
+                    )
+
+        conflicts = self._detect_changeset_conflicts(bundle_candidates)
+        if conflicts:
+            interrupt_id = f"interrupt:plan:{plan_id}:aggregation_conflict"
+            self.db.create_run_interrupt(
+                interrupt_id=interrupt_id,
+                run_id=f"plan:{plan_id}:aggregate",
+                thread_id=f"plan:{plan_id}",
+                kind="changeset_conflict",
+                risk="medium",
+                payload={
+                    "reason_code": "changeset_bundle_conflict_detected",
+                    "plan_id": plan_id,
+                    "conflicts": conflicts,
+                },
+            )
+            self.db.append_audit_event(
+                "plan_artifact_aggregation_conflict",
+                {
+                    "plan_id": plan_id,
+                    "interrupt_id": interrupt_id,
+                    "conflict_count": len(conflicts),
+                },
+            )
+            raise RuntimeError("changeset_bundle_conflict_detected")
+
+        merged_changesets: list[dict[str, Any]] = []
+        for candidate in bundle_candidates:
+            proposal = candidate.get("proposal")
+            bundle = proposal.get("bundle") if isinstance(proposal, dict) else {}
+            changesets = (
+                bundle.get("changesets") if isinstance(bundle.get("changesets"), list) else []
+            )
+            for change in changesets:
+                if isinstance(change, dict):
+                    merged_changesets.append(change)
+
+        aggregated = {
+            "schema_version": "changeset_bundle_proposal/v1",
+            "bundle": {
+                "bundle_id": f"plan-{plan_id}-aggregate",
+                "requires_human_approval": True,
+                "changesets": merged_changesets,
+            },
+            "sources": [
+                {
+                    "task_run_id": row["task_run_id"],
+                    "task_id": row["task_id"],
+                    "run_id": row["run_id"],
+                    "artifact_uri": row["artifact_uri"],
+                }
+                for row in bundle_candidates
+            ],
+        }
+        settings = get_storage_settings()
+        output_path = Path(settings.artifact_dir) / f"{plan_id}.aggregated_changeset_bundle.json"
+        output_path.write_text(json.dumps(aggregated, sort_keys=True, indent=2), encoding="utf-8")
+        output_uri = output_path.resolve().as_uri()
+
+        payload["aggregation"] = {
+            "schema_version": "orchestration_aggregation/v1",
+            "plan_id": plan_id,
+            "artifact_uri": output_uri,
+            "status": "ready_for_review",
+            "source_artifact_count": len(artifact_uris),
+            "candidate_count": len(bundle_candidates),
+            "requested_by": requested_by,
+        }
+        self.db.upsert_orchestration_plan(
+            plan_id=plan_id,
+            repo_id=int(plan["repo_id"]),
+            source=str(plan["source"]),
+            payload=payload,
+            status=str(plan["status"]),
+        )
+        self.db.append_audit_event(
+            "plan_artifact_aggregated",
+            {
+                "plan_id": plan_id,
+                "artifact_uri": output_uri,
+                "source_artifact_count": len(artifact_uris),
+                "candidate_count": len(bundle_candidates),
+            },
+        )
+        return payload["aggregation"]
+
+    def _read_changeset_bundle_artifact(self, uri: str) -> dict[str, Any] | None:
+        parsed = urlparse(uri)
+        if parsed.scheme != "file":
+            return None
+        path = Path(unquote(parsed.path))
+        if not path.exists():
+            return None
+        parsed_payload = json.loads(path.read_text(encoding="utf-8"))
+        changeset_bundle = parsed_payload.get("changeset_bundle")
+        return changeset_bundle if isinstance(changeset_bundle, dict) else None
+
+    def _detect_changeset_conflicts(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        by_key: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+        for row in rows:
+            proposal = row.get("proposal")
+            bundle = proposal.get("bundle") if isinstance(proposal, dict) else {}
+            changesets = (
+                bundle.get("changesets") if isinstance(bundle.get("changesets"), list) else []
+            )
+            for change in changesets:
+                if not isinstance(change, dict):
+                    continue
+                key = (
+                    str(change.get("operation", "")).strip(),
+                    str(change.get("repo", "")).strip(),
+                    str(change.get("target_ref", "")).strip(),
+                )
+                by_key.setdefault(key, []).append({"row": row, "changeset": change})
+
+        conflicts: list[dict[str, Any]] = []
+        for key, entries in sorted(by_key.items(), key=lambda item: item[0]):
+            if len(entries) < 2:
+                continue
+            payload_fingerprints = {
+                json.dumps(
+                    entry["changeset"].get("payload", {}), sort_keys=True, separators=(",", ":")
+                )
+                for entry in entries
+            }
+            if len(payload_fingerprints) <= 1:
+                continue
+            conflicts.append(
+                {
+                    "operation": key[0],
+                    "repo": key[1],
+                    "target_ref": key[2],
+                    "sources": [
+                        {
+                            "task_run_id": entry["row"]["task_run_id"],
+                            "run_id": entry["row"]["run_id"],
+                            "artifact_uri": entry["row"]["artifact_uri"],
+                            "payload": entry["changeset"].get("payload", {}),
+                        }
+                        for entry in entries
+                    ],
+                }
+            )
+        return conflicts
 
     def generate_weekly_report(
         self, report_name: str = "weekly.md", run_id: str = ""
@@ -1759,6 +1940,26 @@ class ASGIServer:
                     await self._send_json(send, 404, {"error": "plan_not_found"})
                     return
                 await self._send_json(send, 200, dag)
+                return
+
+            if method == "POST" and path.startswith("/plans/") and path.endswith("/aggregate"):
+                plan_id = self._parse_plan_path(path, "aggregate")
+                if plan_id is None:
+                    await self._send_json(send, 404, {"error": "not_found"})
+                    return
+                payload = self._parse_json(body)
+                if payload is None:
+                    await self._send_json(send, 400, {"error": "invalid_json"})
+                    return
+                requested_by = str(payload.get("requested_by", "human")).strip() or "human"
+                await self._send_json(
+                    send,
+                    200,
+                    self.service.aggregate_plan_task_artifacts(
+                        plan_id=plan_id,
+                        requested_by=requested_by,
+                    ),
+                )
                 return
 
             if method == "POST" and path == "/repos/add":
