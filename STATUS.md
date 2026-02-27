@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 06:46:23 UTC
+- Time (UTC): 06:50:14 UTC
 - By: @openai-codex
 
 ---
@@ -46,6 +46,7 @@
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
 - Added local-first onboarding + repo sync dashboard support: UI now guides token mode, repo search/select, and initial sync progress, while backend adds repo search/status and reindex endpoints plus `last_index_at` tracking for dashboard visibility and no-DB-poking setup flows; app default landing remains Inbox for test/runtime compatibility.
+- Fixed repo reindex endpoint behavior to return deterministic `repo_not_found` (HTTP 404) for unknown `repo_id` before ingestion starts, preventing internal errors for user-input misses; added API regression checks for both `/repos/reindex-docs` and `/repos/{id}/reindex`.
 - Added optional retrieval path to `repo_change_proposer/v1`: planner now deterministically decides whether to retrieve, retrieval chunks are budget-bounded (`max_retrieval_tokens`) before insertion into context-pack `retrieved` sections and manifest metadata, and retrieval query/chunk-id provenance is emitted to audit and persisted in run artifacts.
 - Added local RAG bootstrap support: Docker Compose now includes a persistent `qdrant` service (`./data/qdrant`), control-plane retriever abstraction stubs (`embed/upsert/query`), and SQLite metadata tables for `documents`, `chunks`, `embedding_records`, and `ingestion_jobs`.
 - Added docs-governance RAG ingestion pipeline and APIs: `/rag/index` launches indexing over `docs/spec/*`, `docs/contracts/*`, and `docs/adr/*`; stable chunk IDs now hash source path + revision + line range, chunk provenance (line_start/line_end, source_path, doc_type, revision_sha) is persisted and returned by `/rag/query`, and ingestion status is exposed via `/rag/status` with idempotent upsert behavior across repeated same-revision indexing.

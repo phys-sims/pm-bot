@@ -305,6 +305,8 @@ class ServerApp:
         }
 
     def reindex_docs(self, repo_id: int = 0, chunk_lines: int = 80) -> dict[str, Any]:
+        if repo_id > 0 and self.db.get_repo_registry_entry(repo_id) is None:
+            raise ValueError("repo_not_found")
         rag = self._get_rag_service()
         result = rag.index_docs(repo_id=repo_id, chunk_lines=chunk_lines)
         if repo_id > 0:
@@ -2250,7 +2252,8 @@ class ASGIServer:
         except CapabilityOutputValidationError as exc:
             await self._send_json(send, 400, exc.as_dict())
         except ValueError as exc:
-            await self._send_json(send, 400, {"error": str(exc)})
+            status_code = 404 if str(exc) == "repo_not_found" else 400
+            await self._send_json(send, status_code, {"error": str(exc)})
         except RuntimeError as exc:
             await self._send_json(send, 409, {"error": str(exc)})
         except Exception as exc:  # pragma: no cover - defensive response mapping

@@ -204,3 +204,20 @@ def test_repo_search_status_and_reindex_endpoint(monkeypatch) -> None:
     status_code2, status_payload2 = _asgi_request(app, "GET", f"/repos/{repo_id}/status")
     assert status_code2 == 200
     assert status_payload2["last_index_at"]
+
+    missing_reindex_code, missing_reindex_payload = _asgi_request(
+        app,
+        "POST",
+        "/repos/reindex-docs",
+        body=json.dumps({"repo_id": repo_id + 999, "chunk_lines": 120}).encode("utf-8"),
+    )
+    assert missing_reindex_code == 404
+    assert missing_reindex_payload["error"] == "repo_not_found"
+
+    missing_shortcut_code, missing_shortcut_payload = _asgi_request(
+        app,
+        "POST",
+        f"/repos/{repo_id + 999}/reindex",
+    )
+    assert missing_shortcut_code == 404
+    assert missing_shortcut_payload["error"] == "repo_not_found"
