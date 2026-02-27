@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 05:04:36 UTC
+- Time (UTC): 05:13:32 UTC
 - By: @openai-codex
 
 ---
@@ -51,3 +51,4 @@
 - Implemented `repo_change_proposer/v1` LangGraph flow with `load_context_pack`, `propose_changeset_bundle` (strict capability schema validation), and `emit_artifact` that writes filesystem artifacts and persists DB artifact metadata for run visibility.
 - Added policy interrupt before expensive external actions (`repo_checkout`, `run_tests`) unless explicitly allowed in run inputs; graph remains no-GitHub-write.
 - Expanded runner tests to assert unapproved runs execute no model/tool calls, approved repo-change runs emit ChangesetBundle artifacts, audit logs include `run_id` + `thread_id` for model calls, and GitHub write endpoints are not invoked.
+- Added orchestration planning contracts (`orchestration_plan/v1`, `task_spec/v1`, `task_run/v1`), deterministic plan expansion, storage tables (`orchestration_plan`, `task_runs`, `task_edges`), and `/plans/<id>/expand` + `/plans/<id>/dag` APIs with deterministic snapshot coverage.
