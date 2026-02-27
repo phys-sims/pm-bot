@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:02:51 UTC
+- Time (UTC): 04:07:59 UTC
 - By: @openai-codex
 
 ---
@@ -47,4 +47,4 @@
 
 - Implemented local-first storage defaults via `pm_bot/shared/settings.py` with env-driven paths rooted at `./data` and automatic creation of data/control_plane, artifacts, checkpoints, and repos directories.
 - Updated API startup and SQLite initialization so the default ASGI service uses disk-backed DB at configured path and applies WAL + busy timeout + safe connection pragmas for concurrent readers.
-- Updated docker compose and env examples to mount `./data` into API container and wire PMBOT_* storage variables to `/data` paths; added local-first runbook documenting durability and artifact/checkpoint policy.
+- Updated docker compose and env examples to mount `./data` into API container and wire PMBOT_* storage variables to `/data` paths without requiring a committed `.env`; added local-first runbook documenting durability and artifact/checkpoint policy.
