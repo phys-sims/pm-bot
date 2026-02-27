@@ -221,6 +221,10 @@ class OrchestratorDB:
                 run_id TEXT NOT NULL DEFAULT '',
                 thread_id TEXT NOT NULL DEFAULT '',
                 retries INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at TEXT,
+                claimed_by TEXT,
+                claim_expires_at TEXT,
+                last_error_code TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(plan_id) REFERENCES orchestration_plan(plan_id)
@@ -437,8 +441,21 @@ class OrchestratorDB:
             "CREATE INDEX IF NOT EXISTS idx_task_runs_plan_status ON task_runs(plan_id, status, task_id)"
         )
         self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_task_runs_claims ON task_runs(status, next_attempt_at, claim_expires_at, task_id)"
+        )
+        self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_task_edges_plan ON task_edges(plan_id, from_task, to_task)"
         )
+        if not self._has_column("task_runs", "next_attempt_at"):
+            self.conn.execute("ALTER TABLE task_runs ADD COLUMN next_attempt_at TEXT")
+        if not self._has_column("task_runs", "claimed_by"):
+            self.conn.execute("ALTER TABLE task_runs ADD COLUMN claimed_by TEXT")
+        if not self._has_column("task_runs", "claim_expires_at"):
+            self.conn.execute("ALTER TABLE task_runs ADD COLUMN claim_expires_at TEXT")
+        if not self._has_column("task_runs", "last_error_code"):
+            self.conn.execute(
+                "ALTER TABLE task_runs ADD COLUMN last_error_code TEXT NOT NULL DEFAULT ''"
+            )
         self.conn.commit()
 
     def _has_column(self, table: str, column: str) -> bool:
@@ -1029,9 +1046,10 @@ class OrchestratorDB:
             self.conn.execute(
                 """
                 INSERT INTO task_runs (
-                  task_run_id, plan_id, task_id, status, deps_json, run_id, thread_id, retries
+                  task_run_id, plan_id, task_id, status, deps_json, run_id, thread_id, retries,
+                  next_attempt_at, claimed_by, claim_expires_at, last_error_code
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(task_run["task_run_id"]),
@@ -1042,6 +1060,10 @@ class OrchestratorDB:
                     str(task_run.get("run_id", "")),
                     str(task_run.get("thread_id", "")),
                     int(task_run.get("retries", 0)),
+                    str(task_run.get("next_attempt_at", "")) or None,
+                    str(task_run.get("claimed_by", "")) or None,
+                    str(task_run.get("claim_expires_at", "")) or None,
+                    str(task_run.get("last_error_code", "")),
                 ),
             )
         for edge in edges:
@@ -1072,7 +1094,8 @@ class OrchestratorDB:
     def list_task_runs(self, plan_id: str) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
-            SELECT task_run_id, task_id, status, deps_json, run_id, thread_id, retries
+            SELECT task_run_id, task_id, status, deps_json, run_id, thread_id, retries,
+                   next_attempt_at, claimed_by, claim_expires_at, last_error_code
             FROM task_runs
             WHERE plan_id = ?
             ORDER BY task_id ASC
@@ -1088,9 +1111,99 @@ class OrchestratorDB:
                 "run_id": str(row["run_id"] or ""),
                 "thread_id": str(row["thread_id"] or ""),
                 "retries": int(row["retries"]),
+                "next_attempt_at": str(row["next_attempt_at"] or ""),
+                "claimed_by": str(row["claimed_by"] or ""),
+                "claim_expires_at": str(row["claim_expires_at"] or ""),
+                "last_error_code": str(row["last_error_code"] or ""),
             }
             for row in rows
         ]
+
+    def get_task_run(self, task_run_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT task_run_id, plan_id, task_id, status, deps_json, run_id, thread_id, retries,
+                   next_attempt_at, claimed_by, claim_expires_at, last_error_code
+            FROM task_runs
+            WHERE task_run_id = ?
+            """,
+            (task_run_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "task_run_id": str(row["task_run_id"]),
+            "plan_id": str(row["plan_id"]),
+            "task_id": str(row["task_id"]),
+            "status": str(row["status"]),
+            "deps": json.loads(row["deps_json"]),
+            "run_id": str(row["run_id"] or ""),
+            "thread_id": str(row["thread_id"] or ""),
+            "retries": int(row["retries"]),
+            "next_attempt_at": str(row["next_attempt_at"] or ""),
+            "claimed_by": str(row["claimed_by"] or ""),
+            "claim_expires_at": str(row["claim_expires_at"] or ""),
+            "last_error_code": str(row["last_error_code"] or ""),
+        }
+
+    def claim_task_run(self, task_run_id: str, worker_id: str, lease_seconds: int) -> bool:
+        cur = self.conn.execute(
+            """
+            UPDATE task_runs
+            SET claimed_by = ?,
+                claim_expires_at = datetime(CURRENT_TIMESTAMP, '+' || ? || ' seconds'),
+                status = CASE WHEN status = 'pending' THEN 'running' ELSE status END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE task_run_id = ?
+              AND status IN ('pending', 'running')
+              AND (COALESCE(next_attempt_at, CURRENT_TIMESTAMP) <= CURRENT_TIMESTAMP)
+              AND (
+                claimed_by IS NULL OR claimed_by = '' OR claim_expires_at IS NULL
+                OR claim_expires_at <= CURRENT_TIMESTAMP OR claimed_by = ?
+              )
+            """,
+            (worker_id, int(lease_seconds), task_run_id, worker_id),
+        )
+        self.conn.commit()
+        return int(cur.rowcount or 0) > 0
+
+    def update_task_run_result(
+        self,
+        task_run_id: str,
+        *,
+        status: str,
+        retries: int | None = None,
+        next_attempt_seconds: int | None = None,
+        run_id: str | None = None,
+        thread_id: str | None = None,
+        reason_code: str = "",
+        clear_claim: bool = False,
+    ) -> None:
+        updates: list[str] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"]
+        args: list[Any] = [status]
+        if retries is not None:
+            updates.append("retries = ?")
+            args.append(int(retries))
+        if next_attempt_seconds is not None:
+            updates.append("next_attempt_at = datetime(CURRENT_TIMESTAMP, '+' || ? || ' seconds')")
+            args.append(int(next_attempt_seconds))
+        elif status in {"succeeded", "failed"}:
+            updates.append("next_attempt_at = NULL")
+        if run_id is not None:
+            updates.append("run_id = ?")
+            args.append(run_id)
+        if thread_id is not None:
+            updates.append("thread_id = ?")
+            args.append(thread_id)
+        if reason_code:
+            updates.append("last_error_code = ?")
+            args.append(reason_code)
+        if clear_claim:
+            updates.append("claimed_by = NULL")
+            updates.append("claim_expires_at = NULL")
+        args.append(task_run_id)
+        self.conn.execute(f"UPDATE task_runs SET {', '.join(updates)} WHERE task_run_id = ?", args)
+        self.conn.commit()
 
     def list_task_edges(self, plan_id: str) -> list[dict[str, str]]:
         rows = self.conn.execute(
