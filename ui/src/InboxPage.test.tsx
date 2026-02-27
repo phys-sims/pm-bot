@@ -245,8 +245,11 @@ test("edits interrupt and resumes run execution with edited payload", async () =
   render(<InboxPage />);
   await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
 
-  expect(mockedFetch).toHaveBeenCalledWith(
-    "http://localhost:8000/runs/run-2/resume",
+  const resumeCall = mockedFetch.mock.calls.find(([url]) =>
+    typeof url === "string" && url.endsWith("/runs/run-2/resume"),
+  );
+  expect(resumeCall).toBeTruthy();
+  expect(resumeCall?.[1]).toEqual(
     expect.objectContaining({
       body: JSON.stringify({ decision: { action: "edit", edited_payload: { title: "edited" } }, actor: "ui-user" }),
       method: "POST",
