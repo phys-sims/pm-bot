@@ -25,6 +25,7 @@ If you change a contract, you must:
 - WorkGraph: [`workgraph.md`](workgraph.md)
 - Changesets: [`changesets.md`](changesets.md)
 - AgentRunSpec: [`agent_run_spec.md`](agent_run_spec.md)
+- AgentRunSpec v2: [`agent_run_spec_v2.md`](agent_run_spec_v2.md)
 - ContextPack v1: [`context_pack.md`](context_pack.md)
 - LLM Capabilities: [`llm_capabilities.md`](llm_capabilities.md)
 

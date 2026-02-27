@@ -61,7 +61,9 @@ def check_contradiction_workflow_docs() -> list[str]:
     for row_number in (11, 12, 13):
         row_match = re.search(rf"^\|\s*{row_number}\s*\|.*$", checklist, flags=re.MULTILINE)
         if row_match is None or "☑ done" not in row_match.group(0):
-            errors.append("docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md rows 11-13 must be marked ☑ done.")
+            errors.append(
+                "docs/archive/roadmaps/ROADMAP_V4_CHECKLIST.md rows 11-13 must be marked ☑ done."
+            )
             break
     return errors
 

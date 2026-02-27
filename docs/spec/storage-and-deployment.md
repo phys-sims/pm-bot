@@ -1,4 +1,8 @@
 # Storage and deployment
+> **Audience:** Operators and contributors deploying and operating pm-bot in local-first environments.
+> **Depth:** L2 (behavior/operations spec).
+> **Source of truth:** Normative storage/deployment behavior and operational constraints for local-first pm-bot instances.
+
 
 This spec defines **how pm-bot is run** and **where data lives** for the default usage mode:
 
