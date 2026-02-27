@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 05:30:29 UTC
+- Time (UTC): 05:31:04 UTC
 - By: @openai-codex
 
 ---
@@ -54,3 +54,4 @@
 - Added orchestration planning contracts (`orchestration_plan/v1`, `task_spec/v1`, `task_run/v1`), deterministic plan expansion, storage tables (`orchestration_plan`, `task_runs`, `task_edges`), and `/plans/<id>/expand` + `/plans/<id>/dag` APIs with deterministic snapshot coverage.
 - Added UI integration coverage for full Plan Intake to Inbox approval/apply flow (`ui/src/App.test.tsx`) and a reproducible evidence runbook (`docs/runbooks/plan-intake-inbox-e2e.md`), then cross-linked v6 roadmap closure notes.
 - Added a lease-based TaskRun scheduler loop with dependency-aware runnable selection, per-repo/tool/provider concurrency quotas, deterministic retries (`retries` + `next_attempt_at`), and task-level reason-code/audit correlation (`task_run_id` + `run_id` + `thread_id`).
+- Added orchestration artifact aggregation (`/plans/<id>/aggregate`) that gathers task `*.changeset_bundle.json` artifacts into one reviewable aggregated proposal, links it on plan DAG payloads, and emits conflict interrupts when task bundles propose conflicting mutations.
