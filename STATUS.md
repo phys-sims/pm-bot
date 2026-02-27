@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 04:43:31 UTC
+- Time (UTC): 05:04:36 UTC
 - By: @openai-codex
 
 ---
@@ -48,4 +48,6 @@
 - Added LangGraph runner adapter wiring with submit/poll/resume/cancel/fetch behavior, including blocked interrupt polling and resume auditing.
 - Added filesystem+DB checkpoint bridge: checkpoint blobs are persisted under `data/checkpoints/<thread_id>/` and run checkpoint metadata is persisted in `run_checkpoint_metadata`.
 - Added LangGraph policy enforcement (tool allowlist + token/tool/wall budgets) with configurable violation mode (`interrupt` default, `fail` override) and audit emission for model/tool/interrupt events.
-- Expanded runner tests to cover LangGraph running/blocked/completed lifecycle, resume auditing, checkpoint metadata updates, and budgets/allowlist enforcement.
+- Implemented `repo_change_proposer/v1` LangGraph flow with `load_context_pack`, `propose_changeset_bundle` (strict capability schema validation), and `emit_artifact` that writes filesystem artifacts and persists DB artifact metadata for run visibility.
+- Added policy interrupt before expensive external actions (`repo_checkout`, `run_tests`) unless explicitly allowed in run inputs; graph remains no-GitHub-write.
+- Expanded runner tests to assert unapproved runs execute no model/tool calls, approved repo-change runs emit ChangesetBundle artifacts, audit logs include `run_id` + `thread_id` for model calls, and GitHub write endpoints are not invoked.
