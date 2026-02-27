@@ -1,5 +1,7 @@
-import pytest
+import json
 from pathlib import Path
+
+import pytest
 
 from pm_bot.server.app import create_app
 from pm_bot.server.runner import RunnerAdapter, RunnerPollResult, RunnerSubmitResult
@@ -406,6 +408,134 @@ def test_unapproved_run_cannot_execute_model_or_tool_calls() -> None:
     tool_events = app.db.list_audit_events("langgraph_tool_call", run_id="run-unapproved")
     assert model_events == []
     assert tool_events == []
+
+
+def test_repo_change_proposer_retrieval_is_optional_and_bounded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("PMBOT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("PMBOT_ARTIFACT_DIR", str(tmp_path / "data" / "artifacts"))
+
+    app = create_app()
+
+    spec = _repo_change_proposer_spec(
+        "run-repo-retrieval",
+        inputs={
+            "context_pack_id": "ctx-repo-change-1",
+            "context_pack": {
+                "schema_version": "context_pack/v2",
+                "root": {"issue_ref": "phys-sims/pm-bot#124"},
+                "sections": [],
+                "manifest": {},
+            },
+            "issue_ref": "#124",
+            "retrieval_query": "deterministic retrieval",
+            "retrieval_chunks": [
+                {
+                    "chunk_id": "chunk-1",
+                    "text": "a" * 40,
+                    "source_path": "docs/spec/product.md",
+                    "line_start": 1,
+                    "line_end": 2,
+                    "doc_type": "spec",
+                    "revision_sha": "abc123",
+                    "score": 0.9,
+                },
+                {
+                    "chunk_id": "chunk-2",
+                    "text": "b" * 120,
+                    "source_path": "docs/contracts/context_pack.md",
+                    "line_start": 10,
+                    "line_end": 20,
+                    "doc_type": "contracts",
+                    "revision_sha": "def456",
+                    "score": 0.8,
+                },
+            ],
+            "diff": {
+                "status_changes": [{"issue_ref": "#124", "before": "Todo", "after": "Doing"}],
+                "blocker_changes": [],
+            },
+        },
+        execution={
+            "engine": "langgraph",
+            "graph_id": "repo_change_proposer/v1",
+            "thread_id": None,
+            "budget": {
+                "max_total_tokens": 2000,
+                "max_retrieval_tokens": 20,
+                "max_tool_calls": 10,
+                "max_wall_seconds": 300,
+            },
+            "tools_allowed": ["github_read"],
+            "scopes": {"repo": "phys-sims/pm-bot"},
+        },
+    )
+    app.propose_agent_run(spec=spec, created_by="alice")
+    app.transition_agent_run(
+        "run-repo-retrieval", to_status="approved", reason_code="human_approved"
+    )
+
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-repo-retrieval"
+
+    for _ in range(8):
+        completed = app.execute_claimed_agent_run(run_id="run-repo-retrieval", worker_id="w1")
+        if completed["status"] == "completed":
+            break
+
+    artifacts = app.db.list_run_artifacts("run-repo-retrieval")
+    assert artifacts
+    artifact_path = Path(artifacts[0]["uri"].replace("file://", ""))
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+    assert payload["retrieval"]["enabled"] is True
+    assert payload["retrieval"]["query"] == "deterministic retrieval"
+    assert payload["retrieval"]["token_usage"] <= payload["retrieval"]["budget_tokens"]
+    assert payload["retrieval"]["chunk_ids"] == ["chunk-1"]
+    assert payload["context_pack"]["manifest"]["retrieval"]["chunk_ids"] == ["chunk-1"]
+
+    retrieval_events = app.db.list_audit_events(
+        "langgraph_retrieval_query", run_id="run-repo-retrieval"
+    )
+    assert retrieval_events
+    assert retrieval_events[-1]["payload"]["query"] == "deterministic retrieval"
+    assert retrieval_events[-1]["payload"]["chunk_ids"] == ["chunk-1"]
+
+
+def test_repo_change_proposer_can_run_without_retrieval(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("PMBOT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("PMBOT_ARTIFACT_DIR", str(tmp_path / "data" / "artifacts"))
+
+    app = create_app()
+    app.propose_agent_run(
+        spec=_repo_change_proposer_spec("run-repo-no-retrieval"), created_by="alice"
+    )
+    app.transition_agent_run(
+        "run-repo-no-retrieval", to_status="approved", reason_code="human_approved"
+    )
+
+    claimed = app.claim_agent_runs(worker_id="w1", limit=1)
+    assert claimed and claimed[0]["run_id"] == "run-repo-no-retrieval"
+
+    for _ in range(8):
+        completed = app.execute_claimed_agent_run(run_id="run-repo-no-retrieval", worker_id="w1")
+        if completed["status"] == "completed":
+            break
+
+    artifacts = app.db.list_run_artifacts("run-repo-no-retrieval")
+    assert artifacts
+    artifact_path = Path(artifacts[0]["uri"].replace("file://", ""))
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert payload["retrieval"]["enabled"] is False
+    assert payload["retrieval"]["chunk_ids"] == []
+
+    retrieval_events = app.db.list_audit_events(
+        "langgraph_retrieval_query", run_id="run-repo-no-retrieval"
+    )
+    assert retrieval_events == []
 
 
 def test_approved_repo_change_proposer_produces_changeset_bundle_artifact(

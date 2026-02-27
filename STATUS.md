@@ -6,7 +6,7 @@
 
 ## Last updated
 - Date: 2026-02-27
-- Time (UTC): 06:19:54 UTC
+- Time (UTC): 06:26:35 UTC
 - By: @openai-codex
 
 ---
@@ -45,6 +45,7 @@
 > - Remove superseded bullets in the same PR that introduces replacement behavior/docs/tests.
 > - Do not keep historical roadmap narratives/checklists here; place durable planning content in `docs/roadmaps/` (active) or `docs/archive/roadmaps/` (historical).
 
+- Added optional retrieval path to `repo_change_proposer/v1`: planner now deterministically decides whether to retrieve, retrieval chunks are budget-bounded (`max_retrieval_tokens`) before insertion into context-pack `retrieved` sections and manifest metadata, and retrieval query/chunk-id provenance is emitted to audit and persisted in run artifacts.
 - Added local RAG bootstrap support: Docker Compose now includes a persistent `qdrant` service (`./data/qdrant`), control-plane retriever abstraction stubs (`embed/upsert/query`), and SQLite metadata tables for `documents`, `chunks`, `embedding_records`, and `ingestion_jobs`.
 - Added docs-governance RAG ingestion pipeline and APIs: `/rag/index` launches indexing over `docs/spec/*`, `docs/contracts/*`, and `docs/adr/*`; stable chunk IDs now hash source path + revision + line range, chunk provenance (line_start/line_end, source_path, doc_type, revision_sha) is persisted and returned by `/rag/query`, and ingestion status is exposed via `/rag/status` with idempotent upsert behavior across repeated same-revision indexing.
 - Added retrieval usability/auditability upgrades: `POST /rag/query` now supports repo-scoped and doc_type-allowlisted filters with deterministic result ordering (score bucket + chunk_id), ContextPack v2 can include explicit `retrieved` sections with provenance and `manifest.retrieval.chunk_ids`, and a golden-snapshot regression harness validates retrieval outputs against fixed expected chunk IDs.
